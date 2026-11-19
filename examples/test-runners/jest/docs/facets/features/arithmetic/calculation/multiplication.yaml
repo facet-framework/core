@@ -1,0 +1,25 @@
+schema_version: "0.1"
+id: arithmetic/calculation/multiplication
+lifecycle: active
+intent:
+  summary: Multiply integers, including zero.
+contract:
+  scenarios:
+    - id: positive
+      statement: |
+        Given two positive integers
+        When they are multiplied
+        Then their product is returned
+    - id: zero
+      statement: |
+        Given a zero operand
+        When it is multiplied by an integer
+        Then zero is returned
+verification:
+  unit_tests:
+    - id: tests/multiplication.test.js
+      proves: [positive, zero]
+lineage:
+  owner:
+    team: example
+  created_at: "2026-10-07"

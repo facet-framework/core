@@ -1,0 +1,16 @@
+FACET Core
+Copyright 2026 Pascal Malbranche
+
+FACET Core's own source code and specification are licensed under Apache-2.0.
+Third-party components retain their own licenses and copyright notices.
+
+The regexp adapter used for JSON Schema pattern compilation is adapted from
+example_regexp_test.go in github.com/santhosh-tekuri/jsonschema/v6, version v6.0.2:
+https://github.com/santhosh-tekuri/jsonschema/blob/v6.0.2/example_regexp_test.go
+That upstream work is licensed under the Apache License, Version 2.0.
+The adapter changes its type/function names and integrates error handling with
+FACET's schema compiler. The applicable Apache license is supplied in LICENSE.
+
+Additional dependency notices and license texts are listed in THIRD_PARTY.json
+and supplied verbatim under THIRD_PARTY_LICENSES/. This NOTICE is informational;
+it does not replace or modify those licenses.

@@ -1,0 +1,73 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: registry/layout/recut-loss-detector
+lifecycle: active
+intent:
+  summary: |
+    Reports facets and lineage edges present in an original record but absent
+    from every record it was split into. Observation and defects belong to no
+    single scenario and can be lost by a scenario-driven split, so the
+    comparison covers more than contract and verification. It reports without
+    gating because a deliberate omission remains a review decision.
+contract:
+  scenarios:
+    - id: a-facet-no-child-carries-is-reported
+      statement: |
+        Given a parent record with an observation block, when it is split into
+        children that carry none, then the observation is reported as lost.
+    - id: a-block-that-survives-with-empty-contents-is-still-a-loss
+      statement: |
+        Given a parent whose lineage declares edges, when the children declare a
+        lineage block without those edges, then the missing edges are reported
+        by name.
+      pre_state:
+        children_declare_lineage: true
+    - id: a-clean-split-reports-nothing
+      statement: |
+        Given a split where every facet of the parent is carried by at least one
+        child, when the split is checked, then nothing is reported.
+    - id: scenarios-divided-among-children-are-not-a-loss
+      statement: |
+        Given a parent with two scenarios, when each child takes one, then
+        neither scenario is reported as lost.
+    - id: an-empty-facet-cannot-be-lost
+      statement: |
+        Given a parent that declares a facet with no contents, when the children
+        omit it, then nothing is reported for that facet.
+    - id: the-parent-is-read-from-git-and-the-source-is-named
+      statement: |
+        Given a parent whose file no longer exists because the split removed it,
+        when the split is checked, then the parent is read from the named
+        revision and the output says which one.
+verification:
+  unit_tests:
+    - id: registry/split_test.go
+      proves:
+        - a-facet-no-child-carries-is-reported
+        - a-block-that-survives-with-empty-contents-is-still-a-loss
+        - a-clean-split-reports-nothing
+        - scenarios-divided-among-children-are-not-a-loss
+        - an-empty-facet-cannot-be-lost
+knowledge:
+  prerequisite_knowledge:
+    question: "What must the user already understand to use this feature?"
+    answer: |
+      Splitting is done by hand or with a throwaway script, and both think in
+      scenarios — that is the unit you cut along, so contract and verification
+      sit in front of you the whole time. observation, lineage and defects
+      belong to no single scenario. A script iterating over scenarios never
+      passes them.
+
+      A split can lose an observation block or lineage edges even when all
+      scenarios survive and the resulting records pass lint; those omissions
+      therefore need a comparison against the original record.
+
+      This answers the one question the diff cannot: what stood in the old
+      record and stands in none of the new ones. It reports and does not gate —
+      dropping something on purpose is a decision, and a tool that refused it
+      would be answered by not running it.
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-09-20"

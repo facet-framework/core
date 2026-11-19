@@ -1,0 +1,224 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: registry/integrity/runner-test-execution
+lifecycle: active
+intent:
+  summary: |
+    Execute declared runner commands verbatim and bind fresh per-file reports
+    to verification references. Preserve real runner exits and streams, and
+    distinguish passed, failed and unmeasured feature evidence.
+contract:
+  scenarios:
+    - id: process-pass-never-invents-file-pass
+      statement: |
+        Given a runner that exits zero without a per-file report
+        When facet test runs
+        Then its outputs pass through and feature results remain unmeasured
+    - id: old-reports-never-prove-a-new-run
+      statement: |
+        Given an old passing report and a command that produces no report
+        When facet test runs
+        Then the old report is restored but never read as fresh evidence
+    - id: real-runner-streams-and-exit-survive
+      statement: |
+        Given a runner printing separate stdout and stderr and exiting seven
+        When facet test --only runner runs
+        Then both streams remain unchanged and FACET exits seven
+    - id: json-remains-parseable
+      statement: |
+        Given a runner printing arbitrary output and failing
+        When facet test --json runs
+        Then stdout contains valid result JSON and runner output goes to stderr
+    - id: junit-needs-complete-file-evidence
+      statement: |
+        Given a JUnit report with file attributes and testcase outcomes
+        When it is parsed
+        Then actual failures are failed, complete passing files are passed,
+        and skipped or inconsistent evidence remains unmeasured
+    - id: cucumber-needs-complete-step-evidence
+      statement: |
+        Given Cucumber JSON features with explicit file URIs
+        When facet test resolves discovered feature files
+        Then complete passing scenario steps and hooks establish file results
+        And failed steps or hooks mark the file failed
+        And skipped, undefined, empty or unbound evidence never establishes a pass
+    - id: explicit-feature-scope-is-reported
+      statement: |
+        Given a test_feature_prefix selecting existing feature IDs
+        When facet test executes the declared runners
+        Then its feature evidence contains only matching records and names the prefix
+        And a prefix matching no features is rejected
+    - id: go-json-needs-file-test-events
+      statement: |
+        Given local Go test files and a Go JSON report
+        When file evidence is resolved
+        Then only observed declared test roots and package completion establish
+        file results; package pass alone does not make a file pass
+    - id: partial-measurement-stays-unmeasured
+      statement: |
+        Given two runners discovering the same file but only one supplying results
+        When feature results are computed
+        Then a passing report from one runner cannot erase the other's measurement gap
+    - id: unsafe-report-paths-fail-before-command
+      statement: |
+        Given a report path escaping through a parent symlink
+        When execution is prepared
+        Then the command is refused and the external report is unchanged
+    - id: reports-never-replace-test-source
+      statement: |
+        Given a report path aliasing a discovered or verification test through
+        an internal symlink or hardlink
+        When execution is prepared
+        Then the command is refused before moving or replacing test source
+    - id: trailing-junit-data-never-hides-failure
+      statement: |
+        Given a passing JUnit root followed by a second failing root or trailing data
+        When the report is parsed
+        Then malformed evidence stays unmeasured instead of discarding the later failure
+    - id: concurrent-reports-remain-isolated
+      statement: |
+        Given concurrent calls declaring the same report path
+        When one command emits a report and the other does not
+        Then transactions are serialized and the second result remains unmeasured
+    - id: cancellation-restores-old-report
+      statement: |
+        Given a long-running command and an old report
+        When caller context expires
+        Then execution fails promptly, restores the old report and leaves no backup artifacts
+    - id: real-go-failure-and-repair-reach-cli
+      statement: |
+        Given real passing and failing Go files
+        When the delivered facet binary runs go test -json and the failing file is repaired
+        Then actual file outcomes and runner exits reflect the failure and repair,
+        while later stale reports and compile failures never invent file passes
+    - id: real-declared-runners-reach-cli
+      statement: |
+        Given standalone Jest, Vitest and PHPUnit projects with declared discovery
+        and JUnit file attributes
+        When the delivered binary runs passing, mutated, skipped and repaired tests
+        Then real file outcomes and runner exits reach the feature report without
+        stale evidence or excluded tests pretending to pass
+    - id: strict-evidence-preserves-runner-failures
+      statement: |
+        Given incomplete file or feature evidence
+        When facet test --fail-unmeasured runs
+        Then a successful process exits one for the measurement gap while a
+        nonzero runner exit is preserved and JSON/raw streams remain valid
+    - id: report-gaps-name-files-and-remedy
+      statement: |
+        Given a fresh report with missing file binding or incomplete outcomes
+        When facet test reads it
+        Then the report names affected files and missing JUnit file attributes
+        instead of silently leaving a successful process unexplained
+    - id: text-summary-keeps-the-denominator
+      statement: |
+        Given passed, failed or unmeasured feature evidence
+        When facet test renders its FACET text report
+        Then it counts each state against all features and names files for
+        failed or unmeasured features without changing JSON or runner-only output
+    - id: multi-registry-runner-failure-precedes-drift
+      statement: |
+        Given an earlier registry with drift and a later runner exiting seven
+        When facet test executes all registries with or without strict evidence
+        Then FACET preserves the actual runner exit seven rather than the
+        earlier policy error one
+    - id: json-names-the-commit-it-was-measured-on
+      statement: |
+        Given a repository with a commit, and then an untracked file
+        When facet test --json runs
+        Then each result carries `head` (the commit) and `dirty` (whether the
+        tree had changes when the tests started), and a tree without git
+        carries neither field instead of an empty head or a clean flag
+    - id: runners-of-one-name-never-overwrite-a-failure
+      statement: |
+        Given a report in which two runners share a name, a failure first
+        When the file counts are derived
+        Then the failure stays a failure
+    - id: head-and-dirty-are-measured-before-any-runner-starts
+      statement: |
+        Given a runner that writes a file into the tree
+        When facet test --json runs
+        Then `dirty` still describes the tree as it was before the runner
+    - id: file-counts-combine-runners-worst-first
+      statement: |
+        Given two runners reporting the same file differently and a runner
+        whose discovery was not measured
+        When the file counts are derived
+        Then a failure beats a pass, a file without a result is unmeasured,
+        and a result from an unmeasured discovery never counts as a pass
+    - id: cucumber-evidence-includes-every-declared-case-and-step
+      statement: |
+        Given a Gherkin feature declares scenarios, rules, backgrounds and example rows
+        When a fresh Cucumber report omits a case or source step, duplicates a case or reports a different source line
+        Then the file remains unmeasured, while an observed failed step remains failed
+        And a complete report is bound to every compiled case and step in the feature's own dialect
+verification:
+  unit_tests:
+    - id: "registry/test_cucumber_test.go::TestCucumberRequiresEveryDeclaredCaseAndStep"
+      proves:
+        - cucumber-evidence-includes-every-declared-case-and-step
+    - id: "registry/test_cucumber_test.go::TestCucumberSourceDialectAndSeparateBackground"
+      proves:
+        - cucumber-evidence-includes-every-declared-case-and-step
+    - id: "registry/test_cucumber_test.go::TestExecutionExplicitFeaturePrefix"
+      proves:
+        - explicit-feature-scope-is-reported
+    - id: "registry/test_cucumber_test.go::TestCucumberFileEvidence"
+      proves:
+        - cucumber-needs-complete-step-evidence
+    - id: registry/test_execution_test.go
+      proves:
+        - file-counts-combine-runners-worst-first
+        - runners-of-one-name-never-overwrite-a-failure
+        - process-pass-never-invents-file-pass
+        - old-reports-never-prove-a-new-run
+        - real-runner-streams-and-exit-survive
+        - junit-needs-complete-file-evidence
+        - go-json-needs-file-test-events
+        - partial-measurement-stays-unmeasured
+        - unsafe-report-paths-fail-before-command
+        - reports-never-replace-test-source
+        - trailing-junit-data-never-hides-failure
+        - concurrent-reports-remain-isolated
+        - cancellation-restores-old-report
+        - report-gaps-name-files-and-remedy
+  e2e_tests:
+    - id: cli/test_execution_test.go
+      proves:
+        - real-runner-streams-and-exit-survive
+        - json-remains-parseable
+        - old-reports-never-prove-a-new-run
+        - real-go-failure-and-repair-reach-cli
+        - strict-evidence-preserves-runner-failures
+        - text-summary-keeps-the-denominator
+        - multi-registry-runner-failure-precedes-drift
+        - json-names-the-commit-it-was-measured-on
+        - head-and-dirty-are-measured-before-any-runner-starts
+    - id: cli/test_execution_unix_test.go
+      proves:
+        - real-runner-streams-and-exit-survive
+        - cancellation-restores-old-report
+knowledge:
+  not_for:
+    question: "What evidence does this deliberately not invent?"
+    answer: |
+      Case coverage, scenario correctness and global-process pass as feature pass.
+      JUnit without file attributes and Go without local package/test bindings
+      remain unmeasured. A passing file or selected test shows that the test ran
+      and passed, not that its assertions check every clause of the scenario;
+      that review is a separate step and is never created automatically. A
+      passing run does not certify that the tests would catch every possible
+      defect in the code.
+  discoverability:
+    question: "Where does the user enter this flow?"
+    answer: "facet test; --only facet|runner selects reports and --json keeps stdout structured"
+    derive_from:
+      - anchors
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-10-06"
+  superseded_by: null
+  depends_on:
+    - registry/integrity/runner-test-discovery

@@ -1,0 +1,116 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: authoring/guardrails/adr-status-proposal
+lifecycle: active
+intent:
+  summary: |
+    Produce a read-only ADR status review artifact from the configured ADR
+    scope (adr.directory in .facetrc.yaml, default docs/adr), with reason, diff and optional existing successor metadata. It
+    proposes a status change for review and never writes it: no tool grant,
+    branch, file, commit, PR or acceptance is created by this command.
+contract:
+  scenarios:
+    - id: proposal-preserves-source-and-suffix
+      statement: |
+        Given an existing ADR with a known status and opaque suffix metadata
+        When facet adr propose-status requests another known status
+        Then it prints a diff and reason
+        And it preserves the suffix verbatim
+        And it changes no source bytes, permissions, branch, refs, index or repository state
+    - id: ambiguous-or-invented-status-is-refused
+      statement: |
+        Given a missing, unknown or duplicate status header, a status example in
+        a fenced block or HTML comment, an unsupported target status or an
+        unexplained transition
+        When a status proposal is requested
+        Then it refuses rather than inventing a status or choosing a header
+    - id: achieved-status-produces-no-diff
+      statement: |
+        Given an ADR already naming the requested status
+        When a proposal is requested
+        Then the goal is reported as achieved with no diff
+    - id: superseded-status-needs-existing-other-adr
+      statement: |
+        Given a transition to superseded
+        When the proposal is requested
+        Then an existing different ADR in the same scope is required as
+        proposal metadata, without inventing a successor line format
+    - id: proposal-respects-reader-path-boundary
+      statement: |
+        Given an escaping path or symlink, including the configured ADR directory
+        redirected outside the repository
+        When a proposal is requested
+        Then the existing repo.read containment checks refuse the read
+    - id: real-cli-diff-is-applyable
+      statement: |
+        Given a CRLF ADR or an ADR without a final newline
+        When the delivered CLI prints its JSON proposal
+        Then the diff passes git apply --check on an isolated fixture branch
+        And generation leaves the caller's original branch, refs and files untouched
+    - id: german-status-is-read-as-its-english-alias
+      statement: |
+        Given an ADR or a requested target naming one of the pre-rc.1 German
+        statuses vorgeschlagen, angenommen, abgelöst or verworfen
+        When a status proposal is requested
+        Then it is read as proposed, accepted, superseded or rejected
+        And a proposed status line is always written with the English value
+    - id: proposal-uses-configured-adr-directory
+      statement: |
+        Given adr.directory is architecture/decisions and source and successor ADRs exist there
+        When a status proposal requests superseded with that successor
+        Then source and successor paths use architecture/decisions
+        And the diff names the configured source path
+verification:
+  unit_tests:
+    - id: "registry/adr_proposal_test.go::TestADRProposalConfiguredDirectory"
+      proves:
+        - proposal-uses-configured-adr-directory
+    - id: registry/adr_proposal_test.go
+      proves:
+        - proposal-preserves-source-and-suffix
+        - ambiguous-or-invented-status-is-refused
+        - achieved-status-produces-no-diff
+        - superseded-status-needs-existing-other-adr
+        - proposal-respects-reader-path-boundary
+        - german-status-is-read-as-its-english-alias
+  e2e_tests:
+    - id: cli/adr_test.go
+      proves:
+        - real-cli-diff-is-applyable
+        - proposal-preserves-source-and-suffix
+knowledge:
+  prerequisite_knowledge:
+    question: "What setup does a proposal need?"
+    answer: |
+      An existing Markdown ADR with a known status in the project's ADR
+      directory. Set adr.directory in .facetrc.yaml to override docs/adr;
+      source and successor must stay within that configured directory.
+  not_for:
+    question: "What does this precursor not authorize or implement?"
+    answer: |
+      Applying a proposal, writing an ADR status change, new-ADR creation,
+      agent tools, grants, storage configuration or automatic acceptance. The
+      ADR file stays as it is until someone reviews and applies the diff.
+  common_pitfalls:
+    question: "What metadata needs human review?"
+    answer: |
+      Existing status suffixes are opaque and preserved, including historical
+      dates. The command invents no decision date or successor format; the
+      successor is metadata on this review artifact only.
+  discoverability:
+    question: "Where does the user enter this flow?"
+    answer: "facet adr propose-status <ADR path> --status <proposed|accepted|superseded|rejected> --reason <review reason>"
+    derive_from:
+      - anchors
+  success_signal:
+    question: "How does the user recognise a completed proposal?"
+    answer: |
+      The command prints a diff naming the configured ADR path and its reason,
+      or reports that the requested status is already achieved. The source
+      file is unchanged; the diff still needs review and application.
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-10-06"
+  superseded_by: null

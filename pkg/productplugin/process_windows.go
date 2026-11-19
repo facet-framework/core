@@ -1,0 +1,19 @@
+//go:build windows
+
+package productplugin
+
+import (
+	"os/exec"
+	"strconv"
+	"time"
+)
+
+func configureProcess(cmd *exec.Cmd) {
+	cmd.Cancel = func() error {
+		if err := exec.Command("taskkill", "/T", "/F", "/PID", strconv.Itoa(cmd.Process.Pid)).Run(); err != nil {
+			return cmd.Process.Kill()
+		}
+		return nil
+	}
+	cmd.WaitDelay = time.Second
+}

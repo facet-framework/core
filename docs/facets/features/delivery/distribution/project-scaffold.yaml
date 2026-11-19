@@ -1,0 +1,217 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: delivery/distribution/project-scaffold
+lifecycle: active
+intent:
+  summary: |
+    Scaffolds FACET's record layout, schemas, specification, lint suite and CI
+    workflow into a project from the Core binary alone, with no source checkout,
+    plugin or network. It leaves project-specific ignore rules and the first
+    record empty for the person adopting FACET, because guessing would silently
+    impose the wrong product decisions. Existing files are preserved unless
+    replacement is requested, so a repair run does not erase a tuned workflow.
+contract:
+  scenarios:
+    - id: a-fresh-project-lints-clean-immediately
+      statement: |
+        Given a project with source in it and nothing of FACET
+        When the scaffold has run
+        Then 'facet-lint' passes against that project with no further edits,
+        because a scaffold whose own output fails the linter it just installed
+        teaches its first lesson about FACET being broken
+    - id: a-second-run-writes-nothing
+      statement: |
+        Given a project the scaffold has already run against
+        When it runs again
+        Then no file is written and the report says so, so a run to repair one
+        missing file is never a reason to fear for the others
+      post_state:
+        files_written: 0
+    - id: a-half-adopted-project-is-completed-not-reset
+      statement: |
+        Given a project holding some of the scaffold's files and missing others
+        When the scaffold runs
+        Then the files that exist are kept as the project wrote them and only
+        the missing ones are written — the case a second run over a complete
+        tree cannot distinguish from doing nothing at all
+    - id: replacing-a-projects-copy-has-to-be-asked-for
+      statement: |
+        Given a project whose copy of a scaffolded file differs from the
+        plugin's
+        When the scaffold runs with '-f' ('--force')
+        Then the scaffold's version replaces it, and without '-f' it does not,
+        because the default answer to 'which of these two is right' cannot be
+        'mine'
+    - id: the-judgement-half-is-left-undone-and-named
+      statement: |
+        Given any project the scaffold has just finished
+        When the closing report is read
+        Then .facetignore holds an explanation and no patterns, and the report
+        names the ignore file, the first record and the verifying lint run as
+        the work that is still owed — the scaffold knowing none of those three
+        about this repository
+        And it says that the workflow lints every pull request with the pinned
+        FACET version and has no paths filter, and what a filter added later
+        must cover
+    - id: the-ci-workflow-runs-the-pinned-dispatcher
+      statement: |
+        Given a project the scaffold has just finished
+        When the FACET Lint workflow it wrote is read
+        Then it is the workflow FACET Core publishes, byte for byte, with no
+        paths filter and no secret, and it runs tools/facet-lint/facet
+        And tools/facet-lint/facet is the published dispatcher with its anchor
+        lines removed and nothing else changed but, from a release build, its
+        pinned version, so what it installs, checksum-verified, is a version
+        that exists
+    - id: a-dry-run-changes-nothing
+      statement: |
+        Given a project and the '-n' flag ('--dry-run')
+        When the scaffold runs
+        Then it prints every file it would write and writes none of them, so
+        the question 'what would this do to my repository' can be asked before
+        it is answered irreversibly
+    - id: a-missing-payload-stops-before-the-first-write
+      statement: |
+        Given a scaffold that cannot find the plugin's schemas and spec
+        When it runs
+        Then it names that as the reason and exits without touching the
+        project, rather than creating a record layout with nothing to validate
+        against — a tree that looks adopted and checks nothing
+    - id: an-unknown-option-is-refused
+      statement: |
+        Given a mistyped flag before the target directory
+        When the scaffold runs
+        Then it exits with an error, because the argument after the options is
+        the repository root and a flag falling through would be read as a path
+        to scaffold into
+    - id: the-binary-scaffolds-without-a-source-checkout
+      statement: |
+        Given only the FACET Core binary, as a release archive or an npm
+        install puts it on a machine, and an empty directory
+        When 'facet init' runs there, directly or as 'facet-framework init'
+        through the npm launcher
+        Then it writes the same files, modes and bytes as the shell scaffold
+        from a source checkout, from what the binary carries and without the
+        network, and the new project's own lint passes
+    - id: the-carried-files-are-the-canonical-ones
+      statement: |
+        Given the source tree a binary is built from
+        When the payload the binary carries is compared with that tree's
+        schemas, specification, lint suite, dispatcher and published workflow
+        Then each is the same file, the lint suite and the dispatcher with only
+        their anchor lines removed, and a payload that has fallen behind its
+        sources fails a test instead of shipping old files
+    - id: a-release-build-pins-its-own-version
+      statement: |
+        Given a release build of FACET Core
+        When it scaffolds a project
+        Then the dispatcher copy's FACET_VERSION default is that build's own
+        version without build metadata, so the project's CI lints with the
+        release that set it up; a development build has no release to download
+        and keeps the pin its payload carries
+    - id: an-unusable-target-is-refused-before-the-first-write
+      statement: |
+        Given a target that is a file, or a directory the scaffold cannot write
+        into
+        When 'facet init' runs against it
+        Then it exits non-zero naming the target and the reason, and nothing
+        has been written, rather than failing halfway through the tree
+    - id: a-linked-product-adds-its-files-beside-the-payload
+      statement: |
+        Given a build that links a product registering a file of its own for
+        the scaffold, such as a schema
+        When 'facet init' runs
+        Then the file is written beside the payload, under the chosen records
+        directory and in its section of the report, while the carried payload
+        never contains it, so a build without the product scaffolds no file of
+        it; a registered path the payload already has is refused
+    - id: the-help-is-the-head-comment-and-nothing-else
+      statement: |
+        Given '-h'
+        When the scaffold runs
+        Then the head comment is printed and the code under it is not, however
+        many lines are added above — a fixed line range could expose shell
+        assignments as documentation instead of following the comment
+        boundary
+verification:
+  unit_tests:
+    - id: cli/scaffold/scaffold_test.go
+      proves:
+        - a-second-run-writes-nothing
+        - a-half-adopted-project-is-completed-not-reset
+        - replacing-a-projects-copy-has-to-be-asked-for
+        - the-judgement-half-is-left-undone-and-named
+        - the-ci-workflow-runs-the-pinned-dispatcher
+        - a-dry-run-changes-nothing
+        - the-carried-files-are-the-canonical-ones
+        - an-unusable-target-is-refused-before-the-first-write
+    - id: "cli/scaffold/scaffold_test.go::TestALinkedProductsFileIsWrittenBesideThePayloadAndNeverBundled"
+      proves:
+        - a-linked-product-adds-its-files-beside-the-payload
+    - id: cli/init_test.go
+      proves:
+        - a-release-build-pins-its-own-version
+        - an-unknown-option-is-refused
+        - an-unusable-target-is-refused-before-the-first-write
+knowledge:
+  prerequisite_knowledge:
+    question: "What must the user already understand to use this feature?"
+    answer: |
+      That it is half of adoption and says so. The tree it leaves is a project
+      with FACET installed and nothing documented — .facetignore is empty on
+      purpose, and no record exists yet. Reading the closing report is the
+      whole of the handover.
+
+      This is the mechanical half of adoption, and it runs as 'facet init' from
+      the FACET Core binary alone: the binary carries every file it writes, so a
+      release archive or an npm install scaffolds with no source checkout, no
+      plugin and no network. The plugin's shell scaffold writes the same tree.
+
+      What it deliberately does not do is decide anything. The contents of
+      .facetignore and the first record are judgements about a particular
+      repository, and a scaffold that guessed them would be wrong quietly. So
+      those are written empty, named in the closing report, and left to the
+      /facet:init skill and the person running it. The CI workflow lints every
+      pull request, without a paths filter that could match nothing.
+
+      Nothing it writes overwrites what a project already has, because the
+      common second run is a repair rather than a reset — and a repair that
+      silently replaced a tuned workflow would cost the tuning. Replacing is
+      available and has to be asked for.
+  not_for:
+    question: "When is this the wrong tool for the job?"
+    answer: |
+      Not an upgrade. A project whose records are behind the current schema
+      needs a migration kit; the scaffold keeps every file that exists, so
+      running it against an adopted project is very nearly a no-op and none of
+      what it left alone was checked for being current.
+
+      Not a back-fill. It installs the tooling and writes no records. A
+      codebase that already ships features needs a dedicated adoption sprint
+      with the same review gates as any other record, not forty guessed ones.
+  discoverability:
+    question: "Where does the user enter this flow in the product?"
+    derive_from:
+      - anchors
+  common_pitfalls:
+    question: "What mistakes do users typically make?"
+    answer: |
+      Adding a 'paths:' filter to the workflow that misses a directory with
+      anchors: a workflow whose paths match nothing never runs and never says
+      so, so the gate reads as installed and green while having never executed.
+
+      Reaching for '-f' ('--force') to fix a project that looks wrong. What it replaces is
+      whatever the project changed deliberately, a tuned workflow first.
+  success_signal:
+    question: "How does the user know it worked?"
+    answer: |
+      The linter passes on a project that had never run it, and the report
+      above it lists three things still to do rather than none.
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-09-20"
+  superseded_by: null
+  depends_on:
+    - authoring/session/hook-dispatch

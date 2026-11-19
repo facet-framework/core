@@ -1,0 +1,7 @@
+sources: [src, tests]
+runners:
+  phpunit:
+    command: vendor/bin/phpunit
+    list: php scripts/list-tests.php
+    report: junit
+    report_file: reports/junit.xml

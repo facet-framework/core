@@ -1,0 +1,146 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: registry/integrity/unanchored-hotspots
+lifecycle: active
+intent:
+  summary: |
+    Reports unanchored code where the surrounding code is already anchored,
+    exposing undocumented implementation that record-outward checks cannot see.
+    Neighbourhood adoption makes the warning meaningful and keeps an unadopted
+    project silent rather than reporting every file. It reuses file data from
+    the anchor scan, so computing the signal needs no second source read.
+contract:
+  scenarios:
+    - id: an-unanchored-file-among-anchored-neighbours-is-warned
+      statement: |
+        Given a source file with no @facet: anchor, in a directory where most
+        lines of product code do carry one
+        When 'facet lint' runs
+        Then a warning names the file, its size, and the share of its directory
+        that is anchored — the share being what makes its silence stand out
+        rather than be the local norm
+      post_state:
+        severity: warning
+    - id: an-undocumented-neighbourhood-is-silent
+      statement: |
+        Given a directory where little or nothing is anchored
+        When 'facet lint' runs
+        Then nothing is reported, because a check that fires on every file of a
+        project that has not adopted FACET is one people learn to pass with
+        --no-verify
+      post_state:
+        findings: 0
+    - id: a-declared-opt-out-is-not-an-omission
+      statement: |
+        Given a file that declares '@facet-ignore-file' in its head
+        When hotspots are computed
+        Then it is neither reported nor counted as evidence, because it has
+        said in writing that it is a fixture rather than an implementation and
+        reporting it would make the declaration look like the gap
+    - id: test-code-is-neither-candidate-nor-evidence
+      statement: |
+        Given a directory holding more test code than implementation
+        When the anchored share is computed
+        Then test files are excluded from both sides of it, because a test is
+        not a feature and counting tests in the denominator would silence the
+        check exactly where the code is most worth documenting
+    - id: the-neighbourhood-is-the-directory
+      statement: |
+        Given a repository holding a well-documented package beside a large
+        undocumented one
+        When hotspots are computed
+        Then each directory is judged on its own, because a repository-wide
+        share averages the two and lands on a number that describes neither
+    - id: a-small-file-is-not-a-feature
+      statement: |
+        Given an unanchored file below the line floor
+        When 'facet lint' runs
+        Then it is not reported, because a file that small beside documented
+        neighbours is usually a helper and the check exists for code big enough
+        to be worth a record
+    - id: the-biggest-gap-is-named-first
+      statement: |
+        Given several hotspots in one run
+        When they are reported
+        Then the largest comes first, so a reader who acts on one line acts on
+        the biggest undocumented file rather than on whichever the walk reached
+        first
+    - id: the-finding-reaches-calibrate-too
+      statement: |
+        Given a registry whose shape is inside every band
+        When 'facet calibrate' runs
+        Then the hotspots are still reported, named and counted, because this
+        is the one measurement taken from the repository rather than from the
+        registry and no registry shape can stand in for it
+verification:
+  unit_tests:
+    - id: registry/calibrate_test.go
+      proves:
+        - the-finding-reaches-calibrate-too
+    - id: registry/hotspots_test.go
+      proves:
+        - an-unanchored-file-among-anchored-neighbours-is-warned
+        - an-undocumented-neighbourhood-is-silent
+        - a-declared-opt-out-is-not-an-omission
+        - test-code-is-neither-candidate-nor-evidence
+        - the-neighbourhood-is-the-directory
+        - a-small-file-is-not-a-feature
+        - the-biggest-gap-is-named-first
+knowledge:
+  prerequisite_knowledge:
+    question: "What must the user already understand to use this feature?"
+    answer: |
+      That this is the one check that reads the repository rather than the
+      registry, and therefore the one that can be wrong about a file for
+      reasons the registry cannot express. A generated file, a vendored
+      snippet, a script nobody considers part of the product: all of them are
+      legitimately unanchored, and the answer to a false positive is
+      '@facet-ignore-file' in the file's head or '--skip unanchored-hotspots',
+      never a record written to silence it.
+
+      That it is a warning and never fails a run.
+
+      Record-outward checks can find a record with no anchor, an anchor with no
+      record or an implementation called only by tests, but cannot identify a
+      source file no record mentions.
+
+      An unanchored file alone is ordinary in most repositories; an unanchored
+      file surrounded by anchored neighbours is a question a maintainer can
+      answer. This makes the check silent before adoption and increasingly
+      informative as adoption proceeds, allowing it to run unconditionally.
+
+      The anchor scan already reads every source file; retaining scan data for
+      unanchored files makes the hotspot comparison possible without another
+      pass over their contents.
+  not_for:
+    question: "When is this the wrong tool for the job?"
+    answer: |
+      Not a coverage number. It says nothing about what share of the product
+      is documented — only that specific files stand out against their own
+      neighbours. A repository with nothing anchored produces no finding and
+      is not thereby in good shape.
+
+      Not a judgement about the file. A large unanchored file may be
+      infrastructure that implements no feature at all. The finding is a
+      question, and 'nothing here is a feature' is a valid answer to it.
+  discoverability:
+    question: "Where does the user enter this flow in the product?"
+    derive_from:
+      - anchors
+  common_pitfalls:
+    question: "What mistakes do users typically make?"
+    answer: |
+      Anchoring the file to whichever record sounds closest, to clear the
+      warning. An anchor on the wrong file is worse than no anchor: it makes a
+      record claim code it does not describe, and nothing downstream can tell
+      that apart from a real one.
+  success_signal:
+    question: "How does the user know it worked?"
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-09-11"
+  superseded_by: null
+  depends_on:
+    - registry/layout/source-scanning

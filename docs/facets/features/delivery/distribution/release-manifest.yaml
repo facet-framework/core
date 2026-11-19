@@ -1,0 +1,66 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: delivery/distribution/release-manifest
+lifecycle: active
+intent:
+  summary: |
+    Every packaged release carries release-manifest.json: product, version,
+    channel, source commit, build time and, per platform, the archive and the
+    binary inside it with their sha256. A later packaging step reads it so
+    GitHub and npm ship the same bytes.
+contract:
+  scenarios:
+    - id: the-manifest-describes-every-archive-and-binary
+      statement: |
+        Given a packaged dist directory with archives and checksums.txt
+        When the manifest is written
+        Then it lists every archive of the product and version with the sha256 of the archive file
+        And the sha256 of the binary member extracted from that archive
+        And the version, full version, channel, commit and build time it was given
+    - id: an-archive-that-disagrees-with-checksums-is-refused
+      statement: |
+        Given an archive whose bytes no longer match its checksums.txt line
+        When the manifest is written
+        Then it fails and writes no manifest
+    - id: an-unlisted-or-missing-archive-is-refused
+      statement: |
+        Given an archive absent from checksums.txt, or a checksums.txt line naming a missing archive
+        When the manifest is written
+        Then it fails and writes no manifest
+    - id: a-full-version-for-another-commit-is-refused
+      statement: |
+        Given a full version whose +g suffix is not the given commit
+        When the manifest is written
+        Then it fails and writes no manifest
+knowledge:
+  prerequisite_knowledge:
+    question: "What must a reader know first?"
+    answer: |
+      checksums.txt covers the archives; the manifest adds the binary hash
+      measured from inside each archive and the build provenance.
+  not_for:
+    question: "What does this not do?"
+    answer: |
+      It is not a signature and not an npm package. Besides the release
+      attachment, npm/generate.sh reads it to build the npm packages from the
+      same archives (delivery/distribution/npm-packages).
+  discoverability:
+    question: "Where is it?"
+    answer: |
+      dist/release-manifest.json after packaging, attached to the GitHub release
+      beside checksums.txt; written by scripts/release-manifest.sh.
+  common_pitfalls:
+    question: "What is easy to get wrong?"
+    answer: |
+      Regenerating archives after the manifest was written: the manifest then
+      describes other bytes. It is written last, from the files in dist.
+  success_signal:
+    question: "How is success recognized?"
+    answer: |
+      sha256sum of each archive and of its extracted binary equals the
+      manifest's entries.
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-11-14"

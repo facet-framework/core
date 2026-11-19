@@ -1,0 +1,140 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: registry/layout/project-conventions
+lifecycle: active
+intent:
+  summary: |
+    Lets a project write its authoring conventions once, in a document every
+    agent session, adoption run and reviewer resolves to the same path, so
+    prose language, protected terminology and summary purpose stop living in
+    whichever session was told about them.
+    The document is found at FACET-CONVENTIONS.md in the root, or wherever
+    '.facetrc.yaml' says it is, with one fixed precedence when several
+    registries share it or one deliberately overrides it.
+    It is prose and nothing more: no tool interprets it, and it cannot widen
+    an agent's permissions, change what lint enforces, or stand in for a
+    person's acceptance of a change.
+contract:
+  scenarios:
+    - id: no-document-changes-nothing
+      statement: |
+        Given a project with no conventions document and no 'conventions' key
+        When the registry is resolved and 'facet lint' runs
+        Then no conventions path is reported
+        And lint reports no conventions finding
+      post_state:
+        findings: 0
+    - id: the-root-file-is-found-by-name
+      statement: |
+        Given FACET-CONVENTIONS.md at the repository root and no 'conventions' key
+        When the registry is resolved
+        Then that file is the effective document
+        And its source is reported as found at the repository root
+    - id: a-declared-path-wins-over-the-root-file
+      statement: |
+        Given a top-level 'conventions' key in .facetrc.yaml
+        And a FACET-CONVENTIONS.md at the root as well
+        When the registry is resolved
+        Then the declared path is the effective document
+    - id: a-registry-override-replaces-the-shared-document
+      statement: |
+        Given a top-level 'conventions' key
+        And one registry declaring its own 'conventions'
+        When the registries are resolved
+        Then that registry uses its own document and reports it as declared for this registry
+        And every other registry uses the shared document
+    - id: a-path-outside-the-repository-is-refused
+      statement: |
+        Given a 'conventions' value that is absolute or climbs out with '..'
+        When .facetrc.yaml is loaded or validated against its schema
+        Then it is refused
+      post_state:
+        severity: error
+    - id: a-declared-document-that-is-missing-is-an-error
+      statement: |
+        Given a 'conventions' key naming a file that does not exist
+        When 'facet lint' runs
+        Then an error names the declared path
+      post_state:
+        severity: error
+    - id: the-session-is-told-the-effective-document-and-its-limits
+      statement: |
+        Given a project with a conventions document
+        When a session starts or its context is compacted
+        Then the agent is told the effective path and where it came from
+        And it is told the document cannot grant permissions or replace human acceptance
+    - id: the-shell-fallback-says-the-same
+      statement: |
+        Given a single-registry project with a conventions document
+        And no facet binary on the machine
+        When a session starts
+        Then the shell fallback names the same path in the same words as the binary
+    - id: the-command-shows-the-resolution-per-registry
+      statement: |
+        Given a project with several registries
+        When 'facet conventions' runs
+        Then it lists each registry's effective document, its source, and whether it exists
+verification:
+  unit_tests:
+    - id: registry/conventions_test.go
+      proves:
+        - no-document-changes-nothing
+        - the-root-file-is-found-by-name
+        - a-declared-path-wins-over-the-root-file
+        - a-registry-override-replaces-the-shared-document
+        - a-path-outside-the-repository-is-refused
+        - a-declared-document-that-is-missing-is-an-error
+    - id: cli/conventions_test.go
+      proves:
+        - the-session-is-told-the-effective-document-and-its-limits
+        - the-shell-fallback-says-the-same
+        - the-command-shows-the-resolution-per-registry
+knowledge:
+  prerequisite_knowledge:
+    question: "What must the user already understand to use this feature?"
+  not_for:
+    question: "When is this the wrong tool for the job?"
+    answer: |
+      Not a place for a rule that has to hold. Nothing reads the document's
+      contents, so a rule written only there is followed by whoever reads it and
+      enforced by nobody. A rule that has to hold belongs in validated
+      configuration or a lint check.
+
+      Not a decision log. A decision with alternatives and drawbacks that
+      outlives one sentence belongs in an ADR, which the document links to
+      rather than repeats.
+
+      Not a permission. It cannot allow a push, an approval or a merge, and an
+      agent that reads it as one is reading it wrong.
+  discoverability:
+    question: "Where does the user enter this flow in the product?"
+    answer: |
+      FACET-CONVENTIONS.md at the repository root, or the 'conventions' key in
+      .facetrc.yaml (top level, or per registry). 'facet conventions' prints
+      the effective document for each registry, and the session hook names it
+      at session start and before compaction.
+    derive_from:
+      - anchors
+  common_pitfalls:
+    question: "What mistakes do users typically make?"
+    answer: |
+      Reasoned from the design, not observed in use:
+
+      Expecting a registry override to add to the shared document. It replaces
+      it. A registry that wants the shared rules plus its own has to say so in
+      its own document, for example by linking the shared one.
+
+      Expecting a declared path that does not exist to fall back to
+      FACET-CONVENTIONS.md. It does not: the declaration stays effective and
+      lint reports it, so a typo cannot quietly select a different document.
+  success_signal:
+    question: "How does the user know it worked?"
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-10-05"
+  superseded_by: null
+  depends_on:
+    - registry/layout/multi-registry
+    - authoring/session/registry-context

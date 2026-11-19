@@ -1,0 +1,94 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: authoring/guardrails/large-record-read
+lifecycle: active
+intent:
+  summary: |
+    When an agent wants to read a large record whole, the hook refuses and
+    names the sections with their sizes instead. The read_facet tool then
+    returns exactly the sections asked for.
+
+    A record is the file one reads whole to settle a question about a single
+    feature. A record can run past ten kilobytes, and most of it is
+    context that answers nothing. The section table in the refusal lets the agent choose by
+    size instead of paying for the whole record to learn what is in it.
+contract:
+  scenarios:
+    - id: a-large-record-is-redirected-to-read-facet
+      statement: |
+        Given a record larger than the threshold
+        When the agent reads it whole
+        Then the read is denied, and the denial names read_facet, the record's
+        id and every section with its size
+      post_state:
+        permission_decision: deny
+    - id: a-small-record-is-read-whole
+      statement: |
+        Given a record at or below the threshold
+        When the agent reads it
+        Then nothing is said, because the outline would cost what the file does
+      post_state:
+        permission_decision: none
+    - id: a-sliced-read-is-never-refused
+      statement: |
+        Given a large record
+        When the agent reads it with an offset or a limit
+        Then the read goes through, because the agent already chose a part
+      post_state:
+        permission_decision: none
+    - id: the-gate-has-an-escape-hatch
+      statement: |
+        Given FACET_SKIP_READ_GATE is set to 1
+        When the agent reads a large record whole
+        Then the read goes through
+      post_state:
+        permission_decision: none
+    - id: only-records-are-guarded
+      statement: |
+        Given a large YAML file outside the registry's features directory
+        When the agent reads it
+        Then the read goes through
+      post_state:
+        permission_decision: none
+    - id: read-facet-returns-only-the-asked-sections
+      statement: |
+        Given a record
+        When read_facet is called with section names
+        Then exactly those sections are returned as the file holds them, an
+        unknown name is an error listing the real ones, and without names the
+        outline is returned and the sizes of the top-level sections add up to
+        the file
+      post_state:
+        text_limited_to_sections: true
+verification:
+  unit_tests:
+    - id: cli/hook_readgate_test.go
+      proves:
+        - a-large-record-is-redirected-to-read-facet
+        - a-small-record-is-read-whole
+        - a-sliced-read-is-never-refused
+        - the-gate-has-an-escape-hatch
+        - only-records-are-guarded
+        - read-facet-returns-only-the-asked-sections
+knowledge:
+  prerequisite_knowledge:
+    question: "What must the user already understand to use this feature?"
+  not_for:
+    question: "When is this the wrong tool for the job?"
+  discoverability:
+    question: "Where does the user enter this flow in the product?"
+    derive_from:
+      - anchors
+  common_pitfalls:
+    question: "What mistakes do users typically make?"
+  success_signal:
+    question: "How does the user know it worked?"
+    answer: |
+      Reading a large record whole is refused with a table of sections, and
+      read_facet returns only the section asked for.
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-10-05"
+  superseded_by: null

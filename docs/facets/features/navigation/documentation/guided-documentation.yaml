@@ -1,0 +1,151 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: navigation/documentation/guided-documentation
+lifecycle: active
+intent:
+  summary: |
+    Build a standalone topic-based product reference with a complete feature
+    catalog, global search and reader perspectives that add context without
+    hiding product knowledge or imposing a reading sequence.
+    A registry inventory supplies source evidence and Knowledge gaps, while
+    cited editorial articles explain capabilities, concepts and product questions.
+    Responsible teams and declared scenarios, tests and metrics remain inspectable.
+contract:
+  scenarios:
+    - id: inventory-includes-records-and-anchors
+      statement: |
+        Given an active feature and its anchored implementation
+        When the documentation inventory is collected
+        Then the record has both source digests and its anchor location
+    - id: unanswered-knowledge-remains-a-gap
+      statement: |
+        Given a feature without not_for and common_pitfalls answers
+        When its documentation inventory is collected
+        Then both unanswered slots are listed as gaps
+    - id: compose-uses-populated-answers
+      statement: |
+        Given legacy composition mode and an active feature with a summary and three Knowledge answers
+        When conservative articles are composed for a declared audience
+        Then a feature explanation and FAQ are produced
+        And the explanation has four cited sections without a fabricated pitfalls section
+    - id: citations-are-required
+      statement: |
+        Given an article section without source ids
+        When its editorial plan is validated
+        Then validation fails
+    - id: existing-output-is-preserved
+      statement: |
+        Given an existing destination with a file
+        When a documentation build targets that destination
+        Then the build fails and the existing file is preserved
+    - id: site-is-standalone
+      statement: |
+        Given a valid editorial configuration with composed articles
+        When the site is built
+        Then the bundle includes a landing page, feature catalog, sources page,
+        local style and search assets, inventory, plan and search data
+        And the landing page links to the feature catalog
+    - id: reference-catalog-is-ungated
+      statement: |
+        Given reference mode with a complete catalog and no audience-selected features or articles
+        When the site is built
+        Then the catalog and global search contain the registry feature
+        And the homepage offers a perspective selector without audience entry pages
+    - id: reading-theme-persists
+      statement: |
+        Given a reference site without a saved reading theme
+        When the browser prefers a light or dark color scheme
+        Then the site initially follows that preference
+        When a visitor explicitly switches themes
+        Then the choice and switch state persist across article navigation
+        And override a later system preference change
+    - id: changed-inputs-are-stale
+      statement: |
+        Given a built site whose anchored source changes
+        When its freshness is checked
+        Then the check fails
+    - id: diagrams-have-accessible-equivalents
+      statement: |
+        Given a cited product diagram with two nodes and a labelled edge
+        When its article is rendered
+        Then the page contains the diagram title, accessible description and textual edge
+    - id: public-build-omits-internal-evidence
+      statement: |
+        Given a feature with an anchor, a scenario and Knowledge declarations
+        When internal and public documentation sites are built
+        Then internal sources expose those declarations
+        And public sources and inventory omit the anchor path, scenario id
+        and raw Knowledge field name
+        And no lock file is inside the public site
+verification:
+  unit_tests:
+    - id: "internal/docsite/site_test.go::TestInventoryEvidence"
+      proves:
+        - inventory-includes-records-and-anchors
+    - id: "internal/docsite/site_test.go::TestKnowledgeGaps"
+      proves:
+        - unanswered-knowledge-remains-a-gap
+    - id: "internal/docsite/site_test.go::TestComposeGrounded"
+      proves:
+        - compose-uses-populated-answers
+    - id: "internal/docsite/site_test.go::TestUncitedSection"
+      proves:
+        - citations-are-required
+    - id: "internal/docsite/site_test.go::TestBuildExistingDestination"
+      proves:
+        - existing-output-is-preserved
+    - id: "internal/docsite/site_test.go::TestBuildStandalone"
+      proves:
+        - site-is-standalone
+    - id: "internal/docsite/site_test.go::TestReferenceCatalogWithoutAudienceGates"
+      proves:
+        - reference-catalog-is-ungated
+    - id: "internal/docsite/site_test.go::TestChangedAnchor"
+      proves:
+        - changed-inputs-are-stale
+    - id: "internal/docsite/site_test.go::TestProductDiagram"
+      proves:
+        - diagrams-have-accessible-equivalents
+    - id: "internal/docsite/site_test.go::TestPublicEvidenceIsolation"
+      proves:
+        - public-build-omits-internal-evidence
+knowledge:
+  prerequisite_knowledge:
+    question: "What do I need before building a site?"
+    answer: |
+      A FACET registry and a version-1 editorial JSON configuration declaring
+      topics, reader perspectives and cited source ids. Every article section needs
+      cited sources. Reference mode keeps the complete catalog accessible.
+  not_for:
+    question: "What does this pipeline leave to an editor?"
+    answer: |
+      The conservative composer creates seeds, not accepted product promises.
+      Missing Knowledge answers need upstream authoring. Customer groups,
+      cross-feature instructions and product diagrams need source-grounded
+      editorial decisions. Reader perspectives do not provide access control.
+  discoverability:
+    question: "Where do I start?"
+    answer: |
+      Use facet docs site inventory, plan, compose, build and check. The
+      docs-inventory, docs-plan, docs-write and docs-site skills coordinate
+      that workflow step by step.
+  common_pitfalls:
+    question: "What should an editor check before deployment?"
+    answer: |
+      Internal visibility includes selected source record fields and inventory. Review the
+      content and hosting access. Build to a new directory rather than
+      overwriting existing work. Declared test references do not assert passing
+      execution, and a current source lock does not establish prose correctness.
+  success_signal:
+    question: "How can I check the result?"
+    answer: |
+      Open index.html, search for a product question and inspect the complete feature
+      catalog. Changing perspective must not hide product features. The header theme
+      switch follows the system initially and remembers an explicit light/dark choice. Run
+      facet docs site check with the same configuration and output directory;
+      it succeeds when the captured inputs and rendered artifacts match.
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-10-29"

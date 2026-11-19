@@ -1,0 +1,132 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: delivery/distribution/product-runtime
+lifecycle: active
+intent:
+  summary: |
+    Installs independently versioned native product executables and exposes
+    their declared commands through facet, with an explicit native-code grant,
+    a compatible protocol and verified package contents.
+contract:
+  scenarios:
+    - id: installation-requires-native-consent
+      statement: |
+        Given a product package from a supported package source
+        When installation has no explicit --grant-native
+        Then installation refuses before downloading or executing product code
+        And the refusal explains that native code runs with the user's OS permissions
+    - id: incompatible-or-unbound-packages-are-refused
+      statement: |
+        Given a product package whose protocol, platform or required host capabilities are incompatible,
+        whose payload is undeclared, missing, linked or changed, or whose manifest is invalid
+        When the host verifies it
+        Then verification fails without executing its code
+    - id: approved-content-is-checked-on-use
+      statement: |
+        Given an installed product whose manifest or payload changes after approval
+        When the host resolves it for an invocation
+        Then it refuses the changed package rather than using the previous grant
+    - id: native-command-preserves-the-call
+      statement: |
+        Given an installed product with a declared command
+        When the command runs through facet
+        Then arguments are forwarded without shell interpretation
+        And stdin, stdout, stderr, exit status, root and source-view selection are preserved
+        And the host passes only declared environment variables and required OS runtime variables
+    - id: service-calls-are-bounded
+      statement: |
+        Given an installed product with a declared service
+        When Core invokes it
+        Then the request and response use protocol version 1
+        And invalid, absent or oversized responses are errors
+        And cancellation or the host's 30-second deadline terminates the invocation
+    - id: core-command-names-cannot-be-replaced
+      statement: |
+        Given a package declaring a command already owned by Core or a different product
+        When installation is requested through facet
+        Then installation refuses the name collision
+        And the existing command remains available
+    - id: uninstall-revokes-product-commands
+      statement: |
+        Given an installed product
+        When facet plugin product remove names its id
+        Then future command trees no longer register its commands
+        And installed generations are removed without deleting repository data
+        And a filesystem cleanup failure is reported for retry after active processes exit
+    - id: private-release-selects-the-host-platform
+      statement: |
+        Given an authorized private GitHub release with native packages for multiple platforms
+        When its package is installed
+        Then Core selects the host platform asset and the checksums from that release
+        And credentials are sent only to the GitHub API origin
+    - id: missing-command-explains-installation
+      statement: |
+        Given a product binding the build registers with a command, and no installed package of that product
+        When the command is requested
+        Then Core explains how to install an authorized package
+verification:
+  unit_tests:
+    - id: pkg/productplugin/runtime_test.go
+      proves:
+        - installation-requires-native-consent
+        - incompatible-or-unbound-packages-are-refused
+        - approved-content-is-checked-on-use
+        - native-command-preserves-the-call
+        - service-calls-are-bounded
+        - uninstall-revokes-product-commands
+    - id: cli/product_plugin_test.go
+      proves:
+        - installation-requires-native-consent
+        - native-command-preserves-the-call
+        - core-command-names-cannot-be-replaced
+        - uninstall-revokes-product-commands
+    - id: "registry/product_source_test.go::TestPrivateProductReleaseSelectsPlatformAndScopesCredentials"
+      proves:
+        - private-release-selects-the-host-platform
+    - id: "cli/product_bindings_test.go::TestABindingAddsItsPlaceholderAndDriftHelp"
+      proves:
+        - missing-command-explains-installation
+    - id: "pkg/productplugin/runtime_test.go::TestHostRequirementsAreExplicit"
+      proves:
+        - incompatible-or-unbound-packages-are-refused
+knowledge:
+  prerequisite_knowledge:
+    question: "What must a user already know to use this?"
+    answer: |
+      A native product is executable code from its publisher and receives the
+      installing user's OS permissions. Protocol and checksum verification do
+      not provide a sandbox or establish that the publisher is trustworthy.
+  not_for:
+    question: "When is this the wrong tool for the job?"
+    answer: |
+      Browser plugins of other products are not covered by this protocol.
+      Native products require explicit installation; this protocol does not
+      automatically install a product when its placeholder command is used.
+  discoverability:
+    question: "Where does the user find this?"
+    answer: |
+      facet plugin product add <source> --grant-native, list, and remove <id>.
+      Products use FACET_PRODUCTS_DIR or the facet/products directory under
+      XDG_DATA_HOME (default ~/.local/share). Installed commands appear in help.
+  common_pitfalls:
+    question: "What do users commonly get wrong?"
+    answer: |
+      Installation does not execute a package to discover commands. HTTPS
+      sources need --sha256; GitHub release sources use the existing package
+      source verification. Replacing a selected version needs both --replace
+      and a new --grant-native. Core command names cannot be claimed by a product.
+      A corrupt product does not prevent Core commands from running; product list
+      reports its verification error. Uninstall may need retry after an active
+      Windows process releases its executable. Repository evidence is retained.
+      Private product downloads use GH_TOKEN, GITHUB_TOKEN or an existing gh login; the native package must name the current platform. Credentials are not forwarded to redirected asset hosts.
+  success_signal:
+    question: "How does the user know it worked?"
+    answer: |
+      Installation reports the product id, version and protocol; product list
+      shows verified metadata and the native execution grant. The declared
+      command is available on the next invocation with that product's version.
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-11-13"

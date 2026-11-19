@@ -1,0 +1,175 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: registry/integrity/knowledge-gaps
+lifecycle: active
+intent:
+  summary: |
+    Reports unanswered Knowledge slots on active records while accepting a
+    reasoned, owner-confirmed 'not_applicable' declaration for a question that
+    has no answer for that feature (FACET §3.6.1). An empty slot usually means
+    unwritten rather than inapplicable; the exception requires a reason and
+    confirmer so it cannot silently hide unfinished documentation. Hints ask for
+    answers rather than offering the cheaper owner-only exception to drafting
+    agents, and the summary breaks warnings down by check so new findings remain
+    visible beside a backlog.
+contract:
+  scenarios:
+    - id: an-unanswered-slot-is-a-warning
+      statement: |
+        Given an active record with an owner-supplied Knowledge slot carrying
+        a question and no answer
+        When 'facet lint' runs
+        Then the slot is named as awaiting its owner, and the run still exits
+        zero — the answer is work for a human, not a broken build
+      post_state:
+        severity: warning
+        exit_code: 0
+    - id: a-declared-exception-silences-its-own-slot
+      statement: |
+        Given a slot declaring 'not_applicable' with a reason and a confirmer,
+        beside a second slot that declares nothing
+        When 'facet lint' runs
+        Then only the second slot is reported, and declaring the exception is
+        itself no finding
+      post_state:
+        severity: warning
+        slots_reported: 1
+    - id: a-half-declared-exception-buys-no-silence
+      statement: |
+        Given a slot whose 'not_applicable' names a reason but no confirmer,
+        in a project whose schema is skipped or was never installed
+        When 'facet lint' runs
+        Then the slot is still reported as awaiting its owner, because silence
+        is bought by the complete statement and never by the keyword — an
+        exception nobody's name is on cannot be told from a cleared warning
+      post_state:
+        slots_reported: 1
+    - id: answering-and-declaring-no-answer-is-an-error
+      statement: |
+        Given a slot declaring 'not_applicable' beside an answer, a derivation,
+        or a per-variant form of either
+        When 'facet lint' runs
+        Then it is an error on the Go path as well as in the schema, because
+        the record is incoherent rather than incomplete and no ordering of the
+        two fields is the right one to prefer
+      post_state:
+        severity: error
+    - id: the-hint-never-names-the-exception
+      statement: |
+        Given a record whose slots await their owner
+        When the warning's hint is rendered to whoever is reading
+        Then it names the answer and the owner, and never 'not_applicable' —
+        the text reaches a drafting agent through the language server and
+        registry_validate, and that is the one reader who must not take the
+        cheaper way out
+      post_state:
+        mentions_not_applicable: false
+    - id: the-summary-names-which-checks-warned
+      statement: |
+        Given a run whose warnings come from several checks
+        When the summary line is printed
+        Then it names each check and its count beside the total, ordered by
+        count and then by name so two runs over an unchanged registry stay
+        comparable
+      post_state:
+        ordering: count_desc_then_name
+verification:
+  unit_tests:
+    - id: registry/facet_test.go
+      proves:
+        - an-unanswered-slot-is-a-warning
+        - a-declared-exception-silences-its-own-slot
+        - a-half-declared-exception-buys-no-silence
+        - answering-and-declaring-no-answer-is-an-error
+        - the-hint-never-names-the-exception
+    - id: cli/lint_summary_test.go
+      proves:
+        - the-summary-names-which-checks-warned
+knowledge:
+  prerequisite_knowledge:
+    question: "What must the user already understand to use this feature?"
+    answer: |
+      That the five Knowledge slots hold facts only a feature owner knows, and
+      that the linter can tell you a slot is empty but never what belongs in
+      it.
+
+      That an empty slot and a declared exception are different statements.
+      The first says nobody has answered; the second says there is nothing to
+      answer, and carries the name of whoever decided that.
+
+      Unanswered is work somebody owes; inapplicable is a decision that a
+      question has no answer for this feature. A warning nobody can clear stops
+      being read and hides the findings beside it, so a complete exception
+      silences one slot without silencing the record.
+
+      The exception requires a reason and confirmer and cannot coexist with an
+      answer or derivation. Declaring it is never itself a finding; whether its
+      reason is true belongs to review.
+
+      The warning hint reaches drafting agents through the language server and
+      registry_validate. It names only an answer because choosing an exception
+      belongs to the owner and is easier than supplying grounded Knowledge.
+
+      One warning total moves by one whether a finding was added or cleared. A
+      breakdown by check makes the arrival of a different finding visible even
+      when the total is unchanged.
+  not_for:
+    question: "When is this the wrong tool for the job?"
+    answer: |
+      Not a way to reach zero warnings. The count is expected to stay well
+      above zero; a registry reporting none has most likely mislabelled its
+      Knowledge facet rather than completed it.
+
+      Not a check on whether a declared exception is true. It reads the shape
+      of the declaration, never the claim — deciding whether a question has an
+      answer requires knowing who the feature's users are, which no field in
+      the record states.
+
+      Not for an agent to clear. 'not_applicable' is the owner's, and the
+      authoring skill and the record-writer prompt both forbid writing it.
+  discoverability:
+    question: "Where does the user enter this flow in the product?"
+    answer: |
+      'facet lint' reports it; '--skip knowledge' turns it off. The summary
+      line's breakdown names how many findings came from this check.
+    derive_from:
+      - anchors
+  common_pitfalls:
+    question: "What mistakes do users typically make?"
+    answer: |
+      Reading an empty slot on an internal record as evidence that the
+      question has no answer. Most such slots are unwritten, not inapplicable: even a CI-only check can have
+      useful prerequisites, limits, pitfalls and success signals, and answered
+      siblings can help identify the missing question.
+
+      Writing "not applicable" or "N/A" as the reason. That is the statement,
+      not a reason for it. If the sentence does not say why there is no
+      question here, it is not one.
+
+      Declaring the exception to silence a warning before asking the owner.
+      The field's foreseeable misuse, and the reason this warning's hint does
+      not mention it.
+
+      Expecting the schema to catch a half-written declaration in every
+      project. It does not run under '--skip schema' or where no schema is
+      installed, which is why the gap check re-reads both fields itself.
+  success_signal:
+    question: "How does the user know it worked?"
+    answer: |
+      The warning names exactly the slots still owed, and stops naming one the
+      moment its owner answers it or rules it out.
+
+      A declared exception costs no finding at all — not a warning for
+      declaring it, and not a schema error.
+
+      The summary line says which checks the warnings came from, so a new
+      finding is visible beside a standing backlog instead of moving one
+      total by one.
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-09-17"
+  superseded_by: null
+  depends_on:
+    - registry/integrity/record-validation

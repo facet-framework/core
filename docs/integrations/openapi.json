@@ -1,0 +1,2239 @@
+{
+  "openapi": "3.1.1",
+  "info": {
+    "title": "FACET Remote Read API",
+    "version": "0.1.0",
+    "description": "Proposed contract for API-key-protected REST reads from one explicitly published immutable snapshot. /mcp uses standard MCP OAuth with a configurable external authorization server, optionally API keys; that transport is specified separately."
+  },
+  "servers": [
+    {
+      "url": "https://facet.example.com",
+      "description": "Replace with the configured public origin"
+    }
+  ],
+  "paths": {
+    "/v1/capabilities": {
+      "get": {
+        "operationId": "capabilities",
+        "summary": "Read optional feature state and documented limits.",
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful read; no-store caching",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Capabilities"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or disabled API key.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Bearer challenge for API-key authentication; no OAuth resource metadata on REST."
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient key permissions or forbidden Host/Origin. Only permission failures carry a Bearer challenge.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Present only for insufficient permissions."
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not published",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Unsupported method",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request exceeds the byte limit.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid selection or bounds",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate or concurrency limit reached",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "description": "Seconds until retry"
+              }
+            }
+          },
+          "414": {
+            "description": "URI exceeds 8 KiB; framing rejection may be plain text.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "431": {
+            "description": "Headers exceed 16 KiB; framing rejection may be plain text.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Optional dependency unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "description": "Temporary provider failure only; disabled/missing index needs operator action."
+              }
+            }
+          }
+        },
+        "x-required-permissions": [
+          "facet:records:read"
+        ]
+      }
+    },
+    "/v1/records": {
+      "get": {
+        "operationId": "recordsFind",
+        "summary": "Discover the selected FACET category in deterministic registry/category/ID order.",
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 4096
+            },
+            "description": "Case-insensitive substring matched against IDs and summaries."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            },
+            "description": "Maximum records per page."
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 2048
+            },
+            "description": "Opaque cursor bound to snapshot, query, kind and page size."
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "features",
+                "assumptions",
+                "policies",
+                "data-entities"
+              ],
+              "default": "features"
+            },
+            "description": "FACET record category."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful read; no-store caching",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or disabled API key.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Bearer challenge for API-key authentication; no OAuth resource metadata on REST."
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient key permissions or forbidden Host/Origin. Only permission failures carry a Bearer challenge.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Present only for insufficient permissions."
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not published",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Unsupported method",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request exceeds the byte limit.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid selection or bounds",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate or concurrency limit reached",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "description": "Seconds until retry"
+              }
+            }
+          },
+          "414": {
+            "description": "URI exceeds 8 KiB; framing rejection may be plain text.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "431": {
+            "description": "Headers exceed 16 KiB; framing rejection may be plain text.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Optional dependency unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "description": "Temporary provider failure only; disabled/missing index needs operator action."
+              }
+            }
+          }
+        },
+        "x-required-permissions": [
+          "facet:records:read"
+        ]
+      }
+    },
+    "/v1/record": {
+      "get": {
+        "operationId": "recordGet",
+        "summary": "Read complete original YAML record. Ambiguous bare IDs return 422; no fuzzy match.",
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "description": "Exact record ID; registry:id selects a named registry, :id explicitly selects the default registry. An ambiguous bare ID is 422."
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "features",
+                "assumptions",
+                "policies",
+                "data-entities"
+              ],
+              "default": "features"
+            },
+            "description": "FACET record category."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful read; no-store caching",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Record"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or disabled API key.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Bearer challenge for API-key authentication; no OAuth resource metadata on REST."
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient key permissions or forbidden Host/Origin. Only permission failures carry a Bearer challenge.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Present only for insufficient permissions."
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not published",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Unsupported method",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request exceeds the byte limit.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid selection or bounds",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate or concurrency limit reached",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "description": "Seconds until retry"
+              }
+            }
+          },
+          "414": {
+            "description": "URI exceeds 8 KiB; framing rejection may be plain text.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "431": {
+            "description": "Headers exceed 16 KiB; framing rejection may be plain text.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Optional dependency unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "description": "Temporary provider failure only; disabled/missing index needs operator action."
+              }
+            }
+          }
+        },
+        "x-required-permissions": [
+          "facet:records:read"
+        ]
+      }
+    },
+    "/v1/sections": {
+      "get": {
+        "operationId": "recordSections",
+        "summary": "Read exact original YAML sections. Omitted selection lists names/sizes with null text, in document order; selected sections return in request order. Unknown or duplicate sections return 422.",
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "description": "Exact record ID; registry:id selects a named registry, :id explicitly selects the default registry. An ambiguous bare ID is 422."
+          },
+          {
+            "name": "section",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "maxLength": 128
+              },
+              "maxItems": 16
+            },
+            "description": "Unique top-level or one-child section names, in requested order. Duplicate names are 422 invalid_selection.",
+            "style": "form",
+            "explode": true
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "features",
+                "assumptions",
+                "policies",
+                "data-entities"
+              ],
+              "default": "features"
+            },
+            "description": "FACET record category."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful read; no-store caching",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Sections"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or disabled API key.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Bearer challenge for API-key authentication; no OAuth resource metadata on REST."
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient key permissions or forbidden Host/Origin. Only permission failures carry a Bearer challenge.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Present only for insufficient permissions."
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not published",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Unsupported method",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request exceeds the byte limit.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid selection or bounds",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate or concurrency limit reached",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "description": "Seconds until retry"
+              }
+            }
+          },
+          "414": {
+            "description": "URI exceeds 8 KiB; framing rejection may be plain text.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "431": {
+            "description": "Headers exceed 16 KiB; framing rejection may be plain text.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Optional dependency unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "description": "Temporary provider failure only; disabled/missing index needs operator action."
+              }
+            }
+          }
+        },
+        "x-required-permissions": [
+          "facet:records:read"
+        ]
+      }
+    },
+    "/v1/anchors": {
+      "get": {
+        "operationId": "anchorsList",
+        "summary": "Read only anchors in explicitly published sources.",
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "description": "Exact record ID; registry:id selects a named registry, :id explicitly selects the default registry. An ambiguous bare ID is 422."
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "features",
+                "assumptions",
+                "policies",
+                "data-entities"
+              ],
+              "default": "features"
+            },
+            "description": "FACET record category."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful read; no-store caching",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Anchors"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or disabled API key.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Bearer challenge for API-key authentication; no OAuth resource metadata on REST."
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient key permissions or forbidden Host/Origin. Only permission failures carry a Bearer challenge.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Present only for insufficient permissions."
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not published",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Unsupported method",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request exceeds the byte limit.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid selection or bounds",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate or concurrency limit reached",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "description": "Seconds until retry"
+              }
+            }
+          },
+          "414": {
+            "description": "URI exceeds 8 KiB; framing rejection may be plain text.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "431": {
+            "description": "Headers exceed 16 KiB; framing rejection may be plain text.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Optional dependency unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "description": "Temporary provider failure only; disabled/missing index needs operator action."
+              }
+            }
+          }
+        },
+        "x-required-permissions": [
+          "facet:records:read",
+          "facet:code:read"
+        ]
+      }
+    },
+    "/v1/source": {
+      "get": {
+        "operationId": "sourceRead",
+        "summary": "Read an inclusive line range from an explicitly published UTF-8 source. No silent truncation.",
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "path",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "description": "Exact published UTF-8 source path; case-sensitive, slash-separated, no dot components."
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4194305
+            },
+            "description": "First line, one-based inclusive."
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4194305
+            },
+            "description": "Last line, inclusive; must exist and be within 200 lines of start."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful read; no-store caching",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Source"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or disabled API key.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Bearer challenge for API-key authentication; no OAuth resource metadata on REST."
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient key permissions or forbidden Host/Origin. Only permission failures carry a Bearer challenge.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Present only for insufficient permissions."
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not published",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Unsupported method",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request exceeds the byte limit.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid selection or bounds",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate or concurrency limit reached",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "description": "Seconds until retry"
+              }
+            }
+          },
+          "414": {
+            "description": "URI exceeds 8 KiB; framing rejection may be plain text.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "431": {
+            "description": "Headers exceed 16 KiB; framing rejection may be plain text.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Optional dependency unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "description": "Temporary provider failure only; disabled/missing index needs operator action."
+              }
+            }
+          }
+        },
+        "x-required-permissions": [
+          "facet:code:read"
+        ]
+      }
+    },
+    "/v1/search": {
+      "post": {
+        "operationId": "recordsSearch",
+        "summary": "Search record chunks only. Missing or disabled RAG returns 503; stale index returns 409. No lexical fallback. Query embedding may use the operator-configured provider.",
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful read; no-store caching",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Search"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or disabled API key.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Bearer challenge for API-key authentication; no OAuth resource metadata on REST."
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient key permissions or forbidden Host/Origin. Only permission failures carry a Bearer challenge.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Present only for insufficient permissions."
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not published",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Unsupported method",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Snapshot or RAG index conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request exceeds the byte limit.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid selection or bounds",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate or concurrency limit reached",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "description": "Seconds until retry"
+              }
+            }
+          },
+          "503": {
+            "description": "Optional dependency unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "description": "Temporary provider failure only; disabled/missing index needs operator action."
+              }
+            }
+          },
+          "414": {
+            "description": "URI exceeds 8 KiB; framing rejection may be plain text.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "431": {
+            "description": "Headers exceed 16 KiB; framing rejection may be plain text.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Body must be application/json",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchInput"
+              },
+              "example": {
+                "query": "How are records validated?",
+                "limit": 5
+              }
+            }
+          }
+        },
+        "x-required-permissions": [
+          "facet:records:read",
+          "facet:search:read"
+        ]
+      }
+    },
+    "/.well-known/oauth-protected-resource/mcp": {
+      "get": {
+        "operationId": "mcpResourceMetadata",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "RFC 9728 MCP OAuth discovery when OAuth is configured.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProtectedResource"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "OAuth is not configured."
+          }
+        }
+      }
+    },
+    "/healthz": {
+      "get": {
+        "operationId": "liveness",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Minimal process state; no repository metadata.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/readyz": {
+      "get": {
+        "operationId": "readiness",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Minimal process state; no repository metadata.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Publication or authentication configuration is not ready."
+          }
+        }
+      }
+    },
+    "/openapi.json": {
+      "get": {
+        "operationId": "openapiDocument",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "This OpenAPI document; contains no publication data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "apiKey": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "FACET API key",
+        "description": "Individually issued high-entropy API key with records, code and/or search read permissions. No OAuth token on REST. Never send credentials in URLs."
+      }
+    },
+    "schemas": {
+      "Problem": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "type": "string",
+            "format": "uri",
+            "pattern": "^urn:facet:problem:"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer"
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "invalid_request",
+              "invalid_cursor",
+              "invalid_token",
+              "insufficient_scope",
+              "origin_forbidden",
+              "host_forbidden",
+              "not_found",
+              "method_not_allowed",
+              "index_stale",
+              "request_too_large",
+              "uri_too_long",
+              "unsupported_media_type",
+              "ambiguous_id",
+              "unknown_section",
+              "invalid_selection",
+              "range_invalid",
+              "response_too_large",
+              "rate_limited",
+              "concurrency_limited",
+              "headers_too_large",
+              "auth_provider_unavailable",
+              "rag_disabled",
+              "index_missing",
+              "provider_unavailable"
+            ]
+          },
+          "request_id": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "hint": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "title",
+          "status",
+          "code",
+          "request_id"
+        ]
+      },
+      "Capabilities": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "snapshot": {
+            "type": "string"
+          },
+          "rag": {
+            "type": "string",
+            "enum": [
+              "disabled",
+              "missing_index",
+              "stale_index",
+              "ready"
+            ]
+          },
+          "limits": {
+            "$ref": "#/components/schemas/Limits"
+          },
+          "provider": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "model": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "query_egress": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "snapshot",
+          "rag",
+          "limits",
+          "provider",
+          "model",
+          "query_egress"
+        ]
+      },
+      "Limits": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "page_size": {
+            "const": 100
+          },
+          "source_lines": {
+            "const": 200
+          },
+          "source_bytes": {
+            "const": 65536
+          },
+          "request_bytes": {
+            "const": 65536
+          },
+          "response_bytes": {
+            "const": 1048576
+          },
+          "search_hits": {
+            "const": 20
+          },
+          "operations_per_minute": {
+            "type": "integer",
+            "const": 60
+          },
+          "burst": {
+            "type": "integer",
+            "const": 10
+          },
+          "concurrency": {
+            "type": "integer",
+            "const": 16
+          },
+          "deadline_seconds": {
+            "type": "integer",
+            "const": 30
+          },
+          "sections": {
+            "type": "integer",
+            "const": 16
+          },
+          "token_bytes": {
+            "type": "integer",
+            "const": 8192
+          },
+          "uri_bytes": {
+            "type": "integer",
+            "const": 8192
+          },
+          "header_bytes": {
+            "type": "integer",
+            "const": 16384
+          },
+          "cursor_characters": {
+            "type": "integer",
+            "const": 2048
+          },
+          "default_page_size": {
+            "type": "integer",
+            "const": 25
+          },
+          "preauth_requests_per_second": {
+            "type": "integer",
+            "const": 100
+          },
+          "preauth_burst": {
+            "type": "integer",
+            "const": 100
+          },
+          "introspection_concurrency": {
+            "type": "integer",
+            "const": 4
+          }
+        },
+        "required": [
+          "page_size",
+          "source_lines",
+          "source_bytes",
+          "request_bytes",
+          "response_bytes",
+          "search_hits",
+          "operations_per_minute",
+          "burst",
+          "concurrency",
+          "deadline_seconds",
+          "sections",
+          "token_bytes",
+          "uri_bytes",
+          "header_bytes",
+          "cursor_characters",
+          "default_page_size",
+          "preauth_requests_per_second",
+          "preauth_burst",
+          "introspection_concurrency"
+        ]
+      },
+      "RecordSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "registry": {
+            "type": "string"
+          },
+          "category": {
+            "enum": [
+              "features",
+              "assumptions",
+              "policies",
+              "data-entities"
+            ]
+          },
+          "summary": {
+            "type": "string"
+          },
+          "qualified_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "registry",
+          "category",
+          "summary",
+          "qualified_id"
+        ]
+      },
+      "RecordList": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "snapshot": {
+            "type": "string"
+          },
+          "records": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecordSummary"
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "snapshot",
+          "records",
+          "next_cursor"
+        ]
+      },
+      "Record": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "snapshot": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "registry": {
+            "type": "string"
+          },
+          "category": {
+            "enum": [
+              "features",
+              "assumptions",
+              "policies",
+              "data-entities"
+            ]
+          },
+          "path": {
+            "type": "string"
+          },
+          "yaml": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "snapshot",
+          "id",
+          "registry",
+          "category",
+          "path",
+          "yaml"
+        ]
+      },
+      "Section": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "lines": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "bytes",
+          "lines",
+          "text"
+        ]
+      },
+      "Sections": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "snapshot": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "registry": {
+            "type": "string"
+          },
+          "sections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Section"
+            }
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "features",
+              "assumptions",
+              "policies",
+              "data-entities"
+            ]
+          }
+        },
+        "required": [
+          "snapshot",
+          "id",
+          "registry",
+          "sections",
+          "category"
+        ]
+      },
+      "Anchor": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "registry": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "line": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "role": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "registry",
+          "path",
+          "line",
+          "role"
+        ]
+      },
+      "Anchors": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "snapshot": {
+            "type": "string"
+          },
+          "anchors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Anchor"
+            }
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "features",
+              "assumptions",
+              "policies",
+              "data-entities"
+            ]
+          }
+        },
+        "required": [
+          "snapshot",
+          "anchors",
+          "category"
+        ]
+      },
+      "Source": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "snapshot": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "start": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "end": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "snapshot",
+          "path",
+          "start",
+          "end",
+          "text"
+        ]
+      },
+      "SearchInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20,
+            "default": 5
+          }
+        },
+        "required": [
+          "query"
+        ]
+      },
+      "Hit": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "registry": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "section": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "score": {
+            "type": "number",
+            "minimum": -1,
+            "maximum": 1
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "features",
+              "assumptions",
+              "policies",
+              "data-entities"
+            ]
+          },
+          "qualified_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "registry",
+          "path",
+          "section",
+          "text",
+          "score",
+          "category",
+          "qualified_id"
+        ]
+      },
+      "Search": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "snapshot": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "hits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Hit"
+            }
+          }
+        },
+        "required": [
+          "snapshot",
+          "model",
+          "hits"
+        ]
+      },
+      "ProtectedResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "resource": {
+            "type": "string",
+            "format": "uri",
+            "description": "Configured HTTPS origin plus /mcp; only for remote MCP OAuth."
+          },
+          "authorization_servers": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          "scopes_supported": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "bearer_methods_supported": {
+            "type": "array",
+            "items": {
+              "const": "header"
+            }
+          }
+        },
+        "required": [
+          "resource",
+          "authorization_servers",
+          "scopes_supported",
+          "bearer_methods_supported"
+        ]
+      }
+    }
+  }
+}

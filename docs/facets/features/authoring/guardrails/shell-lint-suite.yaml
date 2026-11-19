@@ -1,0 +1,129 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: authoring/guardrails/shell-lint-suite
+lifecycle: active
+intent:
+  summary: |
+    Runs the three shell checks for schema validity, resolved source anchors,
+    and anchored active records, collecting all failures before reporting.
+    Missing schema tools produce an explicit skip and exit 0 unless
+    FACET_STRICT_DEPS=1 makes their absence an error.
+    Stylesheet anchors count just as they do for the binary.
+contract:
+  scenarios:
+    - id: a-clean-repository-passes-and-its-records-are-really-checked
+      statement: |
+        Given a repository with one valid record and a source file anchoring it
+        And the tooling is installed
+        When the suite runs
+        Then it passes
+        And at least one record is named as checked
+    - id: a-missing-tool-checks-nothing-and-still-reports-success
+      statement: |
+        Given a repository without ajv on PATH
+        When the suite runs
+        Then it names the skip
+        And it validates no record
+        And it exits 0 reporting that every check passed
+      post_state:
+        records_checked: 0
+        exit_code: 0
+    - id: under-strict-deps-a-missing-tool-is-an-error
+      statement: |
+        Given a repository without ajv on PATH
+        And FACET_STRICT_DEPS=1 is set
+        When the suite runs
+        Then it names the strict-dependency flag
+        And it exits with an error
+    - id: a-record-that-does-not-match-its-schema-fails-the-suite
+      statement: |
+        Given a record missing what its schema requires
+        When the suite runs
+        Then it fails
+        And it names the file
+    - id: an-anchor-pointing-at-no-record-fails-the-suite
+      statement: |
+        Given a source file with an anchor naming a record that does not exist
+        When the suite runs
+        Then it fails
+        And it names the id
+    - id: an-active-record-nothing-anchors-fails-the-suite
+      statement: |
+        Given an active record with no anchor anywhere in source
+        When the suite runs
+        Then it fails
+        And it names the record
+    - id: an-anchor-in-a-stylesheet-counts-as-it-does-for-the-binary
+      statement: |
+        Given a record whose only anchor sits in a stylesheet
+        When the suite runs
+        Then the record is not reported as unanchored
+    - id: a-failing-check-does-not-hide-the-ones-after-it
+      statement: |
+        Given a repository with an invalid record
+        And a source file with an orphan anchor
+        When the suite runs
+        Then both failures are reported in the same run
+    - id: explicit-ignore-keeps-consumer-anchors-separate
+      statement: |
+        Given a tracked consumer example with its own FACET anchors
+        When the parent registry excludes it in .facetignore
+        Then shell anchor checks honour Git ignore patterns and negation rather
+        than treating the example's records as missing parent records
+    - id: a-registries-block-has-every-records-directory-checked
+      statement: |
+        Given a configuration that declares several registries, each with its
+        own records directory
+        When the suite runs
+        Then every registry's records are validated, and an anchor resolves
+        when any registry holds its id
+        And a broken record or an unknown anchor in either registry still
+        fails the suite
+verification:
+  unit_tests:
+    - id: tools/facet-lint/run-all.test.sh
+      proves:
+        - a-clean-repository-passes-and-its-records-are-really-checked
+        - a-missing-tool-checks-nothing-and-still-reports-success
+        - under-strict-deps-a-missing-tool-is-an-error
+        - a-record-that-does-not-match-its-schema-fails-the-suite
+        - an-anchor-pointing-at-no-record-fails-the-suite
+        - an-active-record-nothing-anchors-fails-the-suite
+        - an-anchor-in-a-stylesheet-counts-as-it-does-for-the-binary
+        - a-failing-check-does-not-hide-the-ones-after-it
+        - explicit-ignore-keeps-consumer-anchors-separate
+        - a-registries-block-has-every-records-directory-checked
+knowledge:
+  not_for:
+    question: "When is this the wrong tool for the job?"
+    answer: |
+      Not the lint. `facet lint` runs some thirty checks; this runs three, and
+      a project with the binary should use the binary.
+
+      Not a content check. It mirrors the schema and the two anchor checks and
+      has never mirrored a check that reads what a record says — a second
+      implementation of a judgement is a second judgement.
+  common_pitfalls:
+    question: "What mistakes do users typically make?"
+    answer: |
+      Reading a green run as a validated registry. Without `ajv` it validated
+      nothing, and said so once, in a line that scrolls past above the summary
+      that says everything passed. Run it with `FACET_STRICT_DEPS=1` when the
+      answer has to be trusted.
+
+      Expecting the count of "Checking:" lines to be stable. It is one per
+      record, so it grows with the registry — what matters is whether it is
+      zero.
+  success_signal:
+    question: "How does the user know it worked?"
+    answer: |
+      The run names each record it checked and ends with the passing summary;
+      under `FACET_STRICT_DEPS=1` it either does that or says which tool is
+      missing.
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-09-21"
+  depended_on_by:
+    - authoring/guardrails/commit-gate

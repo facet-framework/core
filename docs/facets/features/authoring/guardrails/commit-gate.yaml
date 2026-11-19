@@ -1,0 +1,259 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: authoring/guardrails/commit-gate
+lifecycle: active
+intent:
+  summary: |
+    Compares lint errors in an ordinary staged commit with HEAD across every
+    registry. Existing identical errors are allowed; new errors are denied.
+    An initial commit has no error allowance. An unreadable baseline or index
+    is explicitly denied instead of being treated as clean.
+
+    The binary checks immutable Git blobs, including export-ignored files.
+    Unstaged repairs cannot hide a staged defect. Compound commands, commit -a,
+    path-selected commits, private ignored configuration or records, external
+    registry paths and symlinks are explicitly refused because this version
+    cannot verify their candidate tree. Stage changes separately and use a
+    plain git commit. The shell fallback retains strict whole-working-tree
+    lint; comparison against HEAD requires the binary.
+
+    FACET_SKIP_COMMIT_GATE=1 remains the explicit per-session escape hatch.
+    'hooks: {commit_gate: off}' in .facetrc.yaml switches it off project-wide,
+    read only from HEAD and only after the commit's repository was verified,
+    so neither the working tree, the index nor a redirected command can
+    supply it. A commit that itself turns the switch on is refused: it is the
+    session owner's decision.
+
+    The index-versus-HEAD comparison is shared with 'facet lint --staged'.
+contract:
+  scenarios:
+    - id: the-gate-covers-every-registry
+      statement: |
+        Given a monorepo in which one registry has a new staged lint error
+        When the agent attempts a git commit from anywhere in the tree
+        Then the commit is denied, and the failing registry is named
+      post_state:
+        permission_decision: deny
+    - id: failing-lint-blocks-commit
+      statement: |
+        Given an initial staged commit whose FACET lint suite fails
+        When the agent attempts a git commit
+        Then the commit is denied and the failing checks are returned as the
+        denial reason
+      post_state:
+        permission_decision: deny
+    - id: commit-gate-escape-hatch
+      statement: |
+        Given FACET_SKIP_COMMIT_GATE is set to 1 in the environment Claude
+        Code was started with
+        When the agent attempts a git commit while lint fails
+        Then the gate exits without a decision and the commit proceeds
+        And every denial names that environment as the place to set it,
+        because a prefix on the git command never reaches the gate
+      post_state:
+        permission_decision: none
+    - id: a-commit-in-another-repository-is-judged-by-that-repository
+      statement: |
+        Given an agent working in a FACET project whose own commit would be
+        denied
+        When it runs 'cd <other repository> && git commit'
+        Then the gate judges the other repository — silent when that one has
+        not adopted FACET — and never this project's findings
+        And a cd into an adopted repository still meets that repository's gate
+      post_state:
+        permission_decision: none
+    - id: the-gate-recognises-a-commit-however-it-is-written
+      statement: |
+        Given a project whose lint fails
+        When a git commit uses -C or an environment prefix, or appears in a compound command
+        Then it is recognised, and either the staged candidate is checked or
+        the unsupported selection is explicitly denied
+      post_state:
+        permission_decision: deny
+    - id: existing-errors-can-remain
+      statement: |
+        Given HEAD has lint errors and the index adds no new error identity
+        When the agent makes an ordinary staged commit
+        Then existing errors do not block the commit
+    - id: staged-errors-cannot-be-hidden
+      statement: |
+        Given the index introduces a new error even though the working file is repaired
+        When the agent makes an ordinary staged commit
+        Then the new staged error blocks the commit
+    - id: unreadable-baseline-is-not-clean
+      statement: |
+        Given HEAD has a configuration that cannot be parsed
+        When the agent attempts a commit
+        Then the gate denies it and identifies the unreadable baseline
+    - id: unknown-selection-is-not-verified
+      statement: |
+        Given a compound, path-selected or all-tracked-files commit command
+        When the hook cannot establish its candidate tree before execution
+        Then the gate denies it and asks for a separately staged commit
+    - id: private-configuration-is-not-verified
+      statement: |
+        Given the clone uses a configuration excluded from Git
+        When the agent attempts a commit
+        Then the gate denies it because that configuration has no HEAD baseline
+    - id: deleting-records-cannot-disable-the-gate
+      statement: |
+        Given HEAD has a registry with a resolving source anchor
+        When the index removes the registry while keeping that source anchor
+        Then the commit gate still runs and denies the new orphan anchor
+    - id: staged-lint-ignores-unstaged-breakage
+      statement: |
+        Given a broken record in the working tree that is not staged
+        When the user runs 'facet lint --staged'
+        Then it exits 0 and does not name the unstaged defect
+        And 'facet lint' without the option still fails on it
+    - id: staged-lint-reports-only-what-the-index-introduces
+      statement: |
+        Given HEAD carries a lint error
+        When the index adds no error, 'facet lint --staged' exits 0
+        And when the index adds a new error, it exits 1 naming only the new one
+    - id: staged-lint-has-the-shape-of-lint
+      statement: |
+        Given a clean index
+        When the user runs 'facet lint --staged --json'
+        Then the output has the findings and checked members of 'facet lint --json',
+        and an empty findings list is [] and not null
+    - id: staged-lint-needs-a-baseline
+      statement: |
+        Given no git repository, or a HEAD that cannot be resolved because its
+        ref names a missing object or holds garbage
+        When the user runs 'facet lint --staged'
+        Then it fails and says it cannot resolve HEAD
+        And an unborn branch alone is an empty baseline, not a failure
+    - id: the-gate-switch-is-read-from-head-only
+      statement: |
+        Given .facetrc.yaml sets hooks.commit_gate to off in the working tree
+        or the index, but not at HEAD
+        When a commit that introduces a lint error is attempted
+        Then the gate still denies it
+        And once a commit has put the switch at HEAD, later commits pass the gate
+        And any value other than on or off is refused when the file is read
+        And the key counts only at two spaces of indentation directly under hooks
+    - id: a-commit-that-turns-the-gate-off-is-refused
+      statement: |
+        Given a clean index that adds hooks.commit_gate: off while HEAD does not
+        have it
+        When the agent attempts the commit
+        Then the gate denies it, saying the decision belongs to the person
+        running the session and naming FACET_SKIP_COMMIT_GATE=1
+        And this holds in the binary and in the shell fallback
+    - id: a-switch-is-never-borrowed-by-another-repository
+      statement: |
+        Given a repository A switched off at HEAD and a repository B with the gate
+        on and a staged error
+        When a commit in B is reached from A through GIT_DIR, --git-dir, pushd or cd
+        Then it is denied, because the switch counts only for the verified
+        selected repository
+        And in the shell fallback the switch is not honoured for a command that
+        contains such a redirect
+    - id: shell-fallback-remains-strict
+      statement: |
+        Given the facet binary is unavailable
+        When the shell fallback checks a commit
+        Then its strict whole-working-tree lint allows a clean registry and
+        denies a broken one, explaining that the ratchet requires the binary
+    - id: revision-policy-does-not-resolve-local-bindings
+      statement: |
+        Given committed source-view declarations and a revisioned gate switch
+        When the binary reads the HEAD or index gate policy and adoption state
+        Then those policy reads do not require machine-local checkout bindings
+        And a staged transition to off remains refused until it is committed by the owner
+    - id: staged-source-view-errors-survive-working-repairs
+      statement: |
+        Given a selected source view and a new lint failure staged in the committing checkout
+        And the working tree repairs that failure without staging the repair
+        When the staged candidate is verified
+        Then verification still reports the indexed failure rather than accepting the repair
+    - id: external-source-inputs-stay-committed-and-frozen
+      statement: |
+        Given a source view bound to an external repository with dirty and untracked files
+        When the two revision snapshots resolve their external source inputs
+        Then both read the same initially captured committed content
+        And untracked files do not enter the snapshot
+        And a later external HEAD advance does not replace that captured content
+    - id: snapshot-git-does-not-run-configured-helpers
+      statement: |
+        Given Git configuration with an executable clean filter or reference-transaction hook
+        When source-view verification constructs an isolated Git snapshot
+        Then that snapshot path does not execute the configured helper
+verification:
+  unit_tests:
+    - id: "cli/hook_commitgate_sourceview_test.go::TestCommitGateSourceViewSwitchAndAdoptionWithoutLocalBindings"
+      proves:
+        - revision-policy-does-not-resolve-local-bindings
+    - id: "cli/hook_commitgate_sourceview_test.go::TestStagedSourceViewCannotUseUnstagedRepair"
+      proves:
+        - staged-source-view-errors-survive-working-repairs
+    - id: "cli/hook_commitgate_sourceview_test.go::TestStagedSourceViewCannotUseUnstagedRecordRepair"
+      proves:
+        - staged-source-view-errors-survive-working-repairs
+    - id: "cli/hook_commitgate_sourceview_test.go::TestStagedSourceViewExternalCommitIsFrozenAndDirtyFilesIgnored"
+      proves:
+        - external-source-inputs-stay-committed-and-frozen
+    - id: "cli/hook_commitgate_sourceview_test.go::TestStagedSourceViewDoesNotRunCleanFilters"
+      proves:
+        - snapshot-git-does-not-run-configured-helpers
+    - id: "cli/hook_commitgate_sourceview_test.go::TestStagedSourceViewSnapshotDoesNotRunReferenceHooks"
+      proves:
+        - snapshot-git-does-not-run-configured-helpers
+    - id: cli/hook_test.go
+      proves:
+        - the-gate-covers-every-registry
+        - failing-lint-blocks-commit
+        - commit-gate-escape-hatch
+        - the-gate-recognises-a-commit-however-it-is-written
+    - id: cli/hook_commitgate_test.go
+      proves:
+        - existing-errors-can-remain
+        - staged-errors-cannot-be-hidden
+        - unreadable-baseline-is-not-clean
+        - unknown-selection-is-not-verified
+        - private-configuration-is-not-verified
+        - deleting-records-cannot-disable-the-gate
+        - commit-gate-escape-hatch
+        - a-commit-in-another-repository-is-judged-by-that-repository
+    - id: cli/lint_staged_test.go
+      proves:
+        - staged-lint-ignores-unstaged-breakage
+        - staged-lint-reports-only-what-the-index-introduces
+        - staged-lint-has-the-shape-of-lint
+        - staged-lint-needs-a-baseline
+        - the-gate-switch-is-read-from-head-only
+        - a-commit-that-turns-the-gate-off-is-refused
+        - a-switch-is-never-borrowed-by-another-repository
+        - commit-gate-escape-hatch
+    - id: registry/config_test.go
+      proves:
+        - the-gate-switch-is-read-from-head-only
+knowledge:
+  prerequisite_knowledge:
+    question: "What must the user already understand to use this feature?"
+  not_for:
+    question: "When is this the wrong tool for the job?"
+  discoverability:
+    question: "Where does the user enter this flow in the product?"
+    derive_from:
+      - anchors
+  common_pitfalls:
+    question: "What mistakes do users typically make?"
+    answer: |
+      Believing the commit gate protects the repository. It blocks your commits
+      in your session and nobody else's.
+
+      Adding FACET_SKIP_COMMIT_GATE=1 to a shell profile after one urgent
+      commit, and never noticing the gate is off from then on.
+  success_signal:
+    question: "How does the user know it worked?"
+    answer: |
+      A staged commit adding new lint errors is refused, and the refusal lists
+      those errors. Existing identical HEAD errors do not block it.
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-07-26"
+  superseded_by: null

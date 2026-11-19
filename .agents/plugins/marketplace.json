@@ -1,0 +1,23 @@
+{
+  "name": "facet-local",
+  "owner": {
+    "name": "FACET Framework"
+  },
+  "interface": {
+    "displayName": "FACET (local)"
+  },
+  "plugins": [
+    {
+      "name": "facet",
+      "source": {
+        "source": "local",
+        "path": "./"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

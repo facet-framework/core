@@ -1,0 +1,227 @@
+#!/usr/bin/env sh
+# @facet: delivery/distribution/project-scaffold
+# @facet-role: primary
+# Scaffolds FACET into the current project: directory layout, JSON schemas,
+# the spec, the lint suite, and the CI workflow.
+
+DRY=0
+FORCE=0
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+  -n)
+    DRY=1
+    shift
+    ;;
+  -f)
+    FORCE=1
+    shift
+    ;;
+
+  -h | --help)
+    awk '
+        NR == 1 { next }
+        /^#[ \t]*@facet/ { next }
+        /^#/ { sub(/^#[ \t]?/, ""); print; next }
+        { exit }
+      ' "$0"
+    exit 0
+    ;;
+  --)
+    shift
+    break
+    ;;
+  -*)
+    echo "facet-init: unknown option '$1'" >&2
+    exit 2
+    ;;
+  *) break ;;
+  esac
+done
+
+resolve_plugin_root() {
+  if [ -n "$CLAUDE_PLUGIN_ROOT" ] && [ -d "$CLAUDE_PLUGIN_ROOT/schema" ]; then
+    printf '%s\n' "$CLAUDE_PLUGIN_ROOT"
+    return 0
+  fi
+  _self="$0"
+  case "$_self" in
+  */*) ;;
+  *) _self=$(command -v -- "$0" 2>/dev/null) || _self="$0" ;;
+  esac
+  CDPATH= cd -- "$(dirname -- "$_self")/.." && pwd
+}
+
+PLUGIN_ROOT=$(resolve_plugin_root)
+REPO_ROOT="${1:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+RECORDS_DIR="$REPO_ROOT/${FACET_RECORDS_DIR:-docs/facets}"
+
+if [ ! -d "$PLUGIN_ROOT/schema" ] || [ ! -f "$PLUGIN_ROOT/bin/facet" ]; then
+  echo "facet-init: cannot locate the FACET plugin payload (looked in $PLUGIN_ROOT for schema/ and bin/facet)." >&2
+  exit 1
+fi
+
+CREATED=0
+SKIPPED=0
+
+say() { [ "$DRY" -eq 1 ] && echo "  [dry-run] $*" || echo "  $*"; }
+
+make_dir() {
+  if [ -d "$1" ]; then
+    return 0
+  fi
+  say "create dir  ${1#"$REPO_ROOT"/}"
+  [ "$DRY" -eq 1 ] || mkdir -p "$1"
+}
+
+copy_file() {
+  src="$1"
+  dst="$2"
+  rel="${dst#"$REPO_ROOT"/}"
+  if [ -e "$dst" ] && [ "$FORCE" -eq 0 ]; then
+    say "keep        $rel (already present)"
+    SKIPPED=$((SKIPPED + 1))
+    return 0
+  fi
+  say "write       $rel"
+  if [ "$DRY" -eq 0 ]; then
+    mkdir -p "$(dirname -- "$dst")"
+    cp "$src" "$dst"
+  fi
+  CREATED=$((CREATED + 1))
+}
+
+copy_tool() {
+  src="$1"
+  dst="$2"
+  rel="${dst#"$REPO_ROOT"/}"
+  # The comment may be indented when $3 is 'indented'; the lint scripts never
+  # indent an anchor, the dispatcher does once, inside a condition.
+  _lead=
+  [ "${3:-}" = indented ] && _lead='[[:space:]]*'
+  if [ -e "$dst" ] && [ "$FORCE" -eq 0 ]; then
+    say "keep        $rel (already present)"
+    SKIPPED=$((SKIPPED + 1))
+    return 0
+  fi
+  say "write       $rel"
+  if [ "$DRY" -eq 0 ]; then
+    mkdir -p "$(dirname -- "$dst")"
+    # '^#[[:space:]]*@facet(-role)?:' — a comment whose content begins with the
+    # tag. A fixture writes its tags through printf and a pattern carries them
+    # inside quotes, so neither can match.
+    sed "/^$_lead#[[:space:]]*@facet:[[:space:]]/d; /^$_lead#[[:space:]]*@facet-role:[[:space:]]/d" \
+      "$src" >"$dst"
+  fi
+  CREATED=$((CREATED + 1))
+}
+
+# write_file writes literal content from stdin, with the same keep-what-exists
+# rule as copy_file. Used for the files the plugin has no template of because
+# their content is a decision about the project rather than a copy.
+write_file() {
+  dst="$1"
+  rel="${dst#"$REPO_ROOT"/}"
+  if [ -e "$dst" ] && [ "$FORCE" -eq 0 ]; then
+    say "keep        $rel (already present)"
+    SKIPPED=$((SKIPPED + 1))
+    cat >/dev/null
+    return 0
+  fi
+  say "write       $rel"
+  if [ "$DRY" -eq 0 ]; then
+    mkdir -p "$(dirname -- "$dst")"
+    cat >"$dst"
+  else
+    cat >/dev/null
+  fi
+  CREATED=$((CREATED + 1))
+}
+
+echo "=== FACET init — ${REPO_ROOT} ==="
+[ "$DRY" -eq 1 ] && echo "  (dry run — nothing will be written)"
+
+echo ""
+echo "Record layout:"
+for d in features policies assumptions data-entities schema framework; do
+  make_dir "$RECORDS_DIR/$d"
+done
+
+echo ""
+echo "Schemas and spec:"
+for f in "$PLUGIN_ROOT"/schema/*.json; do
+  [ -e "$f" ] || continue
+  copy_file "$f" "$RECORDS_DIR/schema/$(basename -- "$f")"
+done
+copy_file "$PLUGIN_ROOT/docs/framework/FACET.md" "$RECORDS_DIR/framework/FACET.md"
+
+echo ""
+echo "Lint suite:"
+make_dir "$REPO_ROOT/tools/facet-lint"
+for f in "$PLUGIN_ROOT"/tools/facet-lint/*.sh; do
+  [ -e "$f" ] || continue
+  dst="$REPO_ROOT/tools/facet-lint/$(basename -- "$f")"
+  copy_tool "$f" "$dst"
+  [ "$DRY" -eq 0 ] && [ -f "$dst" ] && chmod +x "$dst" 2>/dev/null
+done
+# The dispatcher the CI workflow runs: it pins the FACET version and installs
+# that release checksum-verified, so the project needs no second download path.
+copy_tool "$PLUGIN_ROOT/bin/facet" "$REPO_ROOT/tools/facet-lint/facet" indented
+[ "$DRY" -eq 0 ] && [ -f "$REPO_ROOT/tools/facet-lint/facet" ] && chmod +x "$REPO_ROOT/tools/facet-lint/facet" 2>/dev/null
+
+echo ""
+echo "Scan filter:"
+write_file "$REPO_ROOT/.facetignore" <<'EOF'
+# Files FACET never needs to read.
+#
+# Every scan for @facet: anchors opens each file this does not exclude, and a
+# repository usually holds a lot that can never carry one: rendered audio,
+# images, fonts, compiled output, generated bundles.
+#
+# This file ships empty on purpose. What is irrelevant is a judgement about
+# this repository, and a scaffold that guessed would either miss what matters
+# here or hide something that does carry anchors. Fill it in once, from what is
+# actually in the tree. Media and documents are the usual answer.
+#
+# Syntax is .gitignore's, one pattern per line, applying to this directory and
+# everything below. This is not .gitignore: excluding a file here says nothing
+# about whether it is versioned.
+#
+# Example, once you know the tree:
+#   *.mp3
+#   *.png
+EOF
+
+echo ""
+echo "CI workflow:"
+# The project workflow is the one FACET Core publishes, at
+# .github/workflows/facet-lint.yml of the plugin.
+WORKFLOW_SRC="$PLUGIN_ROOT/.github/workflows/facet-lint.yml"
+# An optional development hook of the source tree may name another location
+# (DEV_LINT_WORKFLOW, relative to the plugin root).
+DEV_LINT_WORKFLOW=
+if [ -f "$PLUGIN_ROOT/scripts/dev-build-hook.sh" ]; then
+  # shellcheck disable=SC1091
+  . "$PLUGIN_ROOT/scripts/dev-build-hook.sh"
+fi
+[ -z "$DEV_LINT_WORKFLOW" ] || WORKFLOW_SRC="$PLUGIN_ROOT/$DEV_LINT_WORKFLOW"
+copy_file "$WORKFLOW_SRC" "$REPO_ROOT/.github/workflows/facet-lint.yml"
+
+echo ""
+echo "=== Done — $CREATED file(s) written, $SKIPPED kept ==="
+cat <<'EOF'
+
+Still to do (these need judgement, not copying):
+  1. Fill in .facetignore, which was written empty. Look at what this
+     repository actually holds and list what a scan never needs to open.
+     Media and documents are usually irrelevant; anything that could carry an
+     @facet: anchor stays.
+  2. Write the first feature record. See docs/AUTHORING.md, or ask Claude —
+     the /facet:authoring skill covers the full authoring workflow.
+  3. Run 'facet-lint' to verify the setup.
+
+.github/workflows/facet-lint.yml lints every pull request with the FACET
+version pinned in tools/facet-lint/facet. It has no paths filter on purpose;
+if you add one, it must cover docs/facets/** and every directory with
+@facet: anchors.
+EOF

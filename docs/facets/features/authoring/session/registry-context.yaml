@@ -1,0 +1,235 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: authoring/session/registry-context
+lifecycle: active
+intent:
+  summary: |
+    Supplies the registry overview and working rules at session start.
+    Restores this context when the agent session is compacted.
+contract:
+  scenarios:
+    - id: session-context-injected
+      statement: |
+        Given a project containing FACET feature records
+        When a supported agent session starts
+        Then the registry's record counts, layout, and working rules are
+        injected into the session context
+      post_state:
+        additional_context_emitted: true
+    - id: inert-without-adoption
+      statement: |
+        Given a project with no FACET records directory
+        When any of the plugin's hooks fire
+        Then the hook exits zero and emits no output, except for the one-time
+        setup hint of a git repository (see setup-hint-in-unadopted-repo)
+      post_state:
+        output: empty
+        exit_code: 0
+    - id: variant-rules-are-always-present
+      statement: |
+        Given a project declaring variants
+        When a session starts, and again before its context is compacted
+        Then the declared variants are named and the rules that govern them are
+        stated, so an agent is told them rather than having to invoke a skill
+        that might not trigger
+      post_state:
+        additional_context_emitted: true
+    - id: variant-registry-counts-are-not-zero
+      statement: |
+        Given records that carry per-variant lifecycles instead of a top-level one
+        When the session-start summary is produced
+        Then those records are counted as active where they are active, rather
+        than reported as an empty registry, and a per-variant breakdown is shown
+      post_state:
+        counts_reflect_variants: true
+    - id: silent-about-variants-without-a-map
+      statement: |
+        Given a project with no variants.yaml
+        When a session starts
+        Then nothing about variants is injected
+      post_state:
+        variant_block_emitted: false
+    - id: the-roster-is-delivered-at-the-start-and-after-every-compaction
+      statement: |
+        Given a supported agent session in a FACET project whose roster fits the context budget
+        And the shell fallback can create temporary files when it is used
+        When the session starts, and again each time its context is compacted
+        Then the record roster is supplied as context, so an agent that has
+        just lost its working memory routes a question from what exists rather
+        than rebuilding the list by searching
+      post_state:
+        roster_in_output: true
+    - id: a-large-roster-stays-within-the-context-budget
+      statement: |
+        Given a project with 4000 records and the default record-index byte budget
+        When the native hook or shell fallback prepares the roster
+        Then output does not exceed the byte budget
+        And it names the total record count and says that further records are omitted
+        And every included record line is complete
+    - id: an-unavailable-temporary-store-does-not-unbound-the-roster
+      statement: |
+        Given a FACET project with records
+        And the shell fallback cannot create temporary files
+        When it prepares the roster with a 1024-byte budget
+        Then output stays within that budget
+        And it explains that temporary storage is unavailable
+        And it emits no record roster lines
+    - id: rules-survive-compaction
+      statement: |
+        Given a session long enough for its context to be compacted
+        When compaction is about to run
+        Then the working rules are restated, together with the records this
+        working tree has already changed, so the rules do not disappear at the
+        point in a session where the most code has been changed
+      post_state:
+        additional_context_emitted: true
+    - id: setup-hint-in-unadopted-repo
+      statement: |
+        Given a git repository with no docs/facets and no .facetrc.yaml
+        When a session starts
+        Then two lines direct the user to the specification or minimal registry example
+        And they name facet setup status without starting setup
+      post_state:
+        additional_context_emitted: true
+    - id: setup-hint-is-not-shown-in-an-adopted-repo
+      statement: |
+        Given a git repository with docs/facets or .facetrc.yaml
+        When a session starts
+        Then the setup hint is not given, because it would advertise a setup
+        that was done
+      post_state:
+        setup_hint_emitted: false
+    - id: setup-hint-needs-a-git-repo-that-is-not-home
+      statement: |
+        Given a directory outside git, or inside a repository rooted at the
+        home directory
+        When a session starts
+        Then nothing is said
+      post_state:
+        output: empty
+    - id: setup-hint-is-given-once-per-repository
+      statement: |
+        Given a repository that was already given the setup hint
+        When another session starts there, or another event fires
+        Then the hint is not repeated, and a second repository still gets its
+        own
+      post_state:
+        setup_hint_emitted: false
+    - id: registries-are-named-in-the-summary
+      statement: |
+        Given a project declaring several registries in .facetrc.yaml
+        When a session starts
+        Then each is summarised separately, with its own record counts and the
+        directories it owns, and the rule that ids are per-registry is stated
+      post_state:
+        additional_context_emitted: true
+    - id: codex-compact-start-restores-working-rules
+      statement: |
+        Given an adopted project and an agent session that has been compacted
+        When Codex starts the resumed session
+        Then the native hook restores the same context as before compaction
+        And the shell fallback supplies the record roster and working rules
+      post_state:
+        additional_context_emitted: true
+    - id: knowledge-rules-support-grounded-answers
+      statement: |
+        Scenario Outline: Supply consistent Knowledge guidance throughout a session
+          Given an agent session in an adopted FACET project
+          When working rules are supplied <phase>
+          Then the rules ask for evidence-based answers to all five Knowledge questions
+          And the rules require inferred answers to be identified in the handover for human review
+          And the rules permit an absent answer only when evidence cannot answer it
+          And the rules require missing owner input to be reported outside the record
+          And the rules prohibit inventing owner facts
+
+          Examples:
+            | phase                       |
+            | at session start            |
+            | before context compaction   |
+            | when a compacted session resumes |
+verification:
+  unit_tests:
+    - id: cli/hook_test.go
+      proves:
+        - session-context-injected
+        - inert-without-adoption
+        - the-roster-is-delivered-at-the-start-and-after-every-compaction
+    - id: "cli/hook_bounds_dedup_test.go::TestFourThousandRecordHookRosterFitsBudget"
+      proves:
+        - a-large-roster-stays-within-the-context-budget
+    - id: "cli/hook_bounds_dedup_test.go::TestShellRosterRemainsBoundedWithoutTemporaryStorage"
+      proves:
+        - an-unavailable-temporary-store-does-not-unbound-the-roster
+    - id: "cli/hook_codex_test.go::TestCodexCompactSessionStartReconstructsPersistentRules"
+      proves:
+        - codex-compact-start-restores-working-rules
+    - id: "cli/hook_codex_test.go::TestSessionKnowledgeRulesAllowGroundedAnswers"
+      proves:
+        - knowledge-rules-support-grounded-answers
+    - id: cli/hook_setuphint_test.go
+      proves:
+        - setup-hint-in-unadopted-repo
+        - setup-hint-is-not-shown-in-an-adopted-repo
+        - setup-hint-needs-a-git-repo-that-is-not-home
+        - setup-hint-is-given-once-per-repository
+knowledge:
+  prerequisite_knowledge:
+    question: "What must the user already understand to use this feature?"
+    answer: |
+      Claude Code or Codex, with the FACET plugin installed and enabled.
+
+      Record checks require an adopted FACET registry. An eligible Git
+      repository without adoption receives a one-time setup hint, which does
+      not start setup or enable record checking. Large rosters are bounded;
+      the shell fallback explains their omission when temporary storage is
+      unavailable and the notice fits the configured context budget.
+
+      The vocabulary matters: the hooks' messages assume you know what a
+      feature record is and what an '@facet:' anchor claims. No toolchain is
+      required — the hooks fall back to POSIX shell when no binary is present.
+  not_for:
+    question: "When is this the wrong tool for the job?"
+    answer: |
+      Not a replacement for CI. The hooks run only inside your session, so a
+      colleague without the plugin, a commit made from a web UI, or a merge
+      performed by a bot passes untouched. CI is the enforcement that binds
+      everyone; this makes the feedback arrive earlier for you.
+
+      Not a review of what a record says. The hooks check structure and
+      linkage — schema validity, whether anchors resolve — and never whether a
+      contract scenario actually describes the code.
+
+      Not a way to introduce FACET to a project. In a repository without
+      records they do nothing, on purpose; the only thing a session says there
+      is a one-time pointer to the specification or minimal registry example and
+      the supported facet setup status command.
+  discoverability:
+    question: "Where does the user enter this flow in the product?"
+    answer: |
+      Install and enable FACET in the agent host's plugin interface. The hooks
+      run automatically in supported sessions; 'facet lint' checks the registry
+      on demand. Session context points to the FACET specification for record
+      structure and 'facet lint --help' for validation options.
+    derive_from:
+      - anchors
+  common_pitfalls:
+    question: "What mistakes do users typically make?"
+    answer: |
+      Reading silence as a clean registry. In a project that never adopted
+      FACET, silence means nothing is watching at all.
+  success_signal:
+    question: "How does the user know it worked?"
+    answer: |
+      The session opens with a summary of the registry — record counts and the
+      working rules — instead of you having to explain the project's
+      conventions.
+
+      In an eligible repository without FACET, the one-time setup hint may
+      appear. It is guidance, not a registry check; later silence does not
+      establish that records have been checked.
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-07-26"
+  superseded_by: null

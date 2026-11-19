@@ -1,0 +1,112 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: delivery/distribution/registry-snapshot
+lifecycle: active
+intent:
+  summary: |
+    Freezes a repository's registry into one file that a consumer that
+    ingests it can show without the repository: the registry corpus FACET builds from the
+    working tree (records, anchors and the scan), together with the commit,
+    branch and time it was taken from. Atlas, a separate product, reads this
+    format.
+contract:
+  scenarios:
+    - id: the-snapshot-carries-the-corpus-and-its-origin
+      statement: |
+        Given a git repository with FACET records and anchored source
+        When 'facet snapshot -o snapshot.json' runs
+        Then the file holds the envelope format facet-snapshot/1
+        And the registry corpus built from that repository, records and anchors included
+        And the commit it was built from and the time it was built
+      post_state:
+        format: facet-snapshot/1
+    - id: the-snapshot-carries-no-local-path
+      statement: |
+        Given a repository checked out at any path on the building machine
+        When a snapshot is written
+        Then the scan root in the corpus is empty
+        And no part of the file names the directory it was built in
+    - id: excerpts-can-be-left-behind
+      statement: |
+        Given anchors whose first source line the default snapshot quotes
+        When 'facet snapshot --no-excerpts' runs
+        Then no anchor in the file carries a source excerpt
+        And the origin says that excerpts were omitted
+    - id: a-remote-with-credentials-is-written-without-them
+      statement: |
+        Given an origin remote of the form https://user:token@host/owner/repo
+        When a snapshot is written
+        Then the remote in the origin is https://host/owner/repo
+    - id: a-project-without-records-is-refused
+      statement: |
+        Given a directory that has not adopted FACET
+        When 'facet snapshot' runs
+        Then it names the directory where records were expected
+        And it writes no file
+        And it suggests adding records there or selecting a project with --root
+    - id: a-linked-product-adds-a-named-section
+      statement: |
+        Given a product linked into the build registers a corpus section under its own name
+        When the corpus is built and marshalled
+        Then the section follows Core's fields, sections in name order
+        And a section whose builder has nothing for the project is left out
+        And a corpus without sections marshals as Core's fields alone
+        And an empty name, a missing builder, a Core field name or a second registration of one name is refused
+verification:
+  unit_tests:
+    - id: cli/snapshot_test.go
+      proves:
+        - the-snapshot-carries-the-corpus-and-its-origin
+        - the-snapshot-carries-no-local-path
+        - excerpts-can-be-left-behind
+        - a-remote-with-credentials-is-written-without-them
+        - a-project-without-records-is-refused
+    - id: "corpus/sections_test.go::TestRegisteredSectionsFollowCoreFieldsInNameOrder"
+      proves:
+        - a-linked-product-adds-a-named-section
+    - id: "corpus/sections_test.go::TestACorpusWithoutSectionsMarshalsCoreFieldsAlone"
+      proves:
+        - a-linked-product-adds-a-named-section
+    - id: "corpus/sections_test.go::TestRegisterSectionRefusesAmbiguousNames"
+      proves:
+        - a-linked-product-adds-a-named-section
+knowledge:
+  prerequisite_knowledge:
+    question: "What must a user already know to use this?"
+    answer: |
+      That a snapshot is a copy of the registry at one commit, not a live view.
+      A consumer that ingests it shows it until the next snapshot replaces it.
+  not_for:
+    question: "When is this the wrong tool for the job?"
+    answer: |
+      Not a live view of a local registry — a reader that loads the working
+      tree stays current, a snapshot does not. Not a source export: the file carries no source files,
+      but it is not source-free either (see common_pitfalls).
+  discoverability:
+    question: "Where does the user find this?"
+    answer: |
+      'facet snapshot -o snapshot.json', usually in CI. A publishing
+      workflow can run it on main and hand the file to whatever reads
+      snapshots.
+  common_pitfalls:
+    question: "What do users commonly get wrong?"
+    answer: |
+      Treating the file as safe to publish. Every anchor quotes the first
+      source line below it unless --no-excerpts is set, and the scan lists
+      every file it read with its line count, which is the repository's
+      directory structure. An unignored dependency directory ends up in that
+      list: an unignored dependency tree such as node_modules can substantially increase
+      the snapshot size.
+
+      A project with no records is refused. Add records under its configured
+      records directory, or use --root to select an adopted project.
+  success_signal:
+    question: "How does the user know it worked?"
+    answer: |
+      The command prints the path, the size, the record count and the commit,
+      and exits 0.
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-10-09"

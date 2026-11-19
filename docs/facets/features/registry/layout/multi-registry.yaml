@@ -1,0 +1,144 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: registry/layout/multi-registry
+lifecycle: active
+intent:
+  summary: |
+    Lets one repository hold several unrelated products, each with its own
+    record tree, source view and coverage result. The committed '.facetrc.yaml'
+    makes that layout reproducible across callers; a single coverage number
+    spanning unrelated products would give maintainers no useful place to act.
+contract:
+  scenarios:
+    - id: layout-comes-from-the-repository
+      statement: |
+        Given a project declaring its records directory and source directories
+        in .facetrc.yaml
+        When any command runs
+        Then it uses that layout, so CI and a developer's shell cannot disagree
+        about where the registry lives
+      post_state:
+        layout_source: committed
+    - id: no-config-changes-nothing
+      statement: |
+        Given a project with no .facetrc.yaml
+        When 'facet lint' runs
+        Then the defaults apply unchanged and no registry name appears in the
+        output, because the project declared none
+      post_state:
+        registry_names_in_output: 0
+    - id: each-registry-is-checked-separately
+      statement: |
+        Given a monorepo declaring several registries
+        When 'facet lint' runs
+        Then each is checked against its own records and sources, and every
+        finding names the registry it came from
+      post_state:
+        findings_carry_registry: true
+    - id: shared-code-resolves-against-any-owning-registry
+      statement: |
+        Given a directory listed as a source by two registries, carrying an
+        anchor whose record exists in only one of them
+        When 'facet lint' runs
+        Then the anchor is not reported as dangling, because the feature it
+        names does exist in a registry entitled to claim the file
+      post_state:
+        dangling_anchor_findings: 0
+    - id: exclusive-code-gets-no-benefit-of-the-doubt
+      statement: |
+        Given an anchor in a file only one registry claims, naming an id that
+        registry has no record for
+        When 'facet lint' runs
+        Then it is an error however many other registries hold that id, because
+        code belonging to one product alone implements a feature that product
+        has not documented
+      post_state:
+        severity: error
+    - id: shared-code-proves-no-registry-presence
+      statement: |
+        Given a record active in a registry whose only anchors lie in code
+        another registry also claims
+        When 'facet lint' runs
+        Then a warning reports that shared logic existing does not establish
+        that this product reaches the feature
+      post_state:
+        severity: warning
+    - id: a-declaration-the-file-cannot-honour-is-refused-when-it-is-read
+      statement: |
+        Given a .facetrc.yaml naming a forge this tooling cannot drive, or
+        keying one by a URL rather than by the host of a git remote
+        When the configuration is loaded
+        Then it is refused with the offending value named, rather than
+        silently ignored at the moment it would have mattered — a declaration
+        that matches nothing is the worst shape a key can take, because it
+        looks configured and behaves as though it were absent
+      post_state:
+        silently_ignored: false
+    - id: an-id-in-two-registries-is-one-feature
+      statement: |
+        Given the same feature id documented by two registries
+        When the coverage matrix is produced
+        Then both appear on one row with their own lifecycles, so the two
+        products can be compared
+      post_state:
+        rows_for_the_id: 1
+    - id: a-selected-registry-is-judged-within-the-whole-project
+      statement: |
+        Given two registries where one depends on a record of the other
+        When 'facet lint --registry' selects one of them
+        Then the other registry still resolves its ids and anchors
+        And only the selected registry's findings are reported
+verification:
+  unit_tests:
+    - id: registry/lint_registry_test.go
+      proves:
+        - each-registry-is-checked-separately
+        - shared-code-resolves-against-any-owning-registry
+        - exclusive-code-gets-no-benefit-of-the-doubt
+        - shared-code-proves-no-registry-presence
+        - no-config-changes-nothing
+    - id: "registry/lint_registry_test.go::TestSelectingARegistryKeepsTheOtherRegistriesAsContext"
+      proves:
+        - a-selected-registry-is-judged-within-the-whole-project
+    - id: registry/config_test.go
+      proves:
+        - layout-comes-from-the-repository
+        - each-registry-is-checked-separately
+        - no-config-changes-nothing
+        - a-declaration-the-file-cannot-honour-is-refused-when-it-is-read
+knowledge:
+  prerequisite_knowledge:
+    question: "What must the user already understand to use this feature?"
+    answer: |
+      Without it a monorepo has one coverage number spanning products that share
+      no features, which is a number nobody can act on. With it, each registry
+      is checked separately and a record written into the wrong tree is loaded
+      by nobody — so the layout has to be read before a path is chosen, not
+      after.
+
+      The layout lives in '.facetrc.yaml', committed beside the code. A
+      committed layout keeps CI and local sessions aligned rather than relying
+      on shell-specific configuration; explicit overrides still apply. A project
+      without this file uses the default layout, so adoption is optional.
+
+      Ids stay global on purpose. The same id in two registries is the *same
+      feature*, documented independently once per product, and that is what
+      makes the two comparable at all. Shared code anchors resolve against
+      whichever registry owns the record; exclusive code gets no such benefit of
+      the doubt.
+  not_for:
+    question: "When is this the wrong tool for the job?"
+  discoverability:
+    question: "Where does the user enter this flow in the product?"
+    derive_from:
+      - anchors
+  common_pitfalls:
+    question: "What mistakes do users typically make?"
+  success_signal:
+    question: "How does the user know it worked?"
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-07-26"
+  superseded_by: null

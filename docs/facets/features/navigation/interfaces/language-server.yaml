@@ -1,0 +1,126 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: navigation/interfaces/language-server
+lifecycle: active
+intent:
+  summary: |
+    Makes the FACET registry navigable from editors and agents through one
+    language server. Hover shows the anchored record, go-to-definition opens it,
+    diagnostics underline unresolved ids and completion offers existing ids.
+    Claude Code can consume the diagnostics while an editor user needs no plugin
+    to follow the link from code to its record.
+contract:
+  scenarios:
+    - id: hover-resolves-anchor
+      statement: |
+        Given the cursor on an '@facet:' anchor whose record exists
+        When hover is requested
+        Then the record's lifecycle, intent summary, scenario count, and any
+        Knowledge slots awaiting their owner are shown
+      post_state:
+        hover_returned: true
+    - id: definition-jumps-to-record
+      statement: |
+        Given the cursor on a resolvable '@facet:' anchor
+        When go-to-definition is requested
+        Then the location of the record file is returned
+    - id: unresolvable-anchor-is-diagnosed
+      statement: |
+        Given a source file containing an '@facet:' id with no record
+        When the file is opened or edited
+        Then an error diagnostic is published on the id itself
+      post_state:
+        severity: error
+    - id: missing-role-is-informational
+      statement: |
+        Given a resolvable anchor with no '@facet-role:' on the following line
+        When the file is opened or edited
+        Then an informational diagnostic is published, not an error
+      post_state:
+        severity: information
+    - id: clean-file-clears-diagnostics
+      statement: |
+        Given a file whose anchors all resolve
+        When diagnostics are published
+        Then an empty list is sent rather than null, so a client cannot leave a
+        previously reported problem on screen after it was fixed
+      post_state:
+        diagnostics: []
+    - id: completion-offers-existing-ids
+      statement: |
+        Given a partially typed '@facet:' tag
+        When completion is requested
+        Then every feature id in the registry is offered, with its lifecycle
+    - id: no-dependency-may-cost-a-platform
+      statement: |
+        Given the language server is part of the cross-platform binary
+        When it is built for every published target
+        Then linux, macOS and Windows on amd64 and arm64 all compile, because
+        the protocol framing is implemented in-tree rather than taken from a
+        library whose dependencies do not support every platform
+      post_state:
+        targets_building: 6
+    - id: prose-is-not-diagnosed
+      statement: |
+        Given a documentation file, or any file marked '@facet-ignore-file',
+        containing an '@facet:' tag as an example
+        When the file is opened
+        Then no diagnostics are published, because the tag illustrates the
+        syntax rather than claiming an implementation
+      post_state:
+        diagnostics: []
+knowledge:
+  prerequisite_knowledge:
+    question: "What must the user already understand to use this feature?"
+    answer: |
+      An editor that speaks LSP. Under Claude Code the plugin registers the
+      server itself; in another editor it is configured like any other language
+      server, pointing at 'facet lsp'.
+
+      The project must have adopted FACET. Without records there is nothing to
+      resolve anchors against, and the server has nothing to say.
+
+      The same process serves editor users and agents: Claude Code consumes LSP
+      diagnostics, and a colleague with no plugin still gets hover and jumps in
+      their own editor.
+  not_for:
+    question: "When is this the wrong tool for the job?"
+    answer: |
+      Not a replacement for 'facet lint'. The server only sees files the editor
+      has open, so it cannot report an active record whose anchor was deleted in
+      a file nobody opened. Whole-registry checks stay with the linter and CI.
+
+      Not a language server for the project's own language. It contributes only
+      FACET intelligence, and is meant to run alongside gopls, tsserver, or
+      whatever the project already uses.
+  discoverability:
+    question: "Where does the user enter this flow in the product?"
+    answer: |
+      Registered automatically by the FACET plugin via .lsp.json. Standalone:
+      'facet lsp' speaks LSP over stdio.
+    derive_from:
+      - anchors
+  common_pitfalls:
+    question: "What mistakes do users typically make?"
+    answer: |
+      Expecting registry-wide findings from a server that only sees open files —
+      a green editor is not a green 'facet lint'.
+
+      Reading the missing-role diagnostic as an error. It is informational,
+      because a role tag is a convention the linter does not enforce.
+
+      Assuming completion knows about a record that was created but never
+      written to disk; the server reads records from the filesystem.
+  success_signal:
+    question: "How does the user know it worked?"
+    answer: |
+      Hovering an anchor shows the feature's intent instead of nothing, and a
+      mistyped id is underlined in the editor before it ever reaches CI.
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-07-27"
+  superseded_by: null
+  depends_on:
+    - registry/integrity/record-validation

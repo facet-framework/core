@@ -1,0 +1,143 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: delivery/distribution/core-release-packaging
+lifecycle: active
+intent:
+  summary: |
+    Packages FACET Core without Atlas, under its Apache-2.0 license, into the
+    archives the bin/facet dispatcher downloads, from a clean commit only, with
+    a binary that states its version,
+    distribution, commit, build time and channel. The release workflow tags a
+    version only after every artifact exists.
+contract:
+  scenarios:
+    - id: core-archives-are-named-as-the-dispatcher-asks
+      statement: |
+        Given a packaged Core version for linux, darwin and windows on amd64 and arm64
+        When the archive names are compared with the names bin/facet requests
+        Then each is facet_<version>_<os>_<arch>, tar.gz everywhere and zip on Windows
+        And the binary at the archive root is facet, or facet.exe on Windows
+    - id: core-archives-carry-core-and-its-apache-license
+      statement: |
+        Given a checkout of the Core sources with no submodule content
+        When Core is packaged
+        Then each archive holds exactly the binary, LICENSE, NOTICE, README.md, CHANGELOG.md, schema/*.json and the third-party notices (core-archives-carry-the-third-party-notices), and no other executable such as a plugin sidecar
+        And LICENSE and NOTICE are byte for byte the Core license and notice the public Core export uses, never the repository root LICENSE of the development tree
+        And a Core license source that is not the Apache License 2.0 text, or still holds a template placeholder, stops packaging before any output exists, naming the file
+    - id: core-archives-carry-the-third-party-notices
+      statement: |
+        Given a Core NOTICE that refers to THIRD_PARTY.json and THIRD_PARTY_LICENSES/
+        When Core is packaged
+        Then every archive holds THIRD_PARTY.json and, under THIRD_PARTY_LICENSES/, exactly the verbatim files it lists with their sha256, the same corpus in every archive
+        And in the public layout that corpus is the one at the root of the exported tree, byte for byte
+        And in the development layout the notice collector of the public release tooling collects it from the compiled closure of ./cmd/facet united over the six release platforms, so a module only another command links (html-to-markdown) is not listed and a module only Windows links (mousetrap) is
+        And release-third-party-check.sh stops packaging when THIRD_PARTY.json misses a module the command compiles on any release platform, lists one no platform compiles, names another Go toolchain than the one building, or lists a file that is missing or has another hash
+        And a NOTICE that refers to a file the archive would lack, such as a public tree without THIRD_PARTY_LICENSES/, stops packaging naming that file before any archive is written
+    - id: the-binary-states-its-provenance
+      statement: |
+        Given Core packaged from a clean commit for repository <owner>/<repo>
+        When the binary extracted from an archive reports its identity
+        Then it names <version>+g<commit prefix>, the distribution github-<owner>-<repo>, the full commit, dirty false, the commit time in UTC and the channel of the kind
+    - id: the-distribution-id-matches-the-dispatcher-cache
+      statement: |
+        Given repository names with upper case, dots, underscores and other characters
+        When the release stamp and bin/facet's distribution_for_repo() derive a distribution id
+        Then both produce the same id for every name
+    - id: a-dirty-tree-or-leftover-output-is-refused
+      statement: |
+        Given a modified tracked file or an untracked file in the source tree, or an output directory that already holds files
+        When Core packaging starts
+        Then it fails before building
+        And a dirty tree leaves no output directory, and leftover files stay unchanged
+    - id: repeated-packaging-is-byte-identical
+      statement: |
+        Given the same commit and toolchain
+        When Core is packaged twice into two new directories
+        Then every archive, checksums.txt and release-manifest.json are byte-identical
+        And a Windows zip packaged in two different timezones is byte-identical
+    - id: a-release-is-tagged-only-after-packaging
+      statement: |
+        Given a manual release in the workflow
+        When its steps run in order
+        Then the source tree is checked clean before Core is packaged
+        And in the development layout, which also releases other products from the same workflow, submodule state is reset before that clean-tree check
+        And a Core release builds no reader, because the Core command links no reader; it sets up Node only for packing the npm packages (delivery/distribution/npm-packages)
+        And the tag collision check and the gh check precede packaging
+        And the tag is created after packaging and before the release is published
+    - id: a-publish-resumes-only-its-own-unpublished-version
+      statement: |
+        Given a run of the same commit that pushed its tag and failed before or during publishing
+        When the release is run again
+        Then the tag on origin at HEAD is not created again, a missing release is created as a draft or a left-over draft is reused, and the assets are uploaded with --clobber before the draft is published
+        And a tag on another commit or an already published release fails without creating, uploading or editing anything
+        And a failure to query origin or gh fails the run instead of reading as a free tag
+    - id: the-source-layout-chooses-command-license-and-tags
+      statement: |
+        Given FACET_RELEASE_LAYOUT unset
+        When Core is packaged or published from a tree with PUBLIC-SOURCE-MANIFEST.json at its root
+        Then ./cmd/facet is built, the root LICENSE and NOTICE are packaged and tags are v<version>
+        And without that receipt, in a tree that has the development layout's own Core command directory and Core license directory, that command is built with the LICENSE and NOTICE of that license directory and tags stay internal/core/<version>
+        And a tree with neither the receipt nor those development marks stops before anything is built, naming the receipt, instead of falling back to internal/core/<version> tags
+        And the archive names are the same in both layouts
+        And FACET_RELEASE_LAYOUT=public is refused unless that receipt names product core, while FACET_RELEASE_LAYOUT=development is taken as named and keeps internal/core/<version> tags even beside a receipt
+    - id: the-public-layout-never-runs-development-branches
+      statement: |
+        Given the public layout, a tree with a Core receipt
+        When packaging, publishing or stamping runs there
+        Then packaging never calls the development notice collector, publishing refuses an Atlas release before asking gh anything and never takes the development changelog section as notes
+        And release-stamp.sh refuses atlas-env and reset-submodules before any of their code runs, leaving the tree untouched
+    - id: an-internal-release-installs-through-the-dispatcher
+      statement: |
+        Given FACET_REPOS=<owner>/<repo>, FACET_VERSION=<version> and FACET_RELEASE_TAG naming a tag other than the default v<version> that contains slashes, such as the development-layout tag internal/core/<version>
+        When bin/facet downloads the release
+        Then the browser URL, gh release download and the API releases/tags path carry the tag with its slashes unescaped
+        And the install lands under dist/core/github-<owner>-<repo>/<platform>/<version> recording that tag
+verification:
+  unit_tests:
+    - id: "cli/dispatcher_release_tag_test.go::TestAnInternalTagWithSlashesReachesEveryDownloadPathUnescaped"
+      proves:
+        - an-internal-release-installs-through-the-dispatcher
+    - id: "cli/dispatcher_release_tag_test.go::TestAnInternalTagInstallsUnderTheRepositorysDistribution"
+      proves:
+        - an-internal-release-installs-through-the-dispatcher
+    - id: scripts/release-layout.test.sh
+      proves:
+        - the-source-layout-chooses-command-license-and-tags
+knowledge:
+  prerequisite_knowledge:
+    question: "What must a maintainer know first?"
+    answer: |
+      Versions come from delivery/distribution/release-version-resolution.
+  not_for:
+    question: "What does this not do?"
+    answer: |
+      It does not publish to npm and does not sign anything; the stamps
+      describe a build, they are not signatures. Releasing from the public
+      Core repository is delivery/distribution/public-core-release, which
+      runs this packaging in the public layout.
+  discoverability:
+    question: "Where does a maintainer enter this?"
+    answer: |
+      FACET_RELEASE_REPO=<owner>/<repo> sh scripts/release-package-core.sh
+      <version> <empty out-dir> [<platform> ...], or the Release workflow: in
+      the development layout it takes the product to release (core), in the
+      public layout it releases Core only. A release tagged other than v<version>, such as a
+      development-layout tag internal/core/<version>, installs through
+      bin/facet with FACET_REPOS=<owner>/<repo>, FACET_VERSION=<version> and
+      FACET_RELEASE_TAG=<tag>.
+  common_pitfalls:
+    question: "What is easy to get wrong?"
+    answer: |
+      Packaging from a working tree with uncommitted or untracked files: it is
+      refused, never stamped dirty. Reusing a dist directory: it is refused.
+  success_signal:
+    question: "How is success recognized?"
+    answer: |
+      The dispatcher installs the archive under dist/core/github-<owner>-<repo>/,
+      and the installed binary's facet version --json reports the same
+      distribution, dirty false and install origin facet-cache.
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-11-14"

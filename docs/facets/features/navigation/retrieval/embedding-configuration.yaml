@@ -1,0 +1,92 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: navigation/retrieval/embedding-configuration
+lifecycle: active
+intent:
+  summary: |
+    Decides which embedding model a project uses and where its credential
+    comes from, with a per-run override for the cases the committed
+    configuration does not cover.
+
+    The key is read from an environment variable and never written anywhere
+    — not into the index, not into the project's configuration, not into a
+    log line. An index file is committed or shared often enough that a key
+    inside one would eventually be published by someone who had no idea it
+    was there.
+
+    A project that has configured nothing can still index and query, because
+    a retrieval feature that requires a configuration pass before it will do
+    anything is one nobody evaluates.
+contract:
+  scenarios:
+    - id: embedding-settings-pass-project-validation
+      statement: |
+        Given a single-registry or multi-registry project with embedding settings
+        When its configuration is validated
+        Then an empty block or the supported provider, base_url, model, api_key_env, dimensions, batch and index fields are accepted
+    - id: invalid-embedding-fields-are-rejected
+      statement: |
+        Given embedding settings containing an unknown field or a value of the wrong type
+        When their schema is validated
+        Then validation reports an error
+        And a literal api_key field is rejected
+    - id: the-key-is-read-from-a-variable-and-never-stored
+      statement: |
+        Given a project configuring a hosted embedding endpoint
+        When the configuration is written
+        Then it names an environment variable and has no field a key can be
+        put in, and the value is read at the moment of the call
+      post_state:
+        key_fields_in_config: 0
+    - id: configuration-can-be-overridden-per-run
+      statement: |
+        Given a committed embedding configuration
+        When a run passes --embed-url, --embed-model or FACET_EMBEDDING_*
+        Then the run uses those instead, in the order file, environment, flags
+    - id: an-unconfigured-project-can-still-index-and-query
+      statement: |
+        Given a project that configures no embedding provider
+        When it is indexed and queried
+        Then the built-in lexical embedder answers with no network and no
+        account, and every surface states that this index matches words rather
+        than meaning
+      post_state:
+        network_calls: 0
+verification:
+  unit_tests:
+    - id: "registry/config_test.go::TestEmbeddingConfigPassesSingleAndMultiRegistryValidation"
+      proves:
+        - embedding-settings-pass-project-validation
+    - id: "registry/config_test.go::TestEmbeddingSchemaRejectsUnknownFieldsAndWrongTypes"
+      proves:
+        - invalid-embedding-fields-are-rejected
+    - id: rag/embed_test.go
+      proves:
+        - an-unconfigured-project-can-still-index-and-query
+    - id: rag/resolve_test.go
+      proves:
+        - the-key-is-read-from-a-variable-and-never-stored
+        - an-unconfigured-project-can-still-index-and-query
+    - id: registry/config_test.go
+      proves:
+        - the-key-is-read-from-a-variable-and-never-stored
+        - configuration-can-be-overridden-per-run
+knowledge:
+  prerequisite_knowledge:
+    question: "What must the user already understand to use this feature?"
+  not_for:
+    question: "When is this the wrong tool for the job?"
+  discoverability:
+    question: "Where does the user enter this flow in the product?"
+    derive_from:
+      - anchors
+  common_pitfalls:
+    question: "What mistakes do users typically make?"
+  success_signal:
+    question: "How does the user know it worked?"
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-09-10"
+  superseded_by: null

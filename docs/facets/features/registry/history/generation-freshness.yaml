@@ -1,0 +1,156 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: registry/history/generation-freshness
+lifecycle: active
+intent:
+  summary: |
+    Detects when documentation generated from a FACET record has gone stale
+    because the code it describes changed underneath it.
+
+    FACET spec 8.5 defines how an article is generated and says nothing about
+    what happens afterwards. The article is static, the record is static, the
+    code is not — so a generated help page can be silently wrong with nothing
+    indicating it. This records which inputs produced which artifact, at what
+    content, with which generator, and reports the artifacts whose inputs have
+    since moved.
+contract:
+  scenarios:
+    - id: unchanged-inputs-stay-current
+      statement: |
+        Given a recorded artifact whose record and anchors are unchanged
+        When 'facet docs check' runs
+        Then the artifact is reported as current
+      post_state:
+        state: current
+    - id: changed-input-is-stale
+      statement: |
+        Given a recorded artifact whose anchored source file has changed
+        When 'facet docs check' runs
+        Then the artifact is reported as stale, naming the input that changed
+      post_state:
+        state: stale
+    - id: added-anchor-is-stale
+      statement: |
+        Given a feature that gained a new @facet: anchor after generation
+        When 'facet docs check' runs
+        Then the artifact is stale even though every recorded digest still
+        matches, because the resolved input set itself changed
+      post_state:
+        state: stale
+    - id: removed-anchor-is-stale
+      statement: |
+        Given a file that no longer anchors the feature it was generated from
+        When 'facet docs check' runs
+        Then the artifact is reported as stale
+      post_state:
+        state: stale
+    - id: deleted-record-is-orphaned
+      statement: |
+        Given an artifact whose feature record has been deleted
+        When 'facet docs check' runs
+        Then the artifact is reported as orphaned rather than stale
+      post_state:
+        state: orphaned
+    - id: checkout-does-not-invalidate
+      statement: |
+        Given a fresh clone of the repository, where every file's modification
+        time is the checkout time
+        When 'facet docs check' runs
+        Then no artifact is reported stale, because comparison is by content
+        digest and never by timestamp
+      post_state:
+        stale_count: 0
+    - id: staleness-does-not-block-by-default
+      statement: |
+        Given stale artifacts
+        When 'facet docs check' runs without --strict
+        Then it exits zero, because stale documentation is a maintenance signal
+        rather than a broken build
+      post_state:
+        exit_code: 0
+verification:
+  unit_tests:
+    - id: registry/facet_test.go
+      proves:
+        - unchanged-inputs-stay-current
+        - changed-input-is-stale
+        - added-anchor-is-stale
+        - deleted-record-is-orphaned
+        - checkout-does-not-invalidate
+knowledge:
+  prerequisite_knowledge:
+    question: "What must the user already understand to use this feature?"
+    answer: |
+      You must already be generating documentation from records. This tracks
+      generated artifacts; it has nothing to say about hand-written prose.
+
+      The manifest must be committed. It is the memory of what produced what —
+      an uncommitted manifest means no other checkout can tell what is stale.
+
+      The central distinction: "stale" means an input moved, not that the
+      article is wrong. The check is deliberately unable to tell the
+      difference. Reading the diff and deciding is a human's job, or the
+      /facet:knowledge skill's.
+  not_for:
+    question: "When is this the wrong tool for the job?"
+    answer: |
+      Not for hand-written documentation. Nothing records provenance for prose
+      that no pipeline produced.
+
+      Not a correctness check. It cannot tell you whether an article was ever
+      accurate — only whether its inputs have changed since it was made.
+
+      Not a merge gate. Stale exits zero on purpose; '--strict' exists for a
+      release gate, not for everyday CI. A check people disable protects
+      nothing.
+
+      Not a substitute for transclusion. Anything derivable verbatim from
+      source should be included rather than generated, because an include
+      cannot rot and therefore needs no freshness tracking at all.
+  discoverability:
+    question: "Where does the user enter this flow in the product?"
+    answer: |
+      'facet docs record' after generating an article, 'facet docs check' to
+      report which artifacts need regeneration. The manifest is committed at
+      docs/facets/generated.lock.yaml.
+    derive_from:
+      - anchors
+  common_pitfalls:
+    question: "What mistakes do users typically make?"
+    answer: |
+      Regenerating on every stale report without reading the diff. Most code
+      changes do not affect user-facing documentation, and a needless
+      regeneration costs review attention and can discard an editor's fixes.
+
+      Forgetting 'facet docs record' after regenerating. The artifact then
+      reports stale forever, and a signal that is always on gets ignored.
+
+      Reading "current" as "accurate". It means the inputs have not moved since
+      generation — including the case where the article was already wrong when
+      it was written.
+
+      Rewriting a populated Knowledge answer while regenerating. Those belong
+      to the feature owner and a change there needs their sign-off.
+
+      Recording an artifact before the record and its anchors have settled, so
+      the very next commit marks it stale.
+  success_signal:
+    question: "How does the user know it worked?"
+    answer: |
+      'facet docs check' reports every recorded artifact as current on a clean
+      tree — and still does after a fresh clone, where every file has a new
+      modification time.
+
+      Changing an anchored source file turns exactly the affected artifacts
+      stale, naming the input that moved.
+
+      Adding a new '@facet:' anchor to an already-documented feature turns its
+      artifacts stale even though none of the recorded files changed.
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-07-26"
+  superseded_by: null
+  depends_on:
+    - registry/integrity/record-validation

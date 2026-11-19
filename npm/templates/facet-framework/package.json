@@ -1,0 +1,11 @@
+{
+  "description": "FACET Core, the command line that keeps feature records and the code they describe from drifting apart.",
+  "bin": {
+    "facet-framework": "facet-framework.js",
+    "facet": "facet-framework.js"
+  },
+  "files": ["facet-framework.js", "README.md", "LICENSE"],
+  "engines": {
+    "node": ">=18"
+  }
+}

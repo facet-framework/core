@@ -1,0 +1,51 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+domains:
+  registry:
+    title: Registry
+    purpose: "Holding records and keeping them honest — the checks that fail a build, and the record of what has happened to the code since it was written."
+    classification: core
+    capabilities:
+      integrity:
+        title: Integrity checks
+        purpose: What must be true of a record and its anchors for a build to pass.
+      layout:
+        title: Layout and scope
+        purpose: "Where a project keeps its records and which source a registry owns — one product or several in one repository."
+      history:
+        title: History against a record
+        purpose: "Retrospective facts about a record's code: what moved under it, what was fixed in it, and which generated documents it has outlived."
+  authoring:
+    title: Authoring
+    purpose: "Writing records from inside a coding session, and stopping a wrong one from landing while it is still cheap to change."
+    classification: core
+    capabilities:
+      session:
+        title: Session surfaces
+        purpose: "What an agent is told about the registry, and how the hooks reach it."
+      guardrails:
+        title: Guardrails
+        purpose: "The checks that run as records and anchors are written, before a commit rather than after it."
+  navigation:
+    title: Navigation
+    purpose: "Finding your way around what has been documented — for a person reading, an editor, and an agent."
+    classification: core
+    capabilities:
+      retrieval:
+        title: Retrieval
+        purpose: Searching the registry by meaning rather than by id.
+      interfaces:
+        title: Programmatic interfaces
+        purpose: "The machine-readable surfaces onto a registry — an editor's language server, an agent's tool server, and the roster a session is handed."
+      documentation:
+        title: Documentation sites
+        purpose: "A standalone product reference built from the registry and cited editorial articles, for people who read about the product rather than its records."
+  delivery:
+    title: Delivery
+    purpose: "Getting FACET onto a machine, and getting this project's own work out."
+    classification: supporting
+    capabilities:
+      distribution:
+        title: Distribution
+        purpose: "How the binary and the public source reach the people who use them, and how FACET lands in a project once they have it."

@@ -1,0 +1,8 @@
+sources: [src, tests]
+runners:
+  jest:
+    command: node_modules/.bin/jest --runInBand
+    list: node_modules/.bin/jest --listTests --runInBand --json
+    list_format: json
+    report: junit
+    report_file: reports/junit.xml

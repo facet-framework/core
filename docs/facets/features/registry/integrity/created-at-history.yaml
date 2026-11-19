@@ -1,0 +1,136 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: registry/integrity/created-at-history
+lifecycle: active
+intent:
+  summary: |
+    Compares lineage.created_at with the record file's git history and the
+    oldest anchored source file, warning when the date is later than the record
+    or more than fourteen days before its code. The second rule catches dates
+    guessed too early, which a comparison with the record file alone cannot see;
+    using the oldest anchor prevents later-added anchors from making a valid
+    date look early. Findings remain warnings because git records file history
+    rather than when a feature was conceived.
+contract:
+  scenarios:
+    - id: a-date-later-than-its-own-file-is-reported
+      statement: |
+        Given a record whose created_at falls after the day its file first
+        appeared in history
+        When the lint runs
+        Then it warns, naming both dates, because a record cannot be newer
+        than the file it stands in
+    - id: a-date-far-before-the-code-is-reported
+      statement: |
+        Given a record whose created_at falls more than fourteen days before
+        the oldest file it anchors
+        When the lint runs
+        Then it warns and names the measured gap — the class a rule comparing
+        against the record file alone cannot see
+      post_state:
+        gap_days_reported: 16
+    - id: a-date-shortly-before-the-code-is-not-reported
+      statement: |
+        Given a record whose created_at falls a few days before its code
+        When the lint runs
+        Then it says nothing, because writing a record shortly before the code
+        lands is ordinary and a false positive costs the check its credibility
+      pre_state:
+        record_precedes_code_by_days: 4
+    - id: the-oldest-anchor-decides
+      statement: |
+        Given a record with one anchor from the week it began and a second
+        added seven weeks later
+        When the gap is measured
+        Then it is measured against the older anchor, so the later one does
+        not make the record look early
+    - id: a-readded-path-keeps-its-first-day
+      statement: |
+        Given a file that was added, deleted and added again
+        When the history is read
+        Then its first day is the one that counts, because the later add is a
+        return and not an origin
+    - id: a-shallow-clone-is-not-a-history
+      statement: |
+        Given a checkout fetched with depth 1 — what CI produces by default
+        When the history is read
+        Then nothing is claimed, because every file appears to have arrived in
+        the single commit that exists, and a record older than that commit
+        would read as months early
+      post_state:
+        findings: 0
+    - id: without-history-nothing-is-claimed
+      statement: |
+        Given a checkout that is not a git repository
+        When the lint runs
+        Then this check reports nothing at all, and that silence means "not
+        examined" rather than "in order"
+      post_state:
+        findings: 0
+verification:
+  unit_tests:
+    - id: registry/created_at_test.go
+      proves:
+        - a-date-later-than-its-own-file-is-reported
+        - a-date-far-before-the-code-is-reported
+        - a-date-shortly-before-the-code-is-not-reported
+        - the-oldest-anchor-decides
+        - a-readded-path-keeps-its-first-day
+        - without-history-nothing-is-claimed
+        - a-shallow-clone-is-not-a-history
+knowledge:
+  not_for:
+    question: "When is this the wrong tool for the job?"
+    answer: |
+      Not a verdict on a date. An owner may know a feature began before any
+      of its code landed here — imported work, a rewrite, a feature that lived
+      in another repository first. The check names the gap and asks.
+
+      Not a completeness check. A record without lineage.created_at is
+      invisible to it; that is the schema's business.
+
+      Not usable without a full history. In a checkout that is not a
+      repository, or one fetched with depth 1, it reports nothing — and
+      nothing is not a pass.
+  common_pitfalls:
+    question: "What mistakes do users typically make?"
+    answer: |
+      Reading silence as approval. Without history there is no statement at
+      all, which is the same distinction this project draws everywhere
+      between an absent value and a measured zero.
+
+      Widening the threshold to silence a finding can conceal a genuinely guessed
+      date. Check the record and oldest anchored source history before
+      changing the tolerance.
+  discoverability:
+    question: "Where does the user enter this flow in the product?"
+    answer: |
+      'facet lint' reports it as the 'created-at-history' check, and
+      '--skip created-at-history' turns it off together with its git pass.
+    derive_from:
+      - anchors
+  success_signal:
+    question: "How does the user know it worked?"
+    answer: |
+      Either no record's date is contradicted and nothing is said, or every
+      contradiction names both dates and, for the second rule, the gap in
+      days.
+  prerequisite_knowledge:
+    question: "What must the user already understand to use this feature?"
+    answer: |
+      A record re-cut out of a parent has a file younger than the feature, so
+      the code supplies the second comparison rather than the new record path.
+      The oldest anchor decides, never the first anchor returned by the scan:
+      otherwise adding a later implementation file could change the apparent
+      start of the feature.
+
+      The fourteen-day threshold allows a record to precede its implementation
+      without a warning; a larger discrepancy asks the owner to check the date
+      rather than overruling it.
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-09-21"
+  depends_on:
+    - registry/integrity/record-validation

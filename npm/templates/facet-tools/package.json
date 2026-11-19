@@ -1,0 +1,10 @@
+{
+  "description": "Reserved entry point for further FACET products; none is available through npm yet.",
+  "bin": {
+    "facet-tools": "facet-tools.js"
+  },
+  "files": ["facet-tools.js", "README.md", "LICENSE"],
+  "engines": {
+    "node": ">=18"
+  }
+}

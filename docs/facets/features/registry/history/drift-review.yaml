@@ -1,0 +1,236 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: registry/history/drift-review
+lifecycle: active
+intent:
+  summary: |
+    'facet drift accept' records a review as a per-worktree git snapshot, so a
+    behaviour-preserving source change can be acknowledged without inventing a
+    record edit. Later changes, committed or uncommitted, are compared against
+    that reviewed content. Once a review exists, editing a record alone no
+    longer counts as reviewing its source.
+contract:
+  scenarios:
+    - id: a-reviewed-change-is-accepted-without-touching-the-record
+      statement: |
+        Given an anchored source change reported as drift
+        When 'facet drift accept' runs
+        Then the change is no longer reported, the record file, the index and
+        the working tree are unchanged, and the baseline names itself as an
+        accepted review with its outcome and date
+      post_state:
+        baseline_kind: accepted
+    - id: a-later-change-invalidates-the-acceptance
+      statement: |
+        Given an accepted change
+        When the same file changes again
+        Then it is reported again, because the snapshot holds the reviewed
+        content and not only the path
+    - id: a-record-edit-does-not-dismiss-drift-once-reviews-exist
+      statement: |
+        Given an accepted baseline and a new source change
+        When the record is edited for an unrelated reason, such as a Knowledge
+        wording fix
+        Then the source change is still reported
+    - id: changes-committed-after-the-baseline-stay-reported
+      statement: |
+        Given an accepted baseline
+        When a source change is committed and the working tree is clean
+        Then the change is still reported, because a clean tree is not a
+        reviewed one
+    - id: accepting-one-path-leaves-the-others-unreviewed
+      statement: |
+        Given two changed files
+        When only one is named to 'facet drift accept'
+        Then the other is still reported
+    - id: the-review-stays-local-to-its-worktree
+      statement: |
+        Given an accepted baseline in one worktree
+        When another worktree of the same clone, a branch or a tag is read
+        Then none of them carries the review, because it lives under
+        refs/worktree/, which git keeps per worktree and no push or fetch
+        carries
+    - id: an-outcome-is-one-of-three
+      statement: |
+        Given 'facet drift accept --outcome'
+        When the outcome is not behavior-unchanged, record-updated or
+        references-repaired
+        Then nothing is recorded and the command fails
+    - id: the-cli-names-the-baseline
+      statement: |
+        Given any drift result
+        When 'facet drift' prints it
+        Then the baseline is named — HEAD with "no review recorded", an
+        accepted review with its outcome, or "could not be determined" — and
+        never presented as confirmed freshness
+    - id: reset-returns-to-head
+      statement: |
+        Given an accepted baseline
+        When 'facet drift reset' runs
+        Then comparisons fall back to HEAD
+    - id: accepting-a-source-path-leaves-other-repositories-unreviewed
+      statement: |
+        Given two declared independent source clones with accepted baselines
+        And both clones have changed anchored source
+        When only a workspace-relative path in the first clone is accepted
+        Then the second clone's changed source remains reported
+        And the first clone's index and branch remain unchanged
+    - id: reset-can-select-one-source-repository
+      statement: |
+        Given two source clones with accepted review baselines
+        When 'facet drift reset --repository <clone>' selects one clone
+        Then that clone compares against HEAD
+        And the other clone keeps its accepted review baseline
+    - id: invalid-source-review-selection-is-refused
+      statement: |
+        Given a workspace with declared source clones
+        When acceptance names an undeclared repository or a path outside the workspace
+        Then the acceptance fails
+    - id: first-partial-catch-up-keeps-other-incoming-commits-unreviewed
+      statement: |
+        Given incoming committed changes in two anchored files
+        And no accepted baseline exists
+        When 'facet drift accept --baseline <reviewed-revision>' names only the first file
+        Then the second file remains reported against the accepted snapshot
+        And accepting the second file afterwards completes that review window
+    - id: mixed-repositories-keep-their-own-record-following-policy
+      statement: |
+        Given changed anchored source in two declared clones
+        And one clone has an accepted baseline while the other compares against HEAD
+        And the matching record changed alongside the source
+        When drift is computed
+        Then the source with the accepted baseline remains reported
+        And the HEAD-only clone uses the record-following heuristic
+    - id: untracked-reviewed-content-stays-out-of-the-index
+      statement: |
+        Given a new untracked file with a source anchor
+        When its path is accepted as reviewed
+        Then its unchanged content is no longer reported as drift or a lost reference
+        And the file remains untracked with the index unchanged
+        And a later edit is reported as drift
+        And a later deletion is reported as a lost reference
+    - id: a-declared-submodule-is-reviewed-in-its-own-repository
+      statement: |
+        Given a declared source that is a submodule of the workspace, with
+        accepted baselines in both
+        When a commit inside the submodule changes anchored source
+        Then drift reports the changed file inside the submodule, not only
+        the superproject's gitlink
+        And the submodule appears as its own repository with its own baseline
+        And 'facet drift accept --repository <submodule>' writes its review
+        ref in the submodule and clears the change
+    - id: a-workspace-that-is-a-submodule-still-compares-itself
+      statement: |
+        Given a workspace that is itself a submodule of a larger project,
+        with declared sources
+        When anchored source in the workspace changes
+        Then the workspace remains one of the compared repositories
+        And the change is reported
+verification:
+  unit_tests:
+    - id: registry/changes_test.go
+      proves:
+        - a-reviewed-change-is-accepted-without-touching-the-record
+        - a-later-change-invalidates-the-acceptance
+        - a-record-edit-does-not-dismiss-drift-once-reviews-exist
+        - changes-committed-after-the-baseline-stay-reported
+        - accepting-one-path-leaves-the-others-unreviewed
+        - the-review-stays-local-to-its-worktree
+        - an-outcome-is-one-of-three
+        - reset-returns-to-head
+    - id: cli/reference_changes_test.go
+      proves:
+        - a-reviewed-change-is-accepted-without-touching-the-record
+        - the-cli-names-the-baseline
+        - reset-returns-to-head
+    - id: "registry/source_changes_test.go::TestSourceReviewAcceptsOnlyNamedWorkspacePaths"
+      proves:
+        - accepting-a-source-path-leaves-other-repositories-unreviewed
+        - reset-can-select-one-source-repository
+        - invalid-source-review-selection-is-refused
+    - id: "cli/source_drift_test.go::TestCatchUpPartialAcceptanceFromExplicitRevisionKeepsOtherIncomingCommits"
+      proves:
+        - first-partial-catch-up-keeps-other-incoming-commits-unreviewed
+    - id: "registry/source_changes_test.go::TestMixedSourceBaselinesApplyTouchedRecordHeuristicPerRepository"
+      proves:
+        - mixed-repositories-keep-their-own-record-following-policy
+    - id: "registry/changes_test.go::TestAcceptingUntrackedFilesDoesNotStageThemOrKeepReportingThem"
+      proves:
+        - untracked-reviewed-content-stays-out-of-the-index
+    - id: "registry/source_changes_test.go::TestADeclaredSubmoduleIsComparedInItsOwnRepository"
+      proves:
+        - a-declared-submodule-is-reviewed-in-its-own-repository
+    - id: "cli/source_drift_test.go::TestADeclaredSubmoduleReachesDriftAcceptAndStop"
+      proves:
+        - a-declared-submodule-is-reviewed-in-its-own-repository
+    - id: "registry/source_changes_test.go::TestAWorkspaceThatIsASubmoduleStillComparesItself"
+      proves:
+        - a-workspace-that-is-a-submodule-still-compares-itself
+knowledge:
+  prerequisite_knowledge:
+    question: "What must the user already understand to use this feature?"
+    answer: |
+      That a review is a statement about content at one moment. Accepting
+      records exactly what the named files hold now; it says nothing about
+      later edits, and nothing about files that were not named.
+
+      The snapshot is the reviewed content and git compares it directly, so
+      acknowledging a review needs no record edit or second file format.
+
+      Once a review is recorded, editing a record no longer counts as reviewing
+      its source; the touched-record heuristic stays only against HEAD, where
+      nothing else exists.
+  not_for:
+    question: "When is this the wrong tool for the job?"
+    answer: |
+      Not a semantic audit and not an approval. It records that somebody
+      looked; whether the change preserved behaviour is still their judgement,
+      and a source change remains a review signal rather than proof of a
+      defect.
+
+      Not shared review state. The snapshot belongs to one worktree of one
+      clone; a team that wants a shared record of review uses its pull
+      requests.
+  discoverability:
+    question: "Where does the user enter this flow in the product?"
+    answer: |
+      The Stop hook's drift notice names 'facet drift accept'. 'facet drift'
+      prints the current baseline on its first line. The catch-up skill reviews incoming commits after
+      pull, merge, rebase or branch switch against the accepted baseline. Without
+      one, it asks for the last reviewed revision instead of certifying HEAD.
+      In legacy directory mode, --repository selects a declared source clone
+      and acceptance paths stay workspace-relative. With a selected source
+      view, --repository selects its logical repository ID and acceptance
+      paths use repository:path; ignored local bindings locate the checkout.
+      Source views select which repositories the drift covers.
+    derive_from:
+      - anchors
+  common_pitfalls:
+    question: "What mistakes do users typically make?"
+    answer: |
+      Expecting a record edit to clear drift after a review has been
+      recorded. It no longer does; accept the change, or reset to HEAD to get
+      the old heuristic back.
+
+      Expecting another worktree or a teammate to see the acceptance. It is
+      local by design, which is also what keeps a private registry from
+      publishing review data. A plain acceptance without paths covers all
+      changes in every selected source repository. A later repository failure
+      leaves earlier successful acceptances in place; inspect the report again.
+      When the review used an explicit older revision, pass it to accept with
+      --baseline. A first partial acceptance otherwise starts at HEAD and
+      cannot keep other incoming committed changes unreviewed.
+  success_signal:
+    question: "How does the user know it worked?"
+    answer: |
+      'facet drift' prints "Baseline: accepted review <commit>
+      (behavior-unchanged, <date>)" and no longer lists the accepted change.
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-10-05"
+  superseded_by: null
+  depends_on:
+    - registry/history/drift-cli
+    - registry/history/reference-changes

@@ -1,0 +1,44 @@
+schema_version: "0.1"
+id: demo/tasks/create-task
+lifecycle: active
+intent:
+  summary: Creates a task with a nonempty title in this fictional example.
+contract:
+  scenarios:
+    - id: title-is-trimmed
+      statement: |
+        Given a title with surrounding whitespace
+        When a task is created
+        Then the returned title contains the trimmed text
+    - id: blank-title-is-refused
+      statement: |
+        Given a title containing only whitespace
+        When a task is created
+        Then no task is returned and an error explains the missing title
+verification:
+  unit_tests:
+    - id: src/task_test.go
+      proves: [title-is-trimmed, blank-title-is-refused]
+knowledge:
+  prerequisite_knowledge:
+    question: What must the user already understand to use this feature?
+    answer: This is a fictional Go example of linking a record to source and tests.
+  not_for:
+    question: When is this the wrong tool for the job?
+    answer: The example does not persist tasks or provide an application interface.
+  discoverability:
+    question: Where does the user enter this flow in the product?
+    answer: Call CreateTask in src/task.go or run the adjacent Go tests.
+  common_pitfalls:
+    question: What mistakes do users typically make?
+    answer: A test reference associates coverage; run the test to check its result.
+  success_signal:
+    question: How does the user know it worked?
+    answer: The tests observe a trimmed title and an error for a blank title.
+lineage:
+  owner:
+    team: fictional-example
+  created_at: "2026-10-26"
+  superseded_by: null
+  depends_on: []
+  depended_on_by: []

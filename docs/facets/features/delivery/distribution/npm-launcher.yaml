@@ -1,0 +1,77 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: delivery/distribution/npm-launcher
+lifecycle: active
+intent:
+  summary: |
+    The Node launcher behind npx facet-framework and facet-tools: it finds the
+    platform package for this machine and runs its native binary exactly as if
+    the binary had been started directly. When it cannot, it says which of the
+    three reasons applies and exits non-zero.
+contract:
+  scenarios:
+    - id: arguments-stdio-and-exit-code-pass-through
+      statement: |
+        Given an installed facet-framework
+        When it is run with arguments containing spaces, empty strings or quotes, and the binary exits non-zero
+        Then the binary receives the same arguments and stdin, its stdout and stderr reach the caller unchanged
+        And the launcher exits with the binary's exit code
+    - id: signals-reach-the-binary
+      statement: |
+        Given the binary is running under the launcher on Linux or macOS
+        When SIGINT, SIGTERM or SIGHUP is sent to the launcher
+        Then the binary receives that signal once
+        And the launcher ends as the binary ended: with its exit code, by the same signal raised on itself, or with 128+n for a signal Node handles itself (SIGUSR1, SIGPIPE)
+        And a signal that cannot be passed on is reported on stderr without ending the launcher while the binary runs
+        And on Windows the launcher forwards no signal and raises none on itself, so the binary handles the console's own Ctrl-C, and a binary ended by a signal makes the launcher exit 1; this Windows clause is asserted on the platform policy only and has not been executed on Windows
+    - id: the-launcher-prints-nothing-of-its-own
+      statement: |
+        Given the binary can be started
+        When the launcher runs it
+        Then everything on stdout and stderr is the binary's own output, so MCP and LSP over stdio pass through it
+    - id: an-unsupported-platform-is-named
+      statement: |
+        Given a platform and architecture outside linux, darwin and win32 on x64 and arm64
+        When the launcher runs
+        Then it names that platform and the supported ones, runs nothing and exits 1
+    - id: an-omitted-platform-package-is-explained
+      statement: |
+        Given an install whose platform package is missing, as after npm install --omit=optional
+        When the launcher runs
+        Then it names the missing package, explains --omit=optional and --no-optional, says how to reinstall, and exits 1
+        And it names the other cause: node_modules installed on another platform or architecture and copied or mounted here
+    - id: a-broken-platform-package-is-named
+      statement: |
+        Given an installed platform package whose binary is missing, not executable, or cannot be started
+        When the launcher runs
+        Then it names the binary and the problem and exits 1, never silently
+    - id: facet-framework-runs-the-real-core
+      statement: |
+        Given facet-framework installed from the packed tarballs
+        When npx facet-framework version --json runs
+        Then the Core binary reports the release's full version and install origin npm
+        And in a project whose .facetrc.yaml pins another Core, a command fails with the binary's npm remedy naming npx facet-framework@<pin>
+    - id: facet-tools-runs-no-product-that-is-not-there
+      statement: |
+        Given facet-tools, which depends on no product
+        When it runs with any command other than help or version, ui included, even with another product's launcher installed beside it
+        Then it says the command is unknown, runs nothing, and exits 2
+        And --help says the package is reserved for further FACET products and offers no product command; --version prints the package version
+    - id: both-entry-packages-install-globally-side-by-side
+      statement: |
+        Given facet-framework and facet-tools installed globally into one prefix
+        When its bin directory is listed
+        Then it holds exactly facet, facet-framework and facet-tools; @facet-tools/core and the platform packages add no command
+knowledge:
+  discoverability:
+    question: "Where is this available?"
+    answer: |
+      npm/launcher.js (copied into @facet-tools/core and into each separately distributed product package),
+      npm/facet-framework.js and npm/facet-tools.js; run through
+      npx facet-framework, npx facet-tools or the facet command of a global
+      facet-framework install once the packages are published.
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-11-14"

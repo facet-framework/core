@@ -1,0 +1,137 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: registry/integrity/runner-test-discovery
+lifecycle: active
+intent:
+  summary: |
+    Compare declared runner discovery with verification files without executing
+    test commands. Existing unclaimed paths may remain in a reviewed baseline;
+    new unclaimed paths fail. Discovery never reports test outcomes.
+contract:
+  scenarios:
+    - id: explicit-feature-prefix-limits-claims
+      statement: |
+        Given a configured test_feature_prefix
+        When facet test checks discovery or executes tests
+        Then the report names the selected prefix
+        And --feature-prefix overrides the configuration
+        And an empty override includes all records
+        And a prefix matching no records is rejected
+    - id: new-unclaimed-files-fail
+      statement: |
+        Given a runner list that discovers a regular test file no record names
+        and no baseline allows
+        When facet test --check runs
+        Then discovery fails without executing the runner command
+    - id: baseline-only-shrinks
+      statement: |
+        Given a baseline with a stale path and discovery of a new unclaimed file
+        When facet test --check --update-baseline runs
+        Then the stale path is removed, the new path is never added, and drift fails
+    - id: existing-verification-must-be-discovered
+      statement: |
+        Given an existing verification file and complete runner discovery
+        When the file is absent from every declared runner list
+        Then discovery reports an error using the same path reading as lint
+    - id: missing-list-is-unmeasured
+      statement: |
+        Given a runner without a list command
+        When discovery runs
+        Then its discovery and verification absence are explicitly unmeasured
+    - id: invalid-discovery-fails
+      statement: |
+        Given a failed or empty list, a directory, a missing file, or a path
+        escaping the repository including through a symlink
+        When discovery runs
+        Then the invalid discovery fails rather than reporting tests passed
+    - id: cwd-paths-are-normalized
+      statement: |
+        Given repeated relative paths emitted from a declared runner cwd
+        When discovery runs
+        Then paths resolve against cwd and appear once relative to repository root
+    - id: malformed-runner-config-fails
+      statement: |
+        Given unknown runner fields, a missing command, an escaping cwd or an
+        unsupported report format
+        When configuration is loaded
+        Then the declaration is rejected explicitly
+    - id: contradicting-proves-is-warned
+      statement: |
+        Given a discovered test anchor with a scenario claim that differs from
+        its record verification
+        When discovery runs
+        Then the contradiction is warned without claiming a test outcome
+    - id: concurrent-baseline-updates-only-shrink
+      statement: |
+        Given two concurrent updates selecting different runners
+        When both shrink the same baseline
+        Then the complete read-discover-recalculate-write transaction is
+        serialized and neither update reintroduces the other's removed paths
+    - id: failed-baseline-write-preserves-review
+      statement: |
+        Given an existing reviewed baseline and a write failure
+        When updating the baseline cannot complete its replacement
+        Then the original content and permissions remain intact and temporary
+        files are removed
+    - id: cancellation-bounds-descendant-wait
+      statement: |
+        Given a discovery shell with descendants holding its output pipes
+        When the caller context expires
+        Then discovery fails promptly instead of waiting for descendant completion
+    - id: json-discovery-needs-explicit-file-paths
+      statement: |
+        Given declared JSON discovery with path strings or objects with file fields
+        When the discovered files are checked
+        Then explicit paths are normalized and malformed or pathless entries fail
+verification:
+  unit_tests:
+    - id: "cli/test_execution_test.go::TestBinaryFeaturePrefixOverridesConfiguration"
+      proves:
+        - explicit-feature-prefix-limits-claims
+    - id: registry/test_discovery_test.go
+      proves:
+        - new-unclaimed-files-fail
+        - baseline-only-shrinks
+        - existing-verification-must-be-discovered
+        - missing-list-is-unmeasured
+        - invalid-discovery-fails
+        - cwd-paths-are-normalized
+        - malformed-runner-config-fails
+        - contradicting-proves-is-warned
+        - json-discovery-needs-explicit-file-paths
+    - id: registry/test_safety_test.go
+      proves:
+        - concurrent-baseline-updates-only-shrink
+        - cancellation-bounds-descendant-wait
+    - id: registry/test_safety_unix_test.go
+      proves:
+        - failed-baseline-write-preserves-review
+  e2e_tests:
+    - id: cli/test_discovery_test.go
+      proves:
+        - new-unclaimed-files-fail
+        - concurrent-baseline-updates-only-shrink
+knowledge:
+  not_for:
+    question: "What does this command not measure?"
+    answer: |
+      Test results, feature status and case coverage: executing the runner
+      commands and parsing their reports is registry/integrity/runner-test-execution.
+      A selected runner does not establish verification absence from other runners.
+  common_pitfalls:
+    question: "What must list emit?"
+    answer: |
+      Existing regular test files, one per line or as declared JSON paths/file objects. Relative paths are relative
+      to the runner cwd. Package directories from go list are not test files.
+      Never add proves just to silence drift without reading the test body.
+  discoverability:
+    question: "Where does the user enter this flow?"
+    answer: facet test --check or facet test --list
+    derive_from:
+      - anchors
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-10-06"
+  superseded_by: null

@@ -1,0 +1,225 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: registry/integrity/error-code-register
+lifecycle: active
+intent:
+  summary: |
+    A project that bands its error codes by team (E1xxx one team, E2xxx the
+    next) normally documents the assignment in prose, outside FACET — while
+    every code already sits in the records: in intent.summary, in a contract
+    scenario's own Given/When/Then statement (where it *is* the definition of
+    what the code means, and cannot drift from the contract because it is the
+    contract), or in knowledge.common_pitfalls. A register therefore needs no
+    new declaration, only a regex over what is written.
+
+    'facet errors [--json]' extracts every identifier the configured pattern
+    matches from those three fields, groups them by band (the letter plus the
+    first digit), and reports each band's assigned codes, its gaps, and its
+    next free code — answering "what is the next free code in E2xxx" without
+    grepping a service's source and hoping.
+
+    The pattern defaults to 'E\d{4}' but is a project convention, not a FACET
+    concept: configurable via .facetrc.yaml's error_codes.pattern.
+
+    A companion 'facet lint' check, 'error-codes', warns when the same code
+    appears in records from different domains — the collision the register
+    exists to make avoidable.
+
+    Those three fields are the whole scan, as plain text. A code anywhere else
+    on a record — a scenario id, a deviation.reason — is invisible, so the
+    register is a lower bound and 'next free' is advice to check, not an
+    answer to trust. See knowledge.common_pitfalls.
+contract:
+  scenarios:
+    - id: scans-the-three-facets-only
+      statement: |
+        Given a record with identifiers in intent.summary,
+        contract.scenarios[].statement, and knowledge.common_pitfalls
+        When 'facet errors' runs
+        Then every one of them is found, and identifiers appearing only
+        elsewhere on the record — a scenario id, the record's own id — are
+        not
+      post_state:
+        fields_scanned: 3
+    - id: codes-are-grouped-by-band
+      statement: |
+        Given codes E1001 and E1002 and E2500 across the registry
+        When 'facet errors' runs
+        Then E1001 and E1002 are reported under band E1 and E2500 under band
+        E2, where a band is the letter plus its first digit
+      post_state:
+        bands: 2
+    - id: gaps-and-the-next-free-code-are-reported
+      statement: |
+        Given a band with codes E1001, E1003, and E1006 assigned
+        When 'facet errors' runs
+        Then the band's gaps list E1002, E1004, and E1005, and its next free
+        code is E1007 — the question a register exists to answer without
+        grepping a service's source and hoping
+      post_state:
+        gaps:
+          - E1002
+          - E1004
+          - E1005
+        next: E1007
+    - id: a-fixed-width-band-end-has-no-next-code
+      statement: |
+        Given a configured fixed-width pattern and a band's highest assigned
+        code already uses every digit at that width, such as E9999 under
+        'E\d{4}'
+        When 'facet errors' runs
+        Then the band has no next free code, because a wider successor does
+        not match the configured convention and FACET defines no rollover
+      post_state:
+        next: null
+    - id: a-records-own-repeated-mentions-are-one-feature
+      statement: |
+        Given the same code named twice inside one record — once in
+        intent.summary and once in a scenario statement
+        When 'facet errors' runs
+        Then it is reported as one code mentioned by one record, not as a
+        record disagreeing with itself
+      post_state:
+        features_for_the_code: 1
+    - id: pattern-is-configurable-per-project
+      statement: |
+        Given .facetrc.yaml declares error_codes.pattern for an identifier
+        shape other than the default
+        When 'facet errors' runs
+        Then that pattern is used instead of the default, so any project with
+        stable identifiers in its scenario text gets the same register
+      post_state:
+        pattern_source: ".facetrc.yaml"
+    - id: no-config-keeps-the-default-pattern
+      statement: |
+        Given a project with no error_codes key in .facetrc.yaml, or no
+        .facetrc.yaml at all
+        When 'facet errors' runs
+        Then the default 'E\d{4}' pattern applies unchanged
+      post_state:
+        pattern: "E\\d{4}"
+    - id: markdown-around-a-code-is-not-part-of-it
+      statement: |
+        Given a code written inside a Markdown code span or a fenced block in
+        one of the three scanned fields
+        When 'facet errors' runs
+        Then it is the same code as the one written in plain prose, because
+        the pattern is matched against the text and the backticks are
+        display, not identifier
+      post_state:
+        distinct_codes: 1
+    - id: a-code-only-in-deviation-reason-is-invisible
+      statement: |
+        Given a record whose scanned fields assign E1001 to E1004, and whose
+        contract.scenarios[].deviation.reason names E1005 as the code the
+        defect actually surfaces
+        When 'facet errors' runs
+        Then E1005 is absent from the register and the band reports 'next
+        free: E1005' — a code that is already assigned, which is why the
+        register is a lower bound on what is taken and 'next free' is advice
+        to check rather than an answer to trust
+      post_state:
+        codes_found:
+          - E1001
+          - E1002
+          - E1003
+          - E1004
+        next: E1005
+        next_is_actually_assigned: true
+    - id: cross-domain-reuse-of-a-code-is-a-lint-warning
+      statement: |
+        Given the exact same code appearing in records whose ids belong to two
+        different top-level domains
+        When 'facet lint' runs
+        Then a warning names the code and every domain and record that used
+        it, because a code crossing a domain boundary is the concrete,
+        expensive mistake the register exists to avoid
+      post_state:
+        severity: warning
+    - id: same-domain-reuse-is-not-a-finding
+      statement: |
+        Given the same code appearing in two records that share a domain, or
+        repeated inside one record's own text
+        When 'facet lint' runs
+        Then nothing is reported, because splitting a feature into several
+        records under its own domain is a normal way to write FACET, and a
+        domain reusing its own code on purpose is not a mistake this check can
+        see
+      post_state:
+        error_codes_findings: 0
+verification:
+  unit_tests:
+    - id: registry/errors_test.go
+      proves:
+        - scans-the-three-facets-only
+        - codes-are-grouped-by-band
+        - gaps-and-the-next-free-code-are-reported
+        - a-fixed-width-band-end-has-no-next-code
+        - a-records-own-repeated-mentions-are-one-feature
+        - markdown-around-a-code-is-not-part-of-it
+        - a-code-only-in-deviation-reason-is-invisible
+    - id: registry/errors_lint_test.go
+      proves:
+        - cross-domain-reuse-of-a-code-is-a-lint-warning
+        - same-domain-reuse-is-not-a-finding
+    - id: registry/config_test.go
+      proves:
+        - pattern-is-configurable-per-project
+        - no-config-keeps-the-default-pattern
+    - id: cli/errors_test.go
+      proves:
+        - pattern-is-configurable-per-project
+        - gaps-and-the-next-free-code-are-reported
+knowledge:
+  prerequisite_knowledge:
+    question: "What must the user already understand to use this feature?"
+  not_for:
+    question: "When is this the wrong tool for the job?"
+  discoverability:
+    question: "Where does the user enter this flow in the product?"
+    derive_from:
+      - anchors
+  common_pitfalls:
+    question: "What mistakes do users typically make?"
+    answer: |
+      Expecting another tool's register to agree with this one. A tool that
+      computes its own register from the same corpus can label bands, count
+      collisions and pick the next free code differently. This one prints a
+      band as 'E2', warns about a shared code only across domains, and
+      reports the next free code as one past the highest assigned in the band
+      (E1011 for a band holding E1010 alone), never the lowest unused, because
+      that is how a banded range is actually handed out.
+
+      Treating 'next free' as an answer. It is computed from the three
+      scanned fields alone, so it is a claim about those fields and never
+      about the project: read it as "nothing in intent.summary, a scenario
+      statement, or common_pitfalls claims this yet", then grep before
+      committing to it.
+
+      The sharp edge is deviation.reason. A deviation says a scenario
+      describes behaviour believed to be unintended, and its reason is where
+      an author writes which code the defect actually surfaces — an assigned
+      code, present in the source, in a field this extractor does not read.
+      A record whose scanned fields run E1001 to E1004 and whose
+      deviation.reason names E1005 gets 'next free: E1005': a recommendation
+      to assign a code that is already taken, delivered with the authority
+      of a tool. That is the exact mistake the register exists to prevent,
+      committed by the register. It is pinned by a test rather than left to
+      be rediscovered, and widening the scan is not obviously the fix —
+      prose that discusses a code is not prose that assigns one — but the
+      number must not be read as more than it measures until one or the
+      other changes.
+
+      Markdown is the harmless half of the same rule: `E1001` and E1001 are
+      one code, because the backticks are display and the extractor never
+      parses Markdown.
+  success_signal:
+    question: "How does the user know it worked?"
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-09-10"
+  superseded_by: null
+  depends_on:
+    - registry/layout/multi-registry

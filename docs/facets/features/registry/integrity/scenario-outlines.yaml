@@ -1,0 +1,210 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: registry/integrity/scenario-outlines
+lifecycle: active
+intent:
+  summary: |
+    Represents structurally identical cases as one scenario with named Examples
+    blocks and inherited columns, making cases enumerable without separate ids
+    for the same rule. Lint checks row width and placeholder names because JSON
+    Schema draft-07 cannot compare those sibling values. Counts remain per
+    scenario rather than per row, so consolidation does not distort sizing.
+contract:
+  scenarios:
+    - id: named-blocks-with-inherited-columns-are-accepted
+      statement: |
+        Given a scenario whose examples are two named blocks, the second
+        declaring no columns of its own
+        When 'facet lint' runs
+        Then the record validates and no finding is reported, because each named block describes one rule and draws its own headings,
+        while blocks tabulating the same parameters can share columns
+        declared once
+      post_state:
+        examples_findings: 0
+    - id: examples-with-no-columns-anywhere-are-rejected
+      statement: |
+        Given a scenario whose examples blocks none of them declare columns
+        When 'facet lint' runs
+        Then schema validation fails, because nothing names the values and
+        every table would draw an empty heading row over them
+      post_state:
+        severity: error
+    - id: an-undeclared-key-in-a-block-is-rejected
+      statement: |
+        Given an examples block carrying a key the schema does not declare,
+        such as the abbreviation 'cols' written for 'columns'
+        When 'facet lint' runs
+        Then schema validation fails rather than ignoring the key, because a
+        block that silently accepted it would fall back to inherited headings
+        and render its values under somebody else's column names
+      post_state:
+        severity: error
+    - id: a-row-that-does-not-match-its-columns-is-an-error
+      statement: |
+        Given an examples row supplying more or fewer values than its block
+        has columns, counting the columns it inherits
+        When 'facet lint' runs
+        Then an error names the scenario, the block and the row, because the
+        reader matches values to columns by position and no reading of the
+        row is correct
+        And the run fails, which is the severity a finding gets when nothing
+        outside the record is needed to see it
+      post_state:
+        severity: error
+    - id: a-placeholder-no-column-answers-is-a-warning
+      statement: |
+        Given a statement writing a placeholder that no examples column
+        declares
+        When 'facet lint' runs
+        Then a warning quotes the placeholder and the run still succeeds,
+        because the observation is certain but the inference is not — angle
+        brackets appear in prose that never meant a parameter, and a build
+        must not fail on a sentence that reads correctly
+      post_state:
+        exit_code: 0
+    - id: a-column-no-placeholder-uses-is-silent
+      statement: |
+        Given an examples block declaring a column the statement never
+        substitutes
+        When 'facet lint' runs
+        Then nothing is reported, because a 'reason' or 'notes' column
+        carries why a case belongs in the table without the sentence reading
+        it, and a warning there would argue with a table doing its job
+      post_state:
+        examples_findings: 0
+    - id: a-placeholder-any-block-answers-is-bound
+      statement: |
+        Given two examples blocks declaring different columns, and a
+        placeholder that only the second block's columns name
+        When 'facet lint' runs
+        Then nothing is reported, because each table draws its own headings
+        and a reader offering a parameter's values unions the columns of
+        every block
+      post_state:
+        examples_findings: 0
+    - id: a-placeholder-outside-ascii-still-binds
+      statement: |
+        Given a placeholder written in the product's own language, such as
+        <naïve>, naming a declared column
+        When 'facet lint' runs
+        Then it is recognised as a parameter and nothing is reported, because
+        a registry is written in its product's language and so are its
+        placeholders
+      post_state:
+        examples_findings: 0
+    - id: an-examples-table-counts-as-one-scenario
+      statement: |
+        Given a record whose two scenarios carry eleven cases between them
+        When the scenario count is taken, for FACET §2.1.1 gate 3 or for FACET §11.4's
+        scenarios-per-record measure
+        Then it is two, not eleven, because every count runs over the entries
+        under contract.scenarios and a block of cases adds none
+        And no sizing finding is reported, which is what keeps the rule from
+        penalising the consolidation it asks for
+      post_state:
+        scenario_count: 2
+verification:
+  unit_tests:
+    - id: registry/examples_test.go
+      proves:
+        - named-blocks-with-inherited-columns-are-accepted
+        - examples-with-no-columns-anywhere-are-rejected
+        - an-undeclared-key-in-a-block-is-rejected
+        - a-row-that-does-not-match-its-columns-is-an-error
+        - a-placeholder-no-column-answers-is-a-warning
+        - a-column-no-placeholder-uses-is-silent
+        - a-placeholder-any-block-answers-is-bound
+        - a-placeholder-outside-ascii-still-binds
+        - an-examples-table-counts-as-one-scenario
+knowledge:
+  prerequisite_knowledge:
+    question: "What must the user already understand to use this feature?"
+    answer: |
+      One idea, borrowed whole from Gherkin: a scenario can be written once
+      with parameters and read many times with values. A '<name>' in the
+      statement is a parameter, and a column of the same name supplies what
+      it stands for.
+
+      The part that is not Gherkin is the blocks. Cases are grouped into
+      named sets rather than listed in one table, because valid cases and
+      invalid cases are two rules and one table that holds both has quietly
+      become a rule with a result column.
+
+      The cases are named blocks, one rule per block, each drawing its own
+      headings; a block declaring no columns inherits the first declared set.
+      Valid and invalid cases belong in two blocks — one table holding both
+      reads as one rule with a result column, the shape that made the cases hard
+      to count to begin with.
+
+      Two obligations fall here by necessity, because draft-07 bounds no array
+      by another's length and reads no sibling string. A row disagreeing with
+      its columns is an error: values match columns by position, so no reading
+      of it is correct. A placeholder naming no column is a warning — what is
+      observed is certain, what it implies is not.
+
+      An Examples table is one scenario, not one per row. Every count runs over
+      entries under contract.scenarios and a block of cases adds none, so
+      consolidating one rule's cases does not inflate the scenario count used by
+      the sizing rule.
+  not_for:
+    question: "When is this the wrong tool for the job?"
+    answer: |
+      Not for cases that behave differently. An outline says one rule holds
+      for every row; two rows expecting different outcomes from the same
+      sentence are two scenarios, or two blocks of one sentence that names
+      the outcome as a parameter.
+
+      Not a test matrix. The rows are the cases a reader needs to understand
+      the rule, not every combination a generator could produce. A table
+      nobody will read past the third row is prose again, in a grid.
+
+      Not a way to get around gate 3. An outline counts as one scenario
+      because it states one rule; a record with one outline and nothing else
+      still declares a single behaviour, and the sizing warning still says so.
+
+      Not for And-steps. Those are prose inside 'statement', which stays a
+      free string.
+  discoverability:
+    question: "Where does the user enter this flow in the product?"
+    answer: |
+      Write 'examples' on a contract scenario and put '<placeholders>' in its
+      statement; 'facet lint' validates the blocks and reports the two things
+      the schema cannot.
+    derive_from:
+      - anchors
+  common_pitfalls:
+    question: "What mistakes do users typically make?"
+    answer: |
+      Writing 'cols' instead of 'columns'. It is the obvious abbreviation and
+      code that builds such a table often uses it, but only 'columns' is a
+      record key. The schema rejects the
+      first rather than ignoring it, because a block whose headings were
+      ignored would render under the ones it inherited.
+
+      Misspelling a placeholder, or renaming a column and not the sentence.
+      Nothing breaks: '<result>' stays in the statement as literal text and
+      the table under it fills nothing. This is the failure the warning exists for,
+      and it is invisible without it.
+
+      Mixing valid and invalid cases in one block. It validates and it reads
+      as one rule with a result column — obscuring the distinction between the two rules in a grid.
+
+      Expecting the cases to be counted. They are not, anywhere, and that is
+      deliberate: FACET §2.1.1 gate 3 and FACET §11.4 count scenario entries.
+  success_signal:
+    question: "How does the user know it worked?"
+    answer: |
+      'facet lint' stays green, and the statement no longer carries a set
+      notation or an 'or' list standing in for a table.
+
+      Every placeholder in the sentence has a column answering it, so a
+      reader can pick a value and read the rule for that one case.
+
+      The record's scenario count did not move when the cases were folded
+      in — one rule reads as one promise, however many cases prove it.
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-09-16"
+  superseded_by: null

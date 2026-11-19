@@ -1,0 +1,43 @@
+schema_version: "0.1"
+id: sample/source/item
+lifecycle: planned
+intent:
+  summary: |
+    Shows a synthetic library item with a description, a state and an owner.
+contract:
+  scenarios:
+    - id: listed
+      statement: |
+        Given the library contains an item
+        When the reader lists the library
+        Then the item and its state are shown
+    - id: missing-item
+      statement: |
+        Given the library has no item with the requested identifier
+        When the reader opens that item
+        Then the reader receives a missing-item result
+verification:
+  unit_tests:
+    - id: tests/library_test.go::TestListLibrary
+      proves: [listed]
+knowledge:
+  prerequisite_knowledge:
+    question: What must the reader know?
+    answer: The identifier of the library to inspect.
+  not_for:
+    question: When should the reader use something else?
+    answer: This operation does not edit the library.
+  discoverability:
+    question: Where does the reader start?
+    answer: Open the library list.
+  common_pitfalls:
+    question: What could be mistaken?
+    answer: An empty library is different from an unreadable library.
+  success_signal:
+    question: How is success visible?
+    answer: The list contains the expected identifiers and states.
+lineage:
+  owner:
+    team: library
+  created_at: "2026-01-01"
+  depends_on: []

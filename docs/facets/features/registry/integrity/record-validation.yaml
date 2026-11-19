@@ -1,0 +1,284 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: registry/integrity/record-validation
+lifecycle: active
+intent:
+  summary: |
+    Fails a build for schema-invalid records, anchors without records and active
+    records without source anchors. Prose tags are ignored, while missing
+    scenarios, conflicting enum-shaped entity constraints and test-only
+    implementations warn rather than fail: these gaps require owner review or
+    rely on a text search that cannot establish certainty. Warnings do not fail
+    a run, so unfinished Knowledge is not treated as a broken build.
+contract:
+  scenarios:
+    - id: lint-reuses-records-within-one-run
+      statement: |
+        Given unchanged registry files with features and other record categories
+        When lint checks the same category more than once in one invocation
+        Then the decoded category is reused without changing findings, their
+        order, category-load errors or checked counts, and a later invocation
+        reads changes from disk
+    - id: lint-reports-registry-integrity
+      statement: |
+        Given a project with FACET records and anchored source
+        When 'facet lint' runs
+        Then schema violations, unresolvable anchors, active records without
+        anchors, and id/path mismatches are reported as errors, and Knowledge
+        slots awaiting an owner are reported as warnings
+      post_state:
+        exit_code_on_error: 1
+        exit_code_on_warning_only: 0
+    - id: warnings-never-fail
+      statement: |
+        Given a registry whose only findings are warnings
+        When 'facet lint' runs
+        Then it exits zero
+      post_state:
+        exit_code: 0
+    - id: prose-is-not-source
+      statement: |
+        Given documentation containing an @facet: tag as a syntax example
+        When anchors are scanned
+        Then the tag is ignored, because prose does not implement features
+      post_state:
+        anchors_from_prose: 0
+    - id: generation-manifest-is-schema-checked
+      statement: |
+        Given a project with a generation manifest
+        When 'facet lint' runs
+        Then the manifest is validated against its JSON Schema alongside the
+        feature records, because it is a committed document like any other
+      post_state:
+        manifest_validated: true
+    - id: a-product-declaration-is-schema-checked
+      statement: |
+        Given a build that links a product declaring a registry document and
+        its schema, and a project carrying that schema and a document with a
+        key the schema does not allow
+        When 'facet lint' runs
+        Then the finding names the document, and a project that carries no
+        such schema has the document left alone
+      post_state:
+        findings_naming_the_file: 1
+    - id: saved-record-uses-local-registry-declarations
+      statement: |
+        Given a saved feature record and declared taxonomy or variants
+        When write-time validation runs
+        Then undeclared taxonomy segments, record variants absent from the
+        variant map, and backing overrides for absent variants are reported
+        without loading sibling records or scanning source
+    - id: saved-registry-documents-keep-local-contracts
+      statement: |
+        Given a saved taxonomy.yaml, glossary.yaml, variants.yaml, generation
+        manifest, or a declaration a linked product registers
+        When write-time validation runs
+        Then the saved document is validated against its corresponding JSON
+        Schema
+        And glossary duplicate terms or categories and terms naming undeclared
+        categories are reported from glossary.yaml
+        And a variant whose replaces target is not declared is reported from
+        variants.yaml
+    - id: anchored-record-with-no-scenarios-is-a-warning
+      statement: |
+        Given a record with at least one @facet: anchor and an empty
+        contract.scenarios list
+        When 'facet lint' runs
+        Then a warning reports that anchored code exists for a record that
+        declares no promise it could ever be checked against
+      post_state:
+        severity: warning
+    - id: one-field-name-with-two-value-sets-is-warned
+      statement: |
+        Given two data-entity records declaring an enum-shaped constraint under
+        the same field name with different value sets
+        When 'facet lint' runs
+        Then the minority is warned against the largest group as the baseline,
+        with both value sets and both entities named — never an error, because
+        two fields called 'status' are allowed to mean different things and
+        which set is right is the field owner's call
+      post_state:
+        severity: warning
+    - id: an-enum-is-recognised-however-it-is-written
+      statement: |
+        Given a corpus whose enum-shaped constraints are written four different
+        ways
+        When they are compared
+        Then all four normalise to one value set and the order they were
+        written in does not distinguish them, while a fifth spelling the parser
+        does not recognise — including a field declaring 'type: enum' whose
+        values are written some other way — is skipped rather than reported as
+        a divergence
+      post_state:
+        false_divergences_from_spelling: 0
+    - id: an-implementation-only-tests-reach-is-warned
+      statement: |
+        Given an active record whose primary anchor decorates a symbol that
+        appears nowhere in the tree except test code
+        When 'facet lint' runs
+        Then a warning names the record and the symbol, because a rule can be
+        implemented, tested and anchored — clean by every other check here —
+        and still never be wired into the path the product runs
+      post_state:
+        severity: warning
+    - id: reachability-speaks-only-where-it-has-evidence
+      statement: |
+        Given a symbol with a caller outside test code, or with no occurrence
+        anywhere at all
+        When reachability is evaluated
+        Then nothing is reported, and the anchor comment and the declaration it
+        sits above never count as their own caller — a naive text search may
+        only speak where absence is the evidence, never where silence is; and
+        the registry itself is not a caller either, because a record describes
+        code and never calls it, while prose outside the registry still counts
+      post_state:
+        findings: 0
+    - id: a-business-rule-is-schema-checked
+      statement: |
+        Given a record whose contract.business_rules carries a rule of each kind with every field it may hold
+        When 'facet lint' validates it against the shipped schema
+        Then it passes
+        And a rule missing a required field, with an unknown kind, an unknown field, a model path that is not a relative .dmn file, an id that is not kebab-case, or a completeness on a formula is an error naming business_rules
+        And a record without the field passes and draws no finding about it
+verification:
+  unit_tests:
+    - id: registry/business_rules_test.go
+      proves:
+        - a-business-rule-is-schema-checked
+    - id: registry/lint_performance_test.go
+      proves:
+        - lint-reuses-records-within-one-run
+    - id: registry/validate_record_test.go
+      proves:
+        - generation-manifest-is-schema-checked
+        - saved-record-uses-local-registry-declarations
+        - saved-registry-documents-keep-local-contracts
+    - id: registry/product_documents_test.go
+      proves:
+        - a-product-declaration-is-schema-checked
+    - id: registry/anchor_proves_test.go
+      proves:
+        - anchored-record-with-no-scenarios-is-a-warning
+    - id: registry/enum_test.go
+      proves:
+        - one-field-name-with-two-value-sets-is-warned
+        - an-enum-is-recognised-however-it-is-written
+    - id: registry/reachability_test.go
+      proves:
+        - an-implementation-only-tests-reach-is-warned
+        - reachability-speaks-only-where-it-has-evidence
+    - id: registry/facet_test.go
+      proves:
+        - lint-reports-registry-integrity
+        - warnings-never-fail
+        - prose-is-not-source
+knowledge:
+  prerequisite_knowledge:
+    question: "What must the user already understand to use this feature?"
+    answer: |
+      A project that keeps FACET records. Nothing else: no yq, ajv, jq, Node or
+      Python, and no knowledge of the language the project is written in.
+
+      One distinction decides how to read the output: errors fail the run and
+      warnings never do. A successful run can still carry warnings, because an
+      unanswered Knowledge slot is work for a feature owner rather than a
+      broken build.
+
+      For 'facet mcp', a client that speaks MCP over stdio. The Claude Code
+      plugin wires that up itself.
+
+      This is the check every other one is measured against. A registry whose
+      records merely exist is a directory of files; a registry whose records are
+      held to their own schema on every commit is the only kind anyone trusts
+      enough to read instead of reading the code.
+
+      Two checks look past the record at the corpus and the code around it: a
+      data-entity field whose enum-shaped constraint carries a different value
+      set under the same name on another entity, and an active record whose
+      anchored implementation nothing outside the tests ever calls. Both are
+      warnings — the first because which value set is right belongs to the field
+      owner, the second because it is a text search, and a text search can
+      report an absence but never a certainty.
+
+      Warnings never fail a run. An empty Knowledge slot is work for an owner,
+      not a broken build, and a gate that fails on everything is one people
+      learn to pass with --no-verify. The handling of unanswered Knowledge
+      slots, owner-confirmed exceptions and the warning breakdown belongs to
+      registry/integrity/knowledge-gaps.
+  not_for:
+    question: "When is this the wrong tool for the job?"
+    answer: |
+      Not for authoring records. It verifies; the /facet:authoring skill and
+      the record-writer subagent write.
+
+      Not a content check. It proves a record is well-formed and connected to
+      code, never that the contract describes what the code actually does. A
+      passing lint is not evidence that the documentation is true.
+
+      Registry inspection and validation tools do not author feature records.
+      Other advertised MCP tools, including glossary, product and plugin tools,
+      can have their own write operations; inspect their individual contracts rather
+      than treating the whole MCP server as read-only.
+  discoverability:
+    question: "Where does the user enter this flow in the product?"
+    answer: |
+      Installed with the FACET Claude Code plugin, which puts 'facet' on PATH.
+      Subcommands: 'facet lint', 'facet docs check', 'facet docs record',
+      'facet mcp'. The plugin's hooks call 'facet hook <event>' internally.
+    derive_from:
+      - anchors
+  common_pitfalls:
+    question: "What mistakes do users typically make?"
+    answer: |
+      Treating a green run as "the documentation is correct". It means the
+      registry is structurally sound and every claim is connected to code —
+      not that any claim is true.
+
+      Reading a record that is still anchored as one that lost nothing.
+      orphan-records only fails a record with no anchor left; the
+      lost-anchors warning (registry/history/reference-changes) is the one
+      that names an implementation removed while another survives.
+
+      Narrowing FACET_SOURCE_DIRS locally for speed without setting the same
+      value in CI. The two then scan different trees and disagree about which
+      records are orphaned, and the local run is the one that looks fine. This
+      is what .facetrc.yaml exists to end: put the layout in the repository and
+      both runs read the same file.
+
+      Reaching for a second registry when the answer is variants. A rewrite, a
+      native app, or any second implementation of the same product belongs in
+      one registry with per-variant lifecycles — splitting it in two makes
+      "which features has the rewrite not reached yet" unanswerable, which is
+      usually the only question anyone had.
+
+      Deleting a record or an '@facet:' tag to clear an error. Both errors mean
+      something is missing; removing the evidence hides the gap instead of
+      closing it.
+
+      Assuming a vendored copy of the shell scripts behaves like the current
+      binary. A project that copied them long ago is running older rules.
+  success_signal:
+    question: "How does the user know it worked?"
+    answer: |
+      'facet lint' ends with the record and anchor counts and "0 error(s)".
+
+      The same command produces the same output locally and in CI, on every
+      platform, with no toolchain installed.
+
+      'facet mcp' answers a tools/list request with its advertised registry
+      tools and lists feature records as readable resources. The tool catalog
+      can also include installed-product, source-view and plugin capabilities;
+      tools/list describes the tools available in that invocation.
+
+      In a monorepo, 'facet registries' prints one row per feature and one
+      column per registry, so what one product has and another has not is
+      readable without opening a record.
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-07-26"
+  superseded_by: null
+  depended_on_by:
+    - registry/history/generation-freshness
+    - navigation/retrieval/registry-index
