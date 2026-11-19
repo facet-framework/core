@@ -19,14 +19,14 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": ".claude-plugin/plugin.json",
-      "sha256": "bc08035ac4f9abdeef0022332bebbbbf0b1ca7e6b8b7f51bdec48b80ddf655c0"
+      "sha256": "9fa0823c044af618038e8165a072c5b7c4201c351f6b2d6906e0cf8062ea840e"
     },
     {
       "content_review": "approved",
       "license": "Apache-2.0",
       "mode": "0644",
       "path": ".codex-plugin/plugin.json",
-      "sha256": "c3325b6cde93801da3a537c4e9596a5e5f4f36b3bc06033ff54eb621df2477be"
+      "sha256": "7c61e2a5b2dc0f5fff82eeec0c39ea732e35fbc04dce83ce51919d9461ec9917"
     },
     {
       "content_review": "approved",
@@ -124,7 +124,7 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "CHANGELOG.md",
-      "sha256": "51d406411c2ac276161477b5c8248bac1757e00a23732eb05165a3de9d2b5b38"
+      "sha256": "8031c727e886d7fb034343098c6a1a69c6e4f70aeecaf4b9eaf3099612d48983"
     },
     {
       "content_review": "approved",
@@ -145,7 +145,7 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "CONTRIBUTING.md",
-      "sha256": "6ce10b45dfd67f6ca247cbcc19c6174860d16cbe6718411a0248e7215cc83450"
+      "sha256": "62e18f11135a3238419cf97c7f00c47c0c12825ffb78c26f7aac4dbafc772457"
     },
     {
       "content_review": "approved",
@@ -166,7 +166,7 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "README.md",
-      "sha256": "ca7889eb8f3fa4180846bdb32980f96fdd8a3117f796a503a844bf59155de98a"
+      "sha256": "d609aa448e186e0f12cba202199ad022e9c33262acdbcb7a73bc48d318a51dba"
     },
     {
       "content_review": "approved",
@@ -663,7 +663,7 @@
       "license": "Apache-2.0",
       "mode": "0755",
       "path": "bin/facet",
-      "sha256": "f677489455bce038f0cb35a37e13c651b49e6cdb57a533a0a16c54730aef181b"
+      "sha256": "f442688c3b03189e8181f8f898ff0e89717d387118e8415b01a3612561c20209"
     },
     {
       "content_review": "approved",
@@ -1335,7 +1335,7 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "cli/scaffold/payload.txtar",
-      "sha256": "66da6496a5eb6531ede126c0992b4476053c94019ba84c35fe766faf4dfb6ea9"
+      "sha256": "99462d5a80f3ccbb3342daf7aa87beab2961e8e5e2313075321552d30db22b33"
     },
     {
       "content_review": "approved",
@@ -1587,7 +1587,7 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "docs/CODEX.md",
-      "sha256": "55da56c5b6f24268a83493df737966554f81698082621776a8d91c450d737b7d"
+      "sha256": "b72252a803318f806fb12be26387c7d79508a7a671bb978b4e24c509833c6c0d"
     },
     {
       "content_review": "approved",
@@ -1616,6 +1616,20 @@
       "mode": "0644",
       "path": "docs/VARIANTS-GUIDE.md",
       "sha256": "7ca7b0f1c8d9a526b4d1ea776c62a6490b784a7aba168e69c3061ead9eade1b0"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "docs/assets/facet-mark-dark.svg",
+      "sha256": "3b550167a33a2ae7d7d943abec522c0ef83230b307ebb535881bd0ff05b0e584"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "docs/assets/facet-mark.svg",
+      "sha256": "e4c5d899398fe3a350305c91efe2c68600c1fa95de43d734cb619687337f48c1"
     },
     {
       "content_review": "approved",
@@ -4562,5 +4576,5 @@
   "publication_approved": false,
   "schema_version": 1,
   "status": "sealed-candidate",
-  "version": "0.1.0-rc.1"
+  "version": "0.1.0-rc.2"
 }

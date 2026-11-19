@@ -5,7 +5,7 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions
 follow [Semantic Versioning](https://semver.org/). Release candidates may still
 change any public API, flag or schema.
 
-## 0.1.0-rc.1
+## 0.1.0-rc.2
 
 First public release candidate of FACET. Commands, flags, Go APIs, MCP
 tools and schemas may still change before 0.1.0.
@@ -46,5 +46,3 @@ tools and schemas may still change before 0.1.0.
   the test suite does not run on macOS or Windows.
 - The `bin/facet` dispatcher is a POSIX shell script and is not tested on
   Windows.
-- Atlas, the local reader, is not included.
-- The wiki commands are not included.

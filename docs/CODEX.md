@@ -4,7 +4,7 @@ FACET's Codex plugin uses the same authoring skill, guide, schemas, role
 profiles and registry implementation as its Claude Code plugin. Records have
 the same format and verification rules on both hosts.
 
-The plugin shares the FACET Core version, starting at 0.1.0-rc.1. Use a
+The plugin shares the FACET release version, starting at 0.1.0-rc.2. Use a
 Codex CLI with native plugin and hook support. Host compatibility for this
 Core-versioned plugin has not yet been qualified.
 

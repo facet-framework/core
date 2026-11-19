@@ -30,6 +30,37 @@ with related work before the next tagged release; acceptance does not imply an
 immediate package release. Maintainers review the final source and built artifacts
 together.
 
+## Build from source
+
+Use the Go version declared in `go.mod`:
+
+```sh
+CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags="-X main.version=0.1.0-rc.2" -o dist/facet ./cmd/facet
+./dist/facet --root examples/minimal lint
+```
+
+CI runs the Go test suite on Linux amd64, with and without the race detector.
+macOS arm64 and Windows amd64 are built and vetted; all six release archives
+are cross-compiled and checked to start. The `bin/facet` dispatcher is not
+tested on Windows.
+
+## Source map
+
+- [cmd/facet/](cmd/facet/): command-line entry point.
+- [cli/](cli/): command assembly and protocol adapters.
+- [registry/](registry/): registry, schema, scanning and validation logic.
+- [corpus/](corpus/), [rag/](rag/), [internal/sourceview/](internal/sourceview/), [internal/docsite/](internal/docsite/):
+  repository data, retrieval, source views and documentation sites.
+- [internal/remote/](internal/remote/), [docs/integrations/](docs/integrations/): the read-only REST and MCP
+  integration served by `facet serve`.
+- [pkg/productplugin/](pkg/productplugin/), [pkg/filelock/](pkg/filelock/), [release/](release/): product protocol, file
+  locking and build identity.
+- [schema/](schema/), [docs/framework/](docs/framework/): public schemas and the specification.
+- [bin/](bin/), [hooks/](hooks/), [skills/](skills/), [agents/](agents/): the plugin's dispatcher, hooks, skills and
+  agent profiles.
+- [scripts/](scripts/), [tools/facet-lint/](tools/facet-lint/): release scripts and the shell lint suite.
+- [`.facetrc.yaml`](.facetrc.yaml), [docs/facets/](docs/facets/): this repository's own FACET registry.
+
 ## Rights and contributor agreement
 
 The current project license is **Apache-2.0**; see [LICENSE](LICENSE).
