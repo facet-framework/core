@@ -1,0 +1,103 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: authoring/session/statusline
+lifecycle: active
+intent:
+  summary: |
+    Shows the FACET registry's state in the Claude Code status line: how many
+    feature records exist, how many are active, and how many still have
+    Knowledge slots waiting on their owner.
+
+    It makes the registry ambient rather than something you have to go and ask
+    about, and it surfaces the one number that otherwise stays invisible —
+    the count of records whose owner-supplied answers were never filled in.
+contract:
+  scenarios:
+    - id: segment-rendered-in-facet-project
+      statement: |
+        Given a project containing FACET records
+        When the status line refreshes
+        Then a single line reports the record total, the active count, and the
+        number of records awaiting Knowledge answers
+      post_state:
+        lines_printed: 1
+    - id: silent-outside-facet-projects
+      statement: |
+        Given a project with no FACET records directory
+        When the status line refreshes
+        Then nothing is printed, so the segment can be appended to an existing
+        status line without affecting unrelated repositories
+      post_state:
+        output: empty
+    - id: bounded-in-large-registries
+      statement: |
+        Given a registry with more than 500 records
+        When the status line refreshes
+        Then only the record total is computed, so the status line stays
+        responsive
+      post_state:
+        per_record_scan: false
+knowledge:
+  prerequisite_knowledge:
+    question: "What must the user already understand to use this feature?"
+    answer: |
+      Claude Code with the FACET plugin enabled, plus a statusLine entry in the
+      project's Claude Code settings.json. This is not automatic: a plugin cannot
+      set the main status line itself, so the /facet:statusline skill writes
+      the setting — and asks first, because the status line is yours.
+
+      The bar refreshes on your next interaction, not the moment the setting is
+      saved.
+
+      The numbers come from reading record files and nothing else. The segment
+      never scans source and never runs the integrity checks.
+  not_for:
+    question: "When is this the wrong tool for the job?"
+    answer: |
+      Not a lint indicator. It cannot tell you whether anchors resolve or
+      whether a record is schema-valid; 'facet lint' does that.
+
+      Not for a settings file shared with people who do not have the plugin.
+      The command is gone for them and the segment silently disappears. Vendor
+      the script into the repository if the setting is committed.
+
+      Not a number to optimise. "0 need knowledge" is reached just as easily by
+      deleting a Knowledge block as by answering it.
+  discoverability:
+    question: "Where does the user enter this flow in the product?"
+    answer: |
+      Set up via the /facet:statusline skill, which writes a statusLine entry
+      into the project's Claude Code settings.json pointing at facet-statusline.
+    derive_from:
+      - anchors
+  common_pitfalls:
+    question: "What mistakes do users typically make?"
+    answer: |
+      Reading a healthy-looking bar as a healthy registry. It counts records;
+      it checks nothing.
+
+      Replacing an existing status line instead of appending this segment to
+      it, and losing whatever the previous one showed.
+
+      Committing the statusLine setting without telling the team it depends on
+      a plugin they may not have.
+
+      Expecting the "need knowledge" figure in a very large registry. Above 500
+      records only the total is computed, so that number disappears rather than
+      dropping to zero.
+  success_signal:
+    question: "How does the user know it worked?"
+    answer: |
+      A segment appears in the status bar on your next message, reading
+      something like "FACET 42 records · 38 active · 6 need knowledge".
+
+      Adding a record raises the count at the next interaction.
+
+      In a project without FACET, nothing is added to the bar — the segment is
+      designed to be composable, so its absence there is correct.
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-07-26"
+  superseded_by: null

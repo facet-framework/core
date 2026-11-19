@@ -1,0 +1,204 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: registry/history/reference-changes
+lifecycle: active
+intent:
+  summary: |
+    Names every implementation reference a working tree moved or lost since an
+    explicit baseline — deleted anchored files, removed anchors and renames — as
+    one structured result shared by lint, 'facet drift', the Stop hook and the
+    registry corpus, including private anchors. It reports lost references
+    without changing a record, lifecycle or anchor.
+contract:
+  scenarios:
+    - id: a-deleted-anchored-file-is-a-lost-reference
+      statement: |
+        Given an anchored file in the baseline, deleted from the working tree
+        whether staged or not
+        When the change set is read
+        Then a reference change names the registry, the record id, the role
+        the anchor had, the baseline path, that the baseline was the evidence,
+        and how many anchors of the id remain
+      post_state:
+        kind: deleted
+    - id: a-lost-reference-is-reported-while-another-survives
+      statement: |
+        Given a record anchored in two files
+        When one of them loses its anchor
+        Then the loss is reported with one surviving anchor, because losing an
+        implementation is worth a look even when the record is still anchored
+      post_state:
+        kind: anchor-removed
+        surviving: 1
+    - id: a-rename-carrying-its-anchor-is-not-a-loss
+      statement: |
+        Given an anchored file renamed with its anchor intact
+        When the change set is read
+        Then it is reported as a rename with old and new path, and not as a
+        lost reference
+      post_state:
+        kind: renamed
+    - id: a-rename-that-drops-the-anchor-is-a-loss
+      statement: |
+        Given an anchored file renamed and stripped of its anchor in one change
+        When the change set is read
+        Then the anchor is reported as removed, naming the new path
+    - id: paths-survive-git-quoting
+      statement: |
+        Given paths containing spaces, double quotes, non-ASCII characters and
+        a literal " -> "
+        When they are deleted, renamed, modified or added
+        Then every path is reported exactly as it is named, because every git
+        call uses its NUL-delimited form
+    - id: a-missing-baseline-is-not-no-drift
+      statement: |
+        Given no git repository, a repository with no commit, or a baseline
+        revision that does not exist
+        When the change set is read
+        Then its baseline status says so, distinct from a comparison that ran
+        and found nothing
+    - id: a-deleted-file-recovers-its-private-anchor
+      statement: |
+        Given a file whose anchor the clean filter keeps out of every commit
+        When the file is deleted
+        Then the association is recovered from the clone's sidecar and marked
+        as private-sidecar evidence, while HEAD alone would show nothing
+      post_state:
+        evidence: private-sidecar
+    - id: the-sidecar-is-never-cleaned-up-from-one-worktree
+      statement: |
+        Given two worktrees of one clone, the file deleted in one and present
+        in the other
+        When drift, lint and the Stop hook have run in the first
+        Then the shared sidecar still holds the private anchor, and the second
+        worktree checks it out unchanged
+    - id: each-registry-reports-only-what-it-claims
+      statement: |
+        Given two registries with their own sources
+        When a file in one of them is deleted
+        Then only that registry reports the loss
+    - id: every-consumer-names-the-same-affected-records
+      statement: |
+        Given one deletion and one removed anchor
+        When 'facet drift --json', 'facet lint --json', the Stop hook and the
+        registry corpus are produced
+        Then all four name the same record ids and paths, and the
+        orphan-records error for a record left without anchors stands beside
+        the lost-anchors warning rather than being replaced by it
+    - id: restoring-the-file-clears-the-event
+      statement: |
+        Given a deleted anchored file reported as a lost reference
+        When the file is restored
+        Then nothing is reported any more
+    - id: the-hook-asks-for-a-check-not-a-retirement
+      statement: |
+        Given a lost reference at the end of a turn
+        When the Stop hook speaks
+        Then it names the file, the role and the surviving anchors, asks for
+        the surviving implementation, the verification entries and the
+        lifecycle to be checked, and says that nothing retires the feature
+      post_state:
+        additional_context_emitted: true
+    - id: source-clone-reference-changes-use-workspace-paths
+      statement: |
+        Given declared independent source clones containing anchored files
+        And a record names a source path in the workspace
+        When one file is renamed and another clone's file is deleted
+        Then referenceChanges names both associations with workspace-relative paths
+        And staleReferences names the old workspace path and its new location
+    - id: unreadable-source-evidence-survives-other-registries
+      statement: |
+        Given an observed unreadable baseline path in one source repository
+        And two registries claim disjoint source repositories
+        When the shared comparison is read by both registries and read again
+        Then the unreadable workspace-relative path remains reported exactly once
+verification:
+  unit_tests:
+    - id: registry/changes_test.go
+      proves:
+        - a-deleted-anchored-file-is-a-lost-reference
+        - a-lost-reference-is-reported-while-another-survives
+        - a-rename-carrying-its-anchor-is-not-a-loss
+        - a-rename-that-drops-the-anchor-is-a-loss
+        - paths-survive-git-quoting
+        - a-missing-baseline-is-not-no-drift
+        - each-registry-reports-only-what-it-claims
+        - restoring-the-file-clears-the-event
+    - id: cli/reference_changes_test.go
+      proves:
+        - a-deleted-file-recovers-its-private-anchor
+        - the-sidecar-is-never-cleaned-up-from-one-worktree
+        - every-consumer-names-the-same-affected-records
+        - the-hook-asks-for-a-check-not-a-retirement
+    - id: "registry/source_changes_test.go::TestSourceRepositoriesReportRenamesAndDeletions"
+      proves:
+        - source-clone-reference-changes-use-workspace-paths
+    - id: "cli/source_drift_test.go::TestSourceClonePrivateDeletionReachesLintAndStop"
+      proves:
+        - a-deleted-file-recovers-its-private-anchor
+    - id: "registry/source_changes_test.go::TestUnreadableSourceEvidenceSurvivesDisjointRegistryComparisons"
+      proves:
+        - unreadable-source-evidence-survives-other-registries
+knowledge:
+  prerequisite_knowledge:
+    question: "What must the user already understand to use this feature?"
+    answer: |
+      That a comparison has two ends. The working tree — staged, unstaged and
+      untracked — is always one; the baseline is the other, and every result
+      carries which one it was. Without a recorded review that is HEAD, and a
+      clean result then says only that the uncommitted work brought its
+      records along. Declared independent source clones have their own Git
+      comparison. Legacy directory mode projects paths relative to the registry
+      workspace. A selected source view instead names implementation paths as
+      repository:path using shared logical IDs and ignored local checkout
+      bindings; registry records remain an independent comparison input.
+
+      The shared structured comparison preserves paths with spaces, quotes,
+      non-ASCII characters or a literal arrow, so callers do not have to parse
+      textual 'git status' independently.
+
+      It is a signal, never a retirement: losing a reference while another
+      survives is reported, an orphaned record stays orphan-records' error, and
+      no record, lifecycle or anchor is changed by it.
+  not_for:
+    question: "When is this the wrong tool for the job?"
+    answer: |
+      Not a history audit. Changes before the baseline are not examined, and
+      a clean working tree is not proof that the registry was ever reviewed
+      against older commits — that is what an accepted baseline
+      (registry/history/drift-review) is for.
+
+      Not a retirement tool. It never edits a record, changes a lifecycle or
+      moves an anchor.
+  discoverability:
+    question: "Where does the user enter this flow in the product?"
+    answer: |
+      'facet drift' lists reference changes beside drift; 'facet lint' reports
+      lost ones as the lost-anchors warning; the Stop hook names them at the
+      end of a turn.
+    derive_from:
+      - anchors
+  common_pitfalls:
+    question: "What mistakes do users typically make?"
+    answer: |
+      Reading "N anchor(s) remain" as permission to ignore a loss. A surviving
+      helper anchor does not implement what the deleted primary file did.
+
+      Deleting the private-anchor sidecar by hand because a file is gone in
+      one worktree. The sidecar is shared by every worktree of the clone; the
+      clean filter is the only thing that may drop a block from it.
+  success_signal:
+    question: "How does the user know it worked?"
+    answer: |
+      After deleting an anchored file, 'facet drift --json' lists a
+      referenceChanges entry of kind "deleted" for its record, and the same
+      record appears in lint and in the Stop hook.
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-10-05"
+  superseded_by: null
+  depends_on:
+    - registry/history/drift-cli
+    - registry/layout/private-anchors

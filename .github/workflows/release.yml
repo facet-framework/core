@@ -1,0 +1,315 @@
+# Releases the version named in PUBLIC-SOURCE-MANIFEST.json when that commit
+# reaches main. A release branch is merged into main only after CI succeeded
+# on it, and this workflow checks that again before it builds anything.
+#
+# Publishing waits for the environment `release`, whose required reviewers
+# approve the concrete build: until then nothing is tagged, attested or
+# released. npm publishing is a separate job that is skipped unless the
+# repository variable FACET_NPM_PUBLISH is 'true', and that then waits for the
+# environment `npm`. GitHub creates a missing environment on the fly, without
+# reviewers, so the plan refuses to go on unless each environment a run will
+# use exists, requires a reviewer and deploys from main only, main needs a
+# reviewed pull request that administrators cannot bypass, and an active tag
+# ruleset restricts creating, moving and deleting v* tags to the GitHub
+# Actions app and deploy keys. The GitHub Actions app is every workflow of
+# this repository, not this one alone. The releaser may approve their own run
+# unless the repository variable FACET_RELEASE_REQUIRE_SECOND_REVIEWER is
+# 'true'; then the environment must prevent self-review.
+#
+# The binaries are built with the Go pinned in FACET_GO_VERSION below, not
+# with the latest stable Go. THIRD_PARTY.json lists that toolchain's notices
+# and scripts/release-third-party-check.sh refuses any other, so the inventory
+# is collected again whenever the pin moves.
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Build and verify only; tag, attest and publish nothing
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+# A dry run never queues behind, or ahead of, a publishing run.
+concurrency:
+  group: release-${{ (github.event_name == 'workflow_dispatch' && inputs.dry_run) && 'dry-run' || 'publish' }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  GOTOOLCHAIN: local
+  GOFLAGS: -buildvcs=false
+  # The Go of every release build; ci.yml pins the same version.
+  FACET_GO_VERSION: "1.27.4"
+  # The scripts refuse this layout unless the export receipt names Core.
+  FACET_RELEASE_LAYOUT: public
+
+jobs:
+  plan:
+    name: plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      version: ${{ steps.plan.outputs.version }}
+      kind: ${{ steps.plan.outputs.kind }}
+      tag: ${{ steps.plan.outputs.tag }}
+      dry_run: ${{ steps.plan.outputs.dry_run }}
+      distribution: ${{ steps.plan.outputs.distribution }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Releases come from main only
+        env:
+          REF: ${{ github.ref }}
+        run: |
+          [ "$REF" = refs/heads/main ] || { echo "::error::$REF is not main; a release is cut from main only"; exit 1; }
+      - name: The tree is the exported source
+        run: sh scripts/release-receipt.sh verify
+      - name: Every notice NOTICE refers to is in the tree
+        run: sh scripts/release-notice-check.sh
+      - name: Plan
+        id: plan
+        env:
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+        run: |
+          version=$(sh scripts/release-receipt.sh version)
+          kind=$(sh scripts/release-version.sh kind "$version")
+          case "$kind" in
+            rc | release) ;;
+            *) echo "::error::$version is a $kind version; only rc and release versions are released"; exit 1 ;;
+          esac
+          {
+            echo "version=$version"
+            echo "kind=$kind"
+            echo "tag=v$version"
+            echo "dry_run=${DRY_RUN:-false}"
+            echo "distribution=$(sh scripts/release-stamp.sh distribution "$GITHUB_REPOSITORY")"
+          } | tee -a "$GITHUB_OUTPUT"
+      - name: CI succeeded on this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          green=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$GITHUB_SHA&event=push&status=success&per_page=1" --jq .total_count)
+          [ "$green" -ge 1 ] || { echo "::error::no successful CI run (ci.yml, push) for $GITHUB_SHA; nothing is released"; exit 1; }
+          echo "ci.yml succeeded on $GITHUB_SHA ($green run(s))"
+      # The check also reads the protection of main and the v* tag ruleset,
+      # which only a token with Administration read can see. Without the
+      # secret RELEASE_SETTINGS_TOKEN the job token is used, and the check
+      # refuses for the missing permission rather than passing.
+      - name: The release environment requires a reviewer and deploys from main only
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_SETTINGS_TOKEN || github.token }}
+          FACET_RELEASE_REQUIRE_SECOND_REVIEWER: ${{ vars.FACET_RELEASE_REQUIRE_SECOND_REVIEWER }}
+        run: sh scripts/release-environment-check.sh release "$GITHUB_REPOSITORY"
+      - name: The npm environment requires a reviewer and deploys from main only
+        if: vars.FACET_NPM_PUBLISH == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_SETTINGS_TOKEN || github.token }}
+          FACET_RELEASE_REQUIRE_SECOND_REVIEWER: ${{ vars.FACET_RELEASE_REQUIRE_SECOND_REVIEWER }}
+        run: sh scripts/release-environment-check.sh npm "$GITHUB_REPOSITORY"
+      - name: The changelog holds the release notes
+        env:
+          VERSION: ${{ steps.plan.outputs.version }}
+        run: sh scripts/release-changelog.sh notes "$VERSION" | tee "$RUNNER_TEMP/notes.md"
+      - name: The tag is free, or this commit's own unpublished release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.plan.outputs.tag }}
+        run: sh scripts/release-publish.sh check-tag "$TAG" "$GITHUB_REPOSITORY"
+
+  build:
+    name: build
+    needs: plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      FACET_RELEASE_REPO: ${{ github.repository }}
+      VERSION: ${{ needs.plan.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.FACET_GO_VERSION }}
+          cache: false
+      - run: go version
+      - name: Package the six platforms
+        run: sh scripts/release-package-core.sh "$VERSION" "$RUNNER_TEMP/dist"
+      - name: Packaging again gives the same bytes
+        run: |
+          sh scripts/release-package-core.sh "$VERSION" "$RUNNER_TEMP/dist-again"
+          diff -r "$RUNNER_TEMP/dist" "$RUNNER_TEMP/dist-again"
+      - name: The Linux binary states its provenance
+        env:
+          DISTRIBUTION: ${{ needs.plan.outputs.distribution }}
+        run: |
+          mkdir "$RUNNER_TEMP/x"
+          tar -xzf "$RUNNER_TEMP/dist/facet_${VERSION}_linux_amd64.tar.gz" -C "$RUNNER_TEMP/x" facet
+          "$RUNNER_TEMP/x/facet" version --json | tee "$RUNNER_TEMP/version.json"
+          jq -e --arg d "$DISTRIBUTION" --slurpfile m "$RUNNER_TEMP/dist/release-manifest.json" '
+            .product == "core" and .version == $m[0].full_version and .distribution == $d
+            and .channel == $m[0].channel and .source_commit == $m[0].source_commit
+            and .build_time == $m[0].build_time and .dirty == false' "$RUNNER_TEMP/version.json"
+      - name: bin/facet installs the release and runs it offline
+        run: sh scripts/release-dispatcher-check.sh "$RUNNER_TEMP/dist" "$GITHUB_REPOSITORY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-dist
+          path: ${{ runner.temp }}/dist/
+          if-no-files-found: error
+          retention-days: 30
+
+  native:
+    name: native (${{ matrix.platform }})
+    needs: [plan, build]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-24.04-arm, platform: linux_arm64 }
+          - { os: macos-15-intel, platform: darwin_amd64 }
+          - { os: macos-15, platform: darwin_arm64 }
+          - { os: windows-2025, platform: windows_amd64 }
+          - { os: windows-11-arm, platform: windows_arm64 }
+    env:
+      VERSION: ${{ needs.plan.outputs.version }}
+      PLATFORM: ${{ matrix.platform }}
+      DISTRIBUTION: ${{ needs.plan.outputs.distribution }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-dist
+          path: ${{ runner.temp }}/dist
+      - name: bin/facet installs this platform's archive and runs it offline
+        if: runner.os != 'Windows'
+        run: sh scripts/release-dispatcher-check.sh "$RUNNER_TEMP/dist" "$GITHUB_REPOSITORY"
+      - name: The Windows binary states its provenance
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $dist = Join-Path $env:RUNNER_TEMP 'dist'
+          $out = Join-Path $env:RUNNER_TEMP 'x'
+          Expand-Archive -Path (Join-Path $dist "facet_$($env:VERSION)_$($env:PLATFORM).zip") -DestinationPath $out
+          $answer = & (Join-Path $out 'facet.exe') version --json
+          if ($LASTEXITCODE -ne 0) { throw "facet.exe version --json failed" }
+          $answer
+          $got = $answer | ConvertFrom-Json
+          $want = Get-Content -Raw (Join-Path $dist 'release-manifest.json') | ConvertFrom-Json
+          $checks = [ordered]@{
+            product = $got.product -eq 'core'
+            version = $got.version -eq $want.full_version
+            distribution = $got.distribution -eq $env:DISTRIBUTION
+            channel = $got.channel -eq $want.channel
+            source_commit = $got.source_commit -eq $want.source_commit
+            build_time = "$($got.build_time)" -eq "$($want.build_time)"
+            dirty = $got.dirty -eq $false
+          }
+          $checks
+          if ($checks.Values -contains $false) { throw "facet.exe does not state the provenance of release-manifest.json" }
+
+  publish:
+    name: publish
+    needs: [plan, build, native]
+    if: needs.plan.outputs.dry_run != 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    # Required reviewers on this environment approve the build above before
+    # anything below runs.
+    environment: release
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    env:
+      VERSION: ${{ needs.plan.outputs.version }}
+      KIND: ${{ needs.plan.outputs.kind }}
+      TAG: ${{ needs.plan.outputs.tag }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The tag is pushed with this job's token.
+          persist-credentials: true
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-dist
+          path: dist
+      - name: The downloaded files are the ones checksums.txt names
+        run: (cd dist && sha256sum --check --strict checksums.txt)
+      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-checksums: dist/checksums.txt
+      - name: Create and push the tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          sh scripts/release-publish.sh prepare-tag "$TAG" "FACET Core $VERSION" "$GITHUB_REPOSITORY"
+      - name: Create the GitHub release
+        run: sh scripts/release-publish.sh release core "$KIND" "$VERSION" "$TAG" dist "$GITHUB_REPOSITORY"
+
+  npm:
+    name: npm
+    needs: [plan, publish]
+    # Off unless the repository variable is set, and then still behind the
+    # environment's required reviewers.
+    if: needs.plan.outputs.dry_run != 'true' && vars.FACET_NPM_PUBLISH == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-dist
+          path: dist
+      - name: The downloaded files are the ones checksums.txt names
+        run: (cd dist && sha256sum --check --strict checksums.txt)
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - name: An npm that publishes through trusted publishing (11.5.1 or later)
+        run: |
+          npm install -g npm@11.19.0
+          npm --version
+      - name: Pack the npm packages from the release archives
+        run: sh scripts/release-npm-pack.sh dist
+      - name: The plan is publishable
+        run: |
+          jq '{publishable, blocked_by, dist_tag, complete}' dist/npm/publish-plan.json
+          jq -e '.publishable == true and .complete == true' dist/npm/publish-plan.json > /dev/null
+      # npm authenticates with this job's OIDC token against the trusted
+      # publisher configured for each package on npmjs.com. A trusted publisher
+      # exists only for a package the registry already knows, so the first
+      # publication of a package name uses the secret NPM_TOKEN of the npm
+      # environment instead; without it the script stops before publishing
+      # anything and names the packages. Remove the secret once every package
+      # has its trusted publisher. A version an earlier run already published
+      # with the same tarball is skipped.
+      - name: Publish in the plan's order
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: sh scripts/release-npm-publish.sh dist

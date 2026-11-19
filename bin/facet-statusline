@@ -1,0 +1,43 @@
+#!/usr/bin/env sh
+# @facet: authoring/session/statusline
+# @facet-role: primary
+# Prints a one-line FACET registry segment for the Claude Code status line.
+
+INPUT=$(cat 2>/dev/null)
+
+if command -v jq >/dev/null 2>&1; then
+  DIR=$(printf '%s' "$INPUT" | jq -r '.workspace.current_dir // .cwd // empty' 2>/dev/null)
+else
+  DIR=$(printf '%s' "$INPUT" | tr '{,' '\n\n' |
+    grep -o '"current_dir"[[:space:]]*:[[:space:]]*"[^"]*"' |
+    head -n 1 | sed 's/.*:[[:space:]]*"//; s/"$//')
+fi
+[ -n "$DIR" ] || DIR=$(pwd)
+
+ROOT=$(git -C "$DIR" rev-parse --show-toplevel 2>/dev/null || printf '%s' "$DIR")
+FEATURES="$ROOT/${FACET_RECORDS_DIR:-docs/facets}/features"
+[ -d "$FEATURES" ] || exit 0
+
+RECORDS=$(find "$FEATURES" -name '*.yaml' 2>/dev/null)
+[ -n "$RECORDS" ] || exit 0
+
+TOTAL=$(printf '%s\n' "$RECORDS" | grep -c '[^[:space:]]')
+ACTIVE=0
+NEEDS_KNOWLEDGE=0
+
+# Bounded so the status line stays instant in a very large registry.
+if [ "$TOTAL" -le 500 ]; then
+  for f in $RECORDS; do
+    grep -q '^lifecycle:[[:space:]]*active' "$f" 2>/dev/null && ACTIVE=$((ACTIVE + 1))
+    # A record needs owner input when it has a knowledge block with no answers.
+    if grep -q '^knowledge:' "$f" 2>/dev/null && ! grep -q '^[[:space:]]\{4\}answer:' "$f" 2>/dev/null; then
+      NEEDS_KNOWLEDGE=$((NEEDS_KNOWLEDGE + 1))
+    fi
+  done
+  SEGMENT="FACET $TOTAL records · $ACTIVE active"
+  [ "$NEEDS_KNOWLEDGE" -gt 0 ] && SEGMENT="$SEGMENT · $NEEDS_KNOWLEDGE need knowledge"
+else
+  SEGMENT="FACET $TOTAL records"
+fi
+
+printf '%s\n' "$SEGMENT"

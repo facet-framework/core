@@ -1,0 +1,378 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: delivery/distribution/binary-resolution
+lifecycle: active
+intent:
+  summary: |
+    Finds the FACET Core binary for this platform in a fixed order — an
+    explicit FACET_BINARY, an explicit development build, a PATH binary that
+    answers as Core, a complete cached install, then a verified release from
+    the listed sources — and stops with a named reason rather than silently
+    using anything else. Installs are filed per distribution and platform, so
+    an old 1.x binary or cache, a same-numbered build from another source, or
+    an unfinished install never wins over the version asked for. Credentials
+    are only reached for when a release is private: the CLI login first, then
+    GH_TOKEN or GITHUB_TOKEN.
+contract:
+  scenarios:
+    - id: the-version-is-the-pin-or-the-core-default
+      statement: |
+        Given a plugin checkout, even one at an exact preview tag of another product line
+        When the dispatcher chooses the version to resolve
+        Then it uses FACET_VERSION when set and otherwise its default, and a
+        checkout's tags never change that choice
+    - id: the-default-is-the-core-target-version
+      statement: |
+        Given the dispatcher's default version and the Core version declared for the source being checked
+        When the version checks run
+        Then a default that disagrees with the version expected by that source's check fails
+        And the dispatcher cannot silently ask for an unrelated release version
+      post_state:
+        exit_code: 1
+    - id: facet-binary-must-be-executable
+      statement: |
+        Given FACET_BINARY names a missing or non-executable file
+        When any facet command runs through the dispatcher
+        Then it fails and names that path, and nothing else is run even when
+        the cache could have answered
+      post_state:
+        exit_code: 1
+        binary_executed: false
+    - id: a-source-build-happens-only-when-asked
+      statement: |
+        Given Go and the plugin's source are both available
+        When FACET_DEV_BUILD=1 is not set
+        Then nothing is built, and with it set but Go missing the run fails
+        instead of falling back to the cache or a download
+      post_state:
+        exit_code: 1
+    - id: a-development-build-reports-its-source
+      statement: |
+        Given FACET_DEV_BUILD=1 in a source checkout with Go
+        When the dispatcher builds and runs the binary
+        Then that binary's own `version --json` names distribution `source`,
+        the commit of the tree it was built from and a dated 0.x.y-dev
+        version, Go's own VCS stamp is off so that commit is the dispatcher's,
+        and the build lands under dist/core/source/<platform>/dev
+    - id: a-development-build-is-reused-only-when-clean
+      statement: |
+        Given an existing development build
+        When FACET_DEV_BUILD=1 runs again at the same commit on a clean tree
+        Then that build is run as it is, and once the tree is dirty it is
+        rebuilt and recorded as dirty
+    - id: a-failing-sidecar-does-not-end-a-development-build
+      statement: |
+        Given a declared sidecar that does not build
+        When FACET_DEV_BUILD=1 runs
+        Then the failure is named, facet is still built and run, and the run
+        never ends without a message
+      post_state:
+        exit_code: 0
+    - id: a-development-build-runs-only-its-own-bytes
+      statement: |
+        Given a development rebuild that could not move the old build aside
+        When the install is committed
+        Then the dispatcher sees that the dev directory does not hold the
+        checksum it just built, stops with that reason, and runs nothing
+      post_state:
+        exit_code: 1
+        binary_executed: false
+    - id: an-unsafe-version-is-refused
+      statement: |
+        Given FACET_VERSION holding anything but letters, digits, '.', '+' and
+        '-' (such as a path)
+        When the dispatcher starts
+        Then it stops and names the value before it reaches a path or URL
+      post_state:
+        exit_code: 1
+    - id: the-path-probe-leaves-stdin-alone
+      statement: |
+        Given a facet on PATH that reads its standard input when asked for
+        `version --json`
+        When the dispatcher probes it and then runs the binary it chose
+        Then the caller's input reaches the binary that runs, because the
+        probe gets no stdin
+    - id: a-path-binary-must-answer-as-core
+      statement: |
+        Given a compiled facet on PATH that does not answer `version --json` as
+        product core, such as a FACET 1.x binary
+        When the dispatcher resolves a binary
+        Then it is passed over, never handed the caller's arguments, and named
+        with its reason if the run fails; one that answers as core is used
+    - id: an-explicit-version-narrows-the-path-binary
+      statement: |
+        Given FACET_VERSION is set and a core binary on PATH reports another
+        version
+        When the dispatcher resolves a binary
+        Then that binary is passed over and one reporting exactly the requested
+        version is used, where build metadata after + is not part of the version
+    - id: an-old-cache-is-never-consulted
+      statement: |
+        Given only a 1.x cache under bin/<version> with its bin/current pointer
+        When the dispatcher resolves a binary
+        Then nothing from it runs and the run fails with what it looked for
+      post_state:
+        exit_code: 1
+        binary_executed: false
+    - id: an-unfinished-install-is-never-selected
+      statement: |
+        Given a version directory whose binary runs but which has no
+        install.json
+        When the dispatcher resolves that version
+        Then it is not selected
+    - id: the-same-version-from-two-sources-never-collides
+      statement: |
+        Given the same version installed from two release sources
+        When the dispatcher resolves it
+        Then each lives under its own github-<owner>-<repo> directory, the
+        order of FACET_REPOS decides which runs, and an unlisted source's
+        install is not used
+    - id: an-installed-version-runs-offline
+      statement: |
+        Given the requested version is already installed
+        When no curl, wget, gh or go is on PATH
+        Then it runs
+      post_state:
+        exit_code: 0
+        binary_executed: true
+    - id: public-release-needs-no-credentials
+      statement: |
+        Given a public repository holding the release
+        When the archive is downloaded
+        Then it is fetched anonymously, with nothing configured
+    - id: fork-is-tried-before-upstream
+      statement: |
+        Given FACET_REPO names a fork
+        When a release is needed
+        Then the fork is asked first and upstream is asked only if the fork
+        cannot serve that version
+    - id: fork-without-that-version-still-resolves
+      statement: |
+        Given a fork that has cut some versions but not the one requested
+        When a release is needed
+        Then upstream supplies it, rather than the run failing
+    - id: an-exact-list-never-reaches-upstream
+      statement: |
+        Given FACET_REPOS names one internal mirror
+        When that mirror has no matching release
+        Then the dispatcher fails and names what it tried, without falling back
+        to a source the operator did not list
+      post_state:
+        exit_code: 1
+    - id: private-release-uses-the-cli-login
+      statement: |
+        Given the release is private and the GitHub CLI is logged in
+        When the anonymous attempt fails
+        Then the CLI's credentials are used and the download succeeds
+    - id: without-the-cli-an-env-token-is-used
+      statement: |
+        Given the GitHub CLI is absent or not logged in, and GH_TOKEN is set
+        When the anonymous attempt fails
+        Then the release is fetched through the releases API with that token,
+        because a private asset is not reachable at its browser URL
+    - id: with-wget-the-token-stays-with-the-api
+      statement: |
+        Given wget is the only download tool and a private release is fetched
+        through the releases API with a token
+        When the API redirects an asset request to a storage host
+        Then the token is sent to the API's origin only and the storage host
+        is asked without it, because wget would otherwise repeat the header
+        on every redirect
+        And a redirect to the same origin keeps the token, one to another
+        scheme or host drops it
+    - id: the-archive-asked-for-is-the-one-published
+      statement: |
+        Given a platform whose release archive is a zip rather than a tarball
+        When the dispatcher resolves a release
+        Then it asks for that platform's published name and unpacks the binary
+        under the name the archive carries it by
+      pre_state:
+        platform: windows_amd64
+        published_asset: "facet_<version>_windows_amd64.zip"
+      post_state:
+        binary_executed: true
+        exit_code: 0
+    - id: a-missing-unpacker-is-said-before-the-download
+      statement: |
+        Given a shell with no unzip and a platform whose archive is a zip
+        When the dispatcher resolves a release
+        Then it names the missing tool and what would supply it, rather than
+        failing after every source and reporting it as a credentials problem
+      post_state:
+        exit_code: 1
+        binary_executed: false
+    - id: a-missing-asset-names-what-was-looked-for
+      statement: |
+        Given no source serves this version for this platform
+        When every source has been tried
+        Then the failure names the archive that was looked for, the sources
+        tried and the ways out (a pinned version, FACET_BINARY,
+        FACET_DEV_BUILD=1, credentials), so a version that was never released
+        is not read as a missing credential
+      post_state:
+        exit_code: 1
+    - id: the-two-files-cannot-drift-apart
+      statement: |
+        Given the release changes the archive format it publishes for a platform
+        When the dispatcher is not changed to match
+        Then CI fails and names both sides, because neither file is wrong on its
+        own and the pair is what is wrong
+      post_state:
+        exit_code: 1
+    - id: the-bundled-sidecar-arrives-with-facet
+      statement: |
+        Given an archive that carries companion executables beside facet at
+        its root — executable regular files in a tarball, .exe files in a zip;
+        a Core archive carries none and installs without one
+        When the dispatcher resolves it, either by downloading the archive or
+        by an explicit development build
+        Then every companion the archive carries lands in the same install
+        directory as facet, so a plugin that relies on one has a binary to run rather
+        than a checksum with no binary beside it
+        And the dispatcher names no companion itself; the archive decides
+verification:
+  unit_tests:
+    - id: cli/dispatcher_archive_test.go
+      proves:
+        - the-archive-asked-for-is-the-one-published
+        - a-missing-unpacker-is-said-before-the-download
+        - a-missing-asset-names-what-was-looked-for
+        - the-bundled-sidecar-arrives-with-facet
+    - id: "cli/dispatcher_test.go::TestANonExecutableFacetBinaryFailsLoudly"
+      proves:
+        - facet-binary-must-be-executable
+    - id: "cli/dispatcher_test.go::TestNoSourceBuildWithoutFacetDevBuild"
+      proves:
+        - a-source-build-happens-only-when-asked
+    - id: "cli/dispatcher_test.go::TestFacetDevBuildWithoutGoFailsInsteadOfFallingBack"
+      proves:
+        - a-source-build-happens-only-when-asked
+    - id: "cli/dispatcher_test.go::TestAPathBinaryThatIsNotCoreIsSkippedAndNamed"
+      proves:
+        - a-path-binary-must-answer-as-core
+    - id: "cli/dispatcher_test.go::TestAPathBinaryThatIsCoreIsUsedAndAPinIsHonoured"
+      proves:
+        - a-path-binary-must-answer-as-core
+        - an-explicit-version-narrows-the-path-binary
+    - id: "cli/dispatcher_test.go::TestAnOldBinCacheIsNeverExecuted"
+      proves:
+        - an-old-cache-is-never-consulted
+    - id: "cli/dispatcher_test.go::TestAVersionDirectoryWithoutInstallJSONIsNotSelected"
+      proves:
+        - an-unfinished-install-is-never-selected
+    - id: "cli/dispatcher_test.go::TestTheSameVersionFromTwoReposDoesNotCollide"
+      proves:
+        - the-same-version-from-two-sources-never-collides
+    - id: "cli/dispatcher_test.go::TestAPinnedInstalledVersionRunsWithoutNetworkTools"
+      proves:
+        - an-installed-version-runs-offline
+    - id: "cli/dispatcher_test.go::TestAnUnsafeFacetVersionIsRefused"
+      proves:
+        - an-unsafe-version-is-refused
+    - id: "cli/dispatcher_test.go::TestThePathProbeDoesNotConsumeStdin"
+      proves:
+        - the-path-probe-leaves-stdin-alone
+    - id: "cli/dispatcher_devbuild_unix_test.go::TestADevelopmentBuildIsReusedOnlyForTheSameCleanCommit"
+      proves:
+        - a-development-build-is-reused-only-when-clean
+    - id: "cli/dispatcher_devbuild_test.go::TestAFailingLastSidecarDoesNotEndTheDevBuild"
+      proves:
+        - a-failing-sidecar-does-not-end-a-development-build
+    - id: "cli/dispatcher_devbuild_test.go::TestADevRebuildThatCannotReplaceTheOldBuildStops"
+      proves:
+        - a-development-build-runs-only-its-own-bytes
+  integration_tests:
+    - id: scripts/dispatcher-wget-token.test.sh
+      proves:
+        - with-wget-the-token-stays-with-the-api
+knowledge:
+  prerequisite_knowledge:
+    question: "What must the user already understand to use this feature?"
+    answer: |
+      Nothing, in the ordinary case: a public release on a machine with curl or
+      wget needs no configuration at all.
+
+      To install from a fork, that a fork is a separate repository with its own
+      releases and its own checksums, and that FACET_REPO adds a source while
+      FACET_REPOS replaces the list.
+
+      For a private repository, that a token is needed, and that GitHub's
+      browser download URL will not serve a private asset no matter what header
+      accompanies it.
+
+      On Windows without Go, that the release is a zip and the shell needs
+      something that can open one; Git Bash alone cannot.
+
+      The base target in the Core version declaration and the dispatcher's release
+      pin serve different purposes. The base target determines the dev, rc and
+      stable version line; a public export pins bin/facet to the resolved Core
+      release version, which can include an rc suffix. The packaged-release
+      dispatcher check runs with FACET_VERSION unset and verifies that the
+      built-in default requests that release's archive; it does not require an
+      rc pin to equal the unsuffixed base target.
+  not_for:
+    question: "When is this the wrong tool for the job?"
+    answer: |
+      Not a package manager. It resolves one version into a cache and has
+      no opinion about upgrades, no lockfile, and no uninstall.
+
+      Not a way to run an unreleased build implicitly. Point FACET_BINARY at
+      it, or set FACET_DEV_BUILD=1 in a source checkout with Go.
+
+      Not a trust boundary for a fork you do not control. Checksums prove the
+      archive matches what that release published, which is a different claim
+      from the code being sound.
+  discoverability:
+    question: "Where does the user enter this flow in the product?"
+    answer: |
+      Nowhere explicitly: any `facet` command runs through the dispatcher, and
+      the first one on a new machine is what acquires the binary. It becomes
+      visible only when it cannot, at which point it names every source it
+      tried and what would let it try harder.
+    derive_from:
+      - anchors
+  common_pitfalls:
+    question: "What mistakes do users typically make?"
+    answer: |
+      Expecting a source checkout with Go to build itself. It does not any
+      more; FACET_DEV_BUILD=1 asks for that explicitly. FACET_RELEASE_TAG
+      overrides the download tag (v<version>) without changing the requested
+      binary version; a build published under any other tag needs it set
+      explicitly, nothing guesses it.
+
+      Expecting an installed FACET 1.x binary to keep working through the
+      dispatcher. FACET Core versions restart at 0.1.0; a 1.x binary on PATH
+      is passed over and the old bin/<version> cache is never read.
+
+      Expecting FACET_REPO to be exclusive. It is additive on purpose; use
+      FACET_REPOS for a closed list.
+
+      Setting a token and assuming the browser URL will start working for a
+      private release. It will not; only the releases API serves those.
+
+      Forking, cutting no release, and pointing FACET_REPO at the fork, then
+      reading the upstream download that follows as the fork having been
+      ignored.
+
+      Expecting a fork's archive to validate against upstream's checksums. A
+      fork builds its own bytes; they are compared against its own list.
+
+      On Windows, reading "could not obtain the facet binary" as a credentials
+      problem. It usually is not: the archive there is a zip, and Git Bash
+      ships no unzip. The message names the archive it looked for and says so
+      when the unpacker is what is missing.
+  success_signal:
+    question: "How does the user know it worked?"
+    answer: |
+      A `facet` command simply runs, and the next one starts instantly because
+      the install is cached for that version and source.
+
+      When it does not work, the error names each source that was tried, so the
+      difference between "no release there" and "no credentials for it" is
+      visible without guessing.
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-08-01"
+  superseded_by: null

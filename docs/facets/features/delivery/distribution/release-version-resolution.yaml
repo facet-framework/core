@@ -1,0 +1,76 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: delivery/distribution/release-version-resolution
+lifecycle: active
+intent:
+  summary: |
+    One script computes every FACET Core release version from target_version in
+    release/core-version.json and explicit inputs, never from git tags. The
+    release workflow routes every version through it, refuses one the script
+    could not have produced for the target, and refuses a changelog without
+    that version's section.
+contract:
+  scenarios:
+    - id: dev-versions-carry-utc-date-and-run-counter
+      statement: |
+        Given target_version 0.1.0
+        When a dev version is resolved for UTC date 20261114 and run counter 7
+        Then the version is 0.1.0-dev.20261114.7
+        And the full version appends +g and the first 12 characters of the commit
+    - id: rc-and-release-versions-come-from-the-target
+      statement: |
+        Given target_version 0.1.0
+        When an rc version is resolved for number 3, and a release version is resolved
+        Then they are 0.1.0-rc.3 and 0.1.0
+        And changing target_version changes all three kinds
+    - id: malformed-inputs-are-refused
+      statement: |
+        Given a date that is not a calendar date, a counter or rc number with a leading zero, zero, or build metadata in a version
+        When a version is resolved or classified
+        Then the resolver exits non-zero and prints no version
+    - id: historical-tags-have-no-influence
+      statement: |
+        Given a repository carrying v1.21.0-rc.3 tags and preview tags of another product line
+        When the release workflow resolves a version for a build or a release
+        Then each version equals the version resolved in the same repository without those tags
+knowledge:
+  prerequisite_knowledge:
+    question: "What must a maintainer know first?"
+    answer: |
+      FACET Core versions on its own line from 0.1.0; the specification has
+      its own edition line. release/core-version.json names the edition this
+      build declares (specification_version) and every edition it supports
+      (compatible_specifications); facet version reports specification_version.
+      The public Core source declares specification edition 0.1.0 and lists its
+      supported editions in compatible_specifications. Its release tags use
+      v<version>; scripts/release-layout.sh supplies the configured Core
+      release prefix.
+  not_for:
+    question: "What does this not do?"
+    answer: |
+      The resolver does not publish, tag or package. The public Claude Code and
+      Codex plugin manifests carry the same Core release version through
+      {{CORE_VERSION}}; the specification edition remains independent so a
+      product release is not mistaken for a specification revision.
+  discoverability:
+    question: "Where does a maintainer enter this?"
+    answer: |
+      Run sh scripts/release-version.sh dev <YYYYMMDD> <counter> | rc <N> |
+      release, or kind <version> to classify a version. The release workflow
+      resolves or classifies every version it plans through this script.
+  common_pitfalls:
+    question: "What is easy to get wrong?"
+    answer: |
+      Expecting build metadata to order dev builds: the date and run counter
+      order them, and +g<commit> appears only in the binary's full version, never
+      in an archive name or tag.
+  success_signal:
+    question: "How is success recognized?"
+    answer: |
+      facet version --json of a release binary reports the resolved version with
+      +g<commit>, and the public release carries its v<version> tag.
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-11-14"

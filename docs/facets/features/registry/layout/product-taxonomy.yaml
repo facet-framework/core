@@ -1,0 +1,185 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: registry/layout/product-taxonomy
+lifecycle: active
+intent:
+  summary: |
+    Lets a project declare the domains and capabilities its feature ids are
+    drawn from and holds every id against that declaration, because segment
+    grammar cannot establish product structure. Declaring the upper levels makes
+    undeclared capabilities and empty declared capabilities visible when records
+    are written. Completion uses declared prefixes rather than turning
+    accidental id structure into a recommendation.
+contract:
+  scenarios:
+    - id: an-undeclared-domain-is-an-error
+      statement: |
+        Given a project with a taxonomy and a record whose id names a domain
+        the taxonomy does not declare
+        When 'facet lint' runs
+        Then an error is reported naming the domain, because an id is immutable
+        and a wrong one is expensive in a way a wrong summary is not
+      post_state:
+        severity: error
+    - id: an-undeclared-capability-is-an-error
+      statement: |
+        Given a record whose domain is declared but whose capability is not
+        When 'facet lint' runs
+        Then an error is reported naming the capability and the domain it was
+        looked for under
+      post_state:
+        severity: error
+    - id: the-hint-lists-the-siblings-and-the-sizing-test
+      statement: |
+        Given an id that does not resolve
+        When the error is reported
+        Then the hint lists the declared siblings, so a typo can be told apart
+        from a missing node, and sends the reader to the sizing test before the
+        taxonomy file — a feature that fits no capability is usually a feature
+        sized wrong rather than a capability missing
+    - id: an-empty-node-is-a-warning
+      statement: |
+        Given a declared domain or capability with no record written under it
+        When 'facet lint' runs
+        Then a warning is reported, never an error, because declaring a
+        capability before writing its first record is the intended order
+      post_state:
+        severity: warning
+    - id: an-empty-domain-is-reported-once
+      statement: |
+        Given a declared domain with no records anywhere beneath it
+        When 'facet lint' runs
+        Then the domain is reported once rather than once per capability under
+        it, because an empty domain is a single omission
+    - id: no-taxonomy-changes-nothing
+      statement: |
+        Given a project that declares no taxonomy.yaml
+        When 'facet lint' runs
+        Then no finding of this kind is produced, whatever shape the ids have
+      post_state:
+        findings: 0
+    - id: a-malformed-taxonomy-is-caught-by-its-schema
+      statement: |
+        Given a taxonomy.yaml with a mistyped key
+        When 'facet lint' runs
+        Then a schema finding names taxonomy.yaml itself, rather than the file
+        unmarshalling to an empty map and every id beneath it being reported as
+        undeclared
+    - id: a-broken-taxonomy-is-contained
+      statement: |
+        Given a taxonomy.yaml that will not parse at all
+        When 'facet lint' runs
+        Then the unreadable file is one error and every other check still runs,
+        and '--skip taxonomy' silences it entirely — the escape hatch is useless
+        if the file it names is loaded before the skip is read
+      post_state:
+        other_checks_ran: true
+    - id: completion-offers-declared-prefixes
+      statement: |
+        Given a half-typed '@facet:' anchor in an editor and a project that
+        declares a taxonomy
+        When completion is requested
+        Then the declared 'domain/capability/' prefixes are offered alongside
+        the ids that already exist, so an id invented for a record that does
+        not exist yet is invented inside the taxonomy
+    - id: completion-invents-no-prefixes
+      statement: |
+        Given a project that declares no taxonomy
+        When completion is requested
+        Then no prefix is suggested, because synthesising one from the ids that
+        happen to exist would harden an accidental structure into a
+        recommendation
+verification:
+  unit_tests:
+    - id: registry/taxonomy_test.go
+      proves:
+        - an-undeclared-domain-is-an-error
+        - an-undeclared-capability-is-an-error
+        - the-hint-lists-the-siblings-and-the-sizing-test
+        - an-empty-node-is-a-warning
+        - an-empty-domain-is-reported-once
+        - no-taxonomy-changes-nothing
+        - a-malformed-taxonomy-is-caught-by-its-schema
+        - a-broken-taxonomy-is-contained
+    - id: cli/lsp_test.go
+      proves:
+        - completion-offers-declared-prefixes
+        - completion-invents-no-prefixes
+knowledge:
+  prerequisite_knowledge:
+    question: "What must the user already understand to use this feature?"
+    answer: |
+      That the first two segments of a FACET id are a product decomposition,
+      not a directory path and not a team structure — and that declaring them
+      is a product decision, which is why no tool writes the file for you.
+
+      That ids are immutable. Everything expensive about getting a taxonomy
+      wrong follows from that one property.
+
+      Every id is 'domain/capability/feature'; segment grammar alone cannot
+      establish whether a domain or capability belongs to the product, and
+      leaves granularity unconstrained across otherwise comparable registries.
+
+      Declaring the upper two levels gives both failure modes a cost at the
+      moment they happen: a record under a capability that does not exist means
+      declaring the capability first, and stopping halfway leaves declared
+      capabilities standing visibly empty.
+
+      It also moves the decision earlier than lint. An editor completing a half-
+      typed '@facet:' anchor offers the declared 'domain/capability/' prefixes
+      beside the ids that exist, so an id for a record nobody has written yet is
+      invented inside the taxonomy. A project declaring none gets no prefix at
+      all: synthesising one from whatever ids happen to exist would harden an
+      accidental structure into a recommendation.
+
+      Optional: a project without a taxonomy gets no taxonomy finding or
+      completion prefix, so adoption requires an explicit product-structure
+      decision.
+  not_for:
+    question: "When is this the wrong tool for the job?"
+    answer: |
+      Not a way to model the codebase. A taxonomy that mirrors the directory
+      tree or the service boundaries inherits how the code was built, which is
+      not what a reader of the documentation is looking for.
+
+      Not a way to model the organisation. Teams reorganise and ids do not;
+      lineage.owner.team is where the org chart belongs.
+
+      Not a place to list features. Records are the third level and live in
+      their own files, so a list here would be a second statement of the same
+      set, free to disagree with it.
+  discoverability:
+    question: "Where does the user enter this flow in the product?"
+    answer: |
+      taxonomy.yaml in each registry's records directory, beside variants.yaml.
+      Proposed by the /facet:taxonomy skill, checked by 'facet lint', and
+      offered as completion prefixes by the language server.
+    derive_from:
+      - anchors
+  common_pitfalls:
+    question: "What mistakes do users typically make?"
+    answer: |
+      Declaring the taxonomy they wish they had rather than the one that is
+      true today, which turns every existing id into an error on the day it is
+      committed — and is the fastest way to have the whole mechanism switched
+      off.
+
+      Adding a capability to make an error go away. That turns the taxonomy
+      into a transcript of whatever was written, which is the state it exists
+      to replace.
+
+      Reading an empty-node warning as something to fix by deleting the node.
+  success_signal:
+    question: "How does the user know it worked?"
+    answer: |
+      A new record's id is chosen from a list rather than invented, and the
+      question "where does this feature belong" has an answer someone can point
+      at instead of an opinion.
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-09-11"
+  superseded_by: null
+  depends_on:
+    - registry/integrity/record-validation

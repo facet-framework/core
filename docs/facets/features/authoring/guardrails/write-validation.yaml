@@ -1,0 +1,109 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: authoring/guardrails/write-validation
+lifecycle: active
+intent:
+  summary: |
+    Validates a saved record and the small registry declarations it directly
+    depends on the moment they are written, so schema and path/id errors, and
+    YAML errors in local declarations, surface while the agent still has the
+    context to fix them.
+
+    Save-time validation deliberately checks only the saved record plus local
+    taxonomy, glossary, and variant declarations. Source flag occurrences and
+    registry-wide lineage dependencies remain work for a complete facet lint;
+    they are not hidden by a hook filter and save-time output does not claim
+    full diagnostic parity with that lint.
+
+    A missing verification target is the narrow exception to local file reads:
+    validation consults the Git index to identify an uninitialized submodule,
+    rather than incorrectly reporting its declared target as simply absent.
+
+    The alternative is CI on the pull request, which is minutes later and a
+    different head. By then the wrong shape has usually been copied into the
+    next record, and the session is defending a convention rather than
+    correcting one file.
+
+    A record is judged by the registry that holds it and by no other:
+    running another registry's schema over it would report every field they
+    do not share as an error.
+contract:
+  scenarios:
+    - id: record-id-mismatch-reported
+      statement: |
+        Given a feature record whose declared id does not match its file path
+        When the record is written or edited
+        Then the mismatch is reported back to the agent with both the declared
+        and the expected id
+      post_state:
+        additional_context_emitted: true
+    - id: a-record-is-judged-by-its-own-registry
+      statement: |
+        Given a record written into one registry of a monorepo
+        When the write-time check fires
+        Then only that registry's schema is applied, because another's would
+        fault every field the two do not share
+      post_state:
+        registries_applied: 1
+    - id: codex-patch-validates-each-affected-record-without-binary
+      statement: |
+        Given two records whose declared ids disagree with their paths
+        And no FACET binary is available
+        When Codex patches both records in one operation
+        Then one hook response reports both id mismatches
+      post_state:
+        reported_id_mismatches: 2
+    - id: a-record-save-does-not-load-the-registry
+      statement: |
+        Given a record is written while another record in the same registry is malformed
+        When the write-time check fires
+        Then it reports findings about the saved record and its local registry
+        declarations without loading sibling records or scanning source
+        And source flag occurrences and registry-wide lineage dependencies are
+        left to a complete facet lint
+        And a missing verification target may consult the Git index to identify
+        an uninitialized submodule
+verification:
+  unit_tests:
+    - id: cli/hook_test.go
+      proves:
+        - record-id-mismatch-reported
+        - a-record-is-judged-by-its-own-registry
+        - a-record-save-does-not-load-the-registry
+    - id: "cli/hook_codex_test.go::TestCodexPatchShellFallbackAggregatesRecords"
+      proves:
+        - codex-patch-validates-each-affected-record-without-binary
+knowledge:
+  prerequisite_knowledge:
+    question: "What must the user already understand to use this feature?"
+    answer: |
+      Save the YAML record or registry declaration in a declared FACET registry;
+      the post-tool write hook then runs the local validation automatically.
+  not_for:
+    question: "When is this the wrong tool for the job?"
+    answer: |
+      It is not a replacement for facet lint when checking source flag
+      occurrences or lineage dependencies across the registry.
+  discoverability:
+    question: "Where does the user enter this flow in the product?"
+    derive_from:
+      - anchors
+    answer: |
+      Write or edit a YAML record or registry declaration; hookPostToolUse
+      routes the saved path to write-time validation.
+  common_pitfalls:
+    question: "What mistakes do users typically make?"
+    answer: |
+      Treating a save-time result as complete lint output misses source walks
+      and registry-wide lineage checks, which run only with facet lint.
+  success_signal:
+    question: "How does the user know it worked?"
+    answer: |
+      Writing an invalid record or local declaration produces its finding
+      immediately in the hook response, rather than on the pull request.
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-07-26"
+  superseded_by: null

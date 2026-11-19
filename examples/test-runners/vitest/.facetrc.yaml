@@ -1,0 +1,8 @@
+sources: [src, tests]
+runners:
+  vitest:
+    command: node_modules/.bin/vitest run
+    list: node_modules/.bin/vitest list --filesOnly --json
+    list_format: json
+    report: junit
+    report_file: reports/junit.xml

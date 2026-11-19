@@ -1,0 +1,16 @@
+{
+  "name": "facet-example-jest",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "test": "jest --runInBand"
+  },
+  "devDependencies": {
+    "jest": "30.5.2",
+    "jest-junit": "17.0.0"
+  },
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": "^22.12.0 || ^24.0.0 || >=26.0.0"
+  }
+}

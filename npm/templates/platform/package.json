@@ -1,0 +1,5 @@
+{
+  "description": "@@PRODUCT@@ native binary for @@PLATFORM@@, installed by @@LAUNCHER@@. Not meant to be installed directly.",
+  "files": ["@@BINARY@@", "README.md", "LICENSE"],
+  "preferUnplugged": true
+}

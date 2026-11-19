@@ -1,0 +1,179 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: navigation/interfaces/record-roster
+lifecycle: active
+intent:
+  summary: |
+    Hands an agent the whole registry as a roster — every record on one line,
+    with its id, its lifecycle, its owning team and what it is about — so a
+    question about a feature does not begin with a search for the file that
+    answers it.
+
+    The waste it removes is a first move: an agent asked "where does the
+    invoice list decide its ordering" globs the records directory, opens
+    several files to see what they are, and only then reads the one it wanted.
+    Those turns produce nothing the project could not have stated outright.
+
+    Building the roster is all this does; when an agent gets one is somebody
+    else's record ('authoring/session/registry-context', and any program
+    that renders the roster through FACET's index renderer). All hand over the same lines — including the
+    awk fallback for machines without the binary, pinned here because a second
+    implementation drifts unseen. Every shape also says where a record file
+    is, repository-relative: a roster of ids whose path has to be guessed ends
+    in the glob this feature exists to remove.
+
+    It says what a record is called and about, never what it claims: a
+    scenario, an owner, a date and an SLO are read from the record. An index
+    that summarised claims would be a second copy of the registry, free to
+    disagree with the first.
+
+    It is bounded, and says so when it truncates — losing summaries before
+    records, because knowing a record exists outranks knowing what it is about.
+    An index that quietly stopped halfway would be read as "no such record".
+contract:
+  scenarios:
+    - id: every-record-appears-once
+      statement: |
+        Given a registry holding records
+        When the index is rendered
+        Then each record contributes exactly one line carrying its id, its
+        lifecycle and its owning team, sorted by id so two runs of the same
+        registry produce the same text
+      post_state:
+        lines_per_record: 1
+    - id: a-truncated-index-says-so
+      statement: |
+        Given a registry whose index does not fit its byte budget
+        When the index is rendered
+        Then the summaries are dropped before any record is, and if records
+        must still be dropped the index states how many are missing, so
+        absence is never read as non-existence — in every implementation, not
+        only the one that is easy to measure from a test
+      post_state:
+        silent_truncation: false
+    - id: temporary-storage-failure-keeps-the-context-budget
+      statement: |
+        Given the shell fallback cannot create temporary files for the index
+        When it prepares the record roster
+        Then it omits the roster rather than exceeding the byte budget
+        And it explains the unavailable temporary storage and points to facet index
+      post_state:
+        unbounded_fallback: false
+    - id: every-consumer-hands-over-the-same-lines
+      statement: |
+        Given one registry small enough that neither implementation has to
+        shorten its roster, and the consumers that hand an agent one — the
+        hooks with this binary, the hooks without it, 'facet index', and a
+        program that renders the roster through FACET's index renderer
+        When each produces the text it will pass
+        Then the roster lines are identical, so what an agent can route from
+        does not depend on which of them it was given, and both hold to the
+        same byte budget in the same order — summaries before records, with
+        omitted records announced. The shell fallback additionally uses
+        id-only lines past 400 records and says that it did so
+      post_state:
+        distinct_rosters_for_one_registry: 1
+    - id: every-shape-says-where-a-record-file-is
+      statement: |
+        Given a registry of any size, rendered by any of the implementations —
+        the rich index, the binary's id-only fast path above 400 records, and
+        the shell fallback's
+        When the index is rendered for a project with a single registry
+        Then it states the records directory as a repository-relative path and
+        that a path is never prefixed with '/', so an id can be turned into a
+        file without a search
+      post_state:
+        shapes_missing_the_path_guidance: 0
+    - id: a-project-without-records-is-given-nothing
+      statement: |
+        Given a project that has adopted FACET but written no records
+        When the index is rendered
+        Then it is empty, so callers may append it unconditionally without
+        announcing an empty registry
+      post_state:
+        bytes: 0
+    - id: routing-is-answered-without-opening-a-file
+      statement: |
+        Given an agent holding the index
+        When it is asked which record covers a subject
+        Then it answers from the index alone, and opens a record only when the
+        question is about what that record claims
+      post_state:
+        files_read_for_routing: 0
+verification:
+  unit_tests:
+    - id: registry/index_test.go
+      proves:
+        - every-record-appears-once
+        - a-truncated-index-says-so
+        - a-project-without-records-is-given-nothing
+    - id: "cli/hook_bounds_dedup_test.go::TestShellRosterRemainsBoundedWithoutTemporaryStorage"
+      proves:
+        - temporary-storage-failure-keeps-the-context-budget
+    - id: "cli/hook_bounds_dedup_test.go::TestFourThousandRecordHookRosterFitsBudget"
+      proves:
+        - a-truncated-index-says-so
+    - id: cli/shell_test.go
+      proves:
+        - every-consumer-hands-over-the-same-lines
+        - every-shape-says-where-a-record-file-is
+        - a-truncated-index-says-so
+    - id: cli/hook_test.go
+      proves:
+        - every-consumer-hands-over-the-same-lines
+        - every-shape-says-where-a-record-file-is
+knowledge:
+  prerequisite_knowledge:
+    question: "What must the user already understand to use this feature?"
+    answer: |
+      Nothing. There is no setting and no command to run: a session in a FACET
+      project with the plugin enabled is given the index.
+
+      'facet index' prints exactly what an agent receives, which is the only
+      way to see it — everything else about this feature is context a model
+      reads and a person never does.
+  not_for:
+    question: "When is this the wrong tool for the job?"
+    answer: |
+      Not a substitute for reading a record. The index carries an id, a state,
+      a team and one sentence; every claim a record makes is in the record.
+
+      Not a search index. It matches nothing and ranks nothing; it is a roster,
+      and a question it does not obviously answer is still a question for grep.
+
+      Not a place to put more. Each field costs its size times the number of
+      records, in a window that has work to do.
+  discoverability:
+    question: "Where does the user enter this flow in the product?"
+    answer: |
+      Nowhere, by design — it is context, not a surface. 'facet index' is the
+      one place a person can see it.
+    derive_from:
+      - anchors
+  common_pitfalls:
+    question: "What mistakes do users typically make?"
+    answer: |
+      Answering from the roster line instead of the record. The line says what
+      a feature is called, not what it promises.
+
+      Assuming an id is absent because the index does not list it. Above the
+      byte budget the index truncates, and it says so; that notice is the one
+      line worth reading before concluding a record does not exist.
+
+      Expecting the index to reflect a record written seconds ago in a session
+      that started before it. A Claude Code session gets it at start and at
+      compaction; 'facet index' always renders the registry as it is now.
+  success_signal:
+    question: "How does the user know it worked?"
+    answer: |
+      A question that names a feature is answered without a glob of the records
+      directory first — visible in any agent transcript that shows the files
+      the agent opened.
+
+      'facet index' lists every record the project has.
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-08-01"
+  superseded_by: null

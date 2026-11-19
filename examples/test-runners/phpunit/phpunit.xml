@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit bootstrap="vendor/autoload.php" cacheDirectory=".phpunit.cache">
+  <testsuites>
+    <testsuite name="arithmetic">
+      <file>tests/AdditionTest.php</file>
+      <file>tests/MultiplicationTest.php</file>
+    </testsuite>
+  </testsuites>
+  <logging>
+    <junit outputFile="reports/junit.xml"/>
+  </logging>
+</phpunit>

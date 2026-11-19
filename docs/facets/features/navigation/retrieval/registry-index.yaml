@@ -1,0 +1,142 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: navigation/retrieval/registry-index
+lifecycle: active
+intent:
+  summary: |
+    Embeds a registry so it can be searched by meaning: every record split
+    along its facets, plus every generated article the manifest claims.
+
+    Chunking by facet rather than by character count is what makes a result
+    usable. An intent, a contract and a knowledge answer are about different
+    things, and a chunk spanning two of them ranks against neither — while a
+    long facet split blindly loses the subject halfway through and returns a
+    paragraph nobody can place.
+
+    The same registry indexes to the same chunks, so two builds can be
+    compared rather than producing a diff nobody can review. A rebuild is
+    not free: the whole corpus is embedded in one pass, and the file records
+    the time it was built.
+contract:
+  scenarios:
+    - id: a-record-is-chunked-by-facet
+      statement: |
+        Given a record declaring intent, contract, verification, observation,
+        knowledge and lineage
+        When the registry is indexed
+        Then each declared facet becomes its own chunk, a facet the record does
+        not declare becomes none, and every chunk opens by naming its feature,
+        its lifecycle and which facet it is — so a passage retrieved alone
+        still says what it belongs to
+      post_state:
+        chunks_per_undeclared_facet: 0
+    - id: a-long-facet-splits-without-losing-its-subject
+      statement: |
+        Given a facet longer than the chunk budget
+        When it is indexed
+        Then it is cut on line boundaries into numbered parts and every part
+        repeats the header, so the second half of a contract retrieved on its
+        own is not an unattributed fragment
+      post_state:
+        parts_without_header: 0
+    - id: generated-documents-are-indexed-from-the-manifest
+      statement: |
+        Given a generation manifest naming articles produced from records
+        When the registry is indexed
+        Then each article that still exists on disk is chunked and carries the
+        feature it was generated from, and an artifact the manifest names but
+        the tree no longer holds is skipped rather than failing the run
+      post_state:
+        run_fails_on_stale_manifest: false
+    - id: the-same-registry-indexes-to-the-same-chunks
+      statement: |
+        Given a registry that has not changed
+        When it is indexed twice
+        Then both runs produce the same chunks with the same ids in the same
+        order, so an index can be rebuilt and compared
+verification:
+  unit_tests:
+    - id: rag/chunk_test.go
+      proves:
+        - a-record-is-chunked-by-facet
+        - a-long-facet-splits-without-losing-its-subject
+        - generated-documents-are-indexed-from-the-manifest
+        - the-same-registry-indexes-to-the-same-chunks
+knowledge:
+  prerequisite_knowledge:
+    question: "What must the user already understand to use this feature?"
+    answer: |
+      That an index has to be built before it can be searched, and rebuilt when
+      records change: 'facet rag index', then 'facet rag query "…"'. Nothing
+      watches the records and rebuilds on its own.
+
+      For meaningful retrieval, an embeddings endpoint: its URL, a model name,
+      and the environment variable holding its key. Any OpenAI-compatible
+      /embeddings endpoint works, which includes a local Ollama or LM Studio,
+      in which case no key is needed at all.
+
+      Without that configuration the built-in lexical embedder answers, and
+      what it does is match words. It does not know that "delivery attempt" and
+      "retry" mean the same thing.
+  not_for:
+    question: "When is this the wrong tool for the job?"
+    answer: |
+      Not for a question that names an id, a path or a symbol. 'facet lint',
+      feature_get and grep are exact where this ranks, and an exact answer
+      beats a ranked one every time it is available.
+
+      Not a source of truth. A hit is a pointer to a file, and the sentence
+      that changes the answer is regularly just outside the retrieved chunk.
+      Open the file.
+
+      Not a freshness check. The index is a snapshot; 'facet docs check' and
+      the drift hook are what report movement.
+
+      Not a place to put a secret. There is no field for a key.
+  discoverability:
+    question: "Where does the user enter this flow in the product?"
+    answer: |
+      'facet rag index' and 'facet rag query' in a terminal.
+
+      For an agent, the MCP tool rag_query alongside feature_find and
+      feature_get.
+    derive_from:
+      - anchors
+  common_pitfalls:
+    question: "What mistakes do users typically make?"
+    answer: |
+      Trusting a lexical index as a semantic one. The output says which built
+      it, every time, and the difference is large.
+
+      Querying in keywords. What is being compared is a sentence against a
+      paragraph, so "why is the retry limit five" retrieves better than "retry
+      limit".
+
+      Changing the embedding model without rebuilding. The query is refused
+      rather than answered wrongly, which is the intended outcome and still
+      surprises.
+
+      Reading a top hit as an answer. The score says "worded similarly", not
+      "answers this". A run of low scores means nothing in the registry
+      addresses the question, and saying so is the correct answer.
+
+      Committing the index. It is derived, it is large, and it is tied to the
+      model that built it; the default .gitignore leaves it out.
+  success_signal:
+    question: "How does the user know it worked?"
+    answer: |
+      'facet rag index' ends with a chunk count, the dimensions, and which
+      embedder ran.
+
+      'facet rag query' returns passages whose files can be opened, and prints
+      how long the search took — a figure that should read as a fraction of a
+      millisecond on a registry-sized index.
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-09-10"
+  superseded_by: null
+  depends_on:
+    - registry/integrity/record-validation
+    - registry/history/generation-freshness

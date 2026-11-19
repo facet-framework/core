@@ -1,0 +1,207 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: registry/layout/glossary-categories
+lifecycle: active
+intent:
+  summary: |
+    Lets a project declare glossary categories once and assign each term to one,
+    so a large glossary is navigable by product concept. Declared keys prevent
+    typos from silently creating phantom groups; an uncategorised term remains
+    visibly undecided rather than being filed under 'Other'.
+contract:
+  scenarios:
+    - id: a-term-names-a-declared-category
+      statement: |
+        Given a glossary declaring the category 'parties' and a term naming it
+        When 'facet lint' runs
+        Then nothing is reported, and the term belongs to that group wherever
+        the glossary is shown
+      post_state:
+        findings: 0
+    - id: an-undeclared-category-is-an-error
+      statement: |
+        Given a term naming a category the glossary does not declare — a typo,
+        or a category that was removed after the term was written
+        When 'facet lint' runs
+        Then an error names the term, the category it asked for and the
+        categories that do exist, because the correct answer is three lines up
+        in the same file and a reference with one knowable answer is never a
+        judgement call
+      post_state:
+        severity: error
+    - id: a-category-declared-twice-is-an-error
+      statement: |
+        Given a glossary declaring the same category id twice
+        When 'facet lint' runs
+        Then an error names the id, because two headings with one name leave a
+        reader no way to tell which title and purpose hold — the same defect
+        the duplicate-term check reports, one level up
+      post_state:
+        severity: error
+    - id: a-category-nothing-uses-is-a-warning
+      statement: |
+        Given a declared category that no term names
+        When 'facet lint' runs
+        Then a warning names it, because declaring a category before writing
+        its first term is the intended order and cannot be an error, while a
+        heading left standing empty by a rename is the thing a reader has to
+        be able to see
+      post_state:
+        severity: warning
+    - id: an-uncategorised-term-is-not-a-finding
+      statement: |
+        Given a glossary that declares categories and a term that names none
+        When 'facet lint' runs
+        Then nothing is reported about that term, because an absent category
+        is a decision nobody has made rather than a wrong one, and a check
+        that fires on every term written before categories existed is one
+        people switch off
+      post_state:
+        findings: 0
+    - id: a-glossary-without-categories-is-unchanged
+      statement: |
+        Given a glossary declaring no categories, as every glossary written
+        before this feature does
+        When 'facet lint' runs
+        Then no finding of any of these kinds is produced and the file is
+        valid against its schema unchanged — there is nothing to migrate
+      post_state:
+        findings: 0
+    - id: the-groups-are-in-the-order-the-file-declares
+      statement: |
+        Given a glossary declaring several categories
+        When the grouped glossary is built
+        Then the groups appear in the order the file declares them, each
+        holding its terms in the order the file lists them, because the
+        glossary's order is the project's own and sorting it would be an
+        opinion about which term matters
+    - id: an-uncategorised-term-is-never-given-a-category
+      statement: |
+        Given a glossary where some terms name a category and some name none
+        When the grouped glossary is built
+        Then the terms naming none are kept in a group that has no category id
+        at all, after every declared one, so that no surface can render them
+        under a name nobody declared
+    - id: an-undeclared-category-still-shows-its-terms
+      statement: |
+        Given a term naming a category the glossary does not declare
+        When the grouped glossary is built
+        Then its group is marked as undeclared rather than folded into the
+        uncategorised terms, because a term whose category was deleted and a
+        term nobody categorised are opposite statements and the first is an
+        error the reader should show as one
+verification:
+  unit_tests:
+    - id: registry/glossary_category_test.go
+      proves:
+        - a-term-names-a-declared-category
+        - an-undeclared-category-is-an-error
+        - a-category-declared-twice-is-an-error
+        - a-category-nothing-uses-is-a-warning
+        - an-uncategorised-term-is-not-a-finding
+        - a-glossary-without-categories-is-unchanged
+        - the-groups-are-in-the-order-the-file-declares
+        - an-uncategorised-term-is-never-given-a-category
+        - an-undeclared-category-still-shows-its-terms
+knowledge:
+  prerequisite_knowledge:
+    question: "What must the user already understand to use this feature?"
+    answer: |
+      That a category is declared before it is used. A term names a category
+      by its id, and an id the file does not declare is an error rather than a
+      new group — which is the whole difference between this and writing the
+      group name on each term.
+
+      That the id is a slug and the title is the wording. 'parties' is what a
+      term references and what stays stable when the heading is renamed;
+      'Parties' is what a reader sees. Renaming the title touches one line,
+      renaming the id touches every term that names it.
+
+      That leaving a term uncategorised is allowed and means nothing was
+      decided. It is not a way to say the term belongs nowhere.
+
+      A large glossary is easier to navigate when its terms are grouped by
+      product concepts such as parties, documents and the events a shipment
+      passes through, rather than presented as one undifferentiated list.
+
+      The categories are declared once, in the same file, and a term names one.
+      They are not free text on the term: this file already treats a mistyped
+      term in prose as a warning and a term defined twice as an error, so an
+      unchecked grouping key would be the one string where a typo silently
+      creates a phantom group. Declaring them is the taxonomy's pattern (FACET §4.4) for domain and capability segments, with the same three consequences
+      — an undeclared name referenced is an error, a declared name nothing uses
+      is a warning, an absent file claims nothing.
+
+      A term naming no category is a term nobody categorised. That is a missing
+      decision rather than a category, the rule FACET §4.4.2 states for
+      classification: absent means undecided, not the flattering value. Nothing
+      files such a term under 'Other'.
+
+      Optional in both directions. A glossary declaring no categories behaves
+      exactly as it did before, and one declaring them may still leave terms
+      uncategorised.
+  not_for:
+    question: "When is this the wrong tool for the job?"
+    answer: |
+      Not a second taxonomy. The taxonomy (FACET §4.4) declares the areas the
+      product has and a record's id resolves against it; a glossary category
+      groups vocabulary, and the two sets have no reason to match. A project
+      whose categories mirror its domains has written the same decomposition
+      twice, and the copies are free to drift.
+
+      Not a place to put a term in two groups. A term names one category,
+      because a term shown under two headings makes 'how many terms are there'
+      a question with two answers.
+
+      Not a tree. Categories are flat and deliberately so: a category has no
+      parent and no children, and a term names exactly one. A glossary needing
+      a second level has usually declared too many categories rather than too
+      few levels, and the depth would have to be drawn, navigated and kept
+      consistent for a gain of one heading — the same judgement FACET §4.4 rule 5
+      makes in refusing a fourth id segment.
+
+      Not a filing cabinet for terms nobody wants to think about. A category
+      named 'Other' or 'Misc' is the absent value wearing a name,
+      and the file already has a way to say nothing was decided: leave the
+      category off.
+  discoverability:
+    question: "Where does the user enter this flow in the product?"
+    answer: |
+      The 'categories' block of docs/facets/glossary.yaml, and the 'category'
+      key on each term. Checked by 'facet lint'.
+
+      The grouping travels as its own field of the corpus, computed by
+      Grouped() rather than derived again by whoever reads it, so every
+      consumer of the corpus — Atlas, a separate product, is one — draws the
+      same groups in the same order without reimplementing the rule.
+    derive_from:
+      - anchors
+  common_pitfalls:
+    question: "What mistakes do users typically make?"
+    answer: |
+      Renaming a category id and updating most of the terms that name it. The
+      terms left behind name a category that no longer exists, which is an
+      error, and the old id stands empty if it was kept, which is a warning —
+      the two findings together describe the half-finished rename.
+
+      Declaring a category for every shade of meaning. A dozen headings a
+      reader can scan is the point; forty is the wall this feature exists to
+      remove, rebuilt out of headings.
+
+      Reading the uncategorised terms as a group. They are the terms nobody
+      has categorised, and the number of them is a measure of how far the
+      categorisation got rather than a statement about the terms.
+  success_signal:
+    question: "How does the user know it worked?"
+    answer: |
+      Somebody looking for a term they half-remember finds it by opening the
+      group it obviously belongs to, instead of scrolling a list or knowing
+      the spelling well enough to search for it.
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-09-16"
+  superseded_by: null
+  depends_on:
+    - registry/layout/project-glossary

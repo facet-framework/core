@@ -1,0 +1,26 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+# Directories scanned for anchors. Examples are separate projects with
+# their own registries.
+sources:
+  - .agents
+  - .claude-plugin
+  - .codex-plugin
+  - .github
+  - agents
+  - bin
+  - cli
+  - cmd
+  - corpus
+  - hooks
+  - internal
+  - npm
+  - pkg
+  - rag
+  - registry
+  - release
+  - schema
+  - scripts
+  - skills
+  - tools

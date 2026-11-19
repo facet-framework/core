@@ -1,0 +1,8 @@
+{
+  "description": "Launcher for the @@PRODUCT@@ native binary: picks the platform package for this machine and runs it.",
+  "main": "launcher.js",
+  "files": ["launcher.js", "README.md", "LICENSE"],
+  "engines": {
+    "node": ">=18"
+  }
+}

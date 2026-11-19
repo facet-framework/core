@@ -1,0 +1,66 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: navigation/interfaces/remote-read-access
+lifecycle: active
+intent:
+  summary: "Lets authorized integrations read a published repository corpus remotely, including complete or selected FACET record sections, source anchors and bounded code excerpts, through API-key-protected REST and MCP interfaces with standard OAuth support."
+contract:
+  scenarios:
+    - id: authorized-record-retrieval
+      statement: |
+        Given a published snapshot and a credential granting record read access
+        When a client requests a complete record through REST or MCP
+        Then it receives that record with registry and snapshot provenance
+        And the same authorization boundary applies to both interfaces
+    - id: partial-record-retrieval
+      statement: |
+        Given a known record and record read permission
+        When a client selects record sections
+        Then only the requested sections are returned
+        And unknown section names are rejected
+    - id: published-source-only
+      statement: |
+        Given a credential granting code read access
+        When a client requests anchors or a bounded source excerpt
+        Then only explicitly published source content is returned
+        And traversal, symlinks and unpublished files cannot expand access
+    - id: invalid-authorization
+      statement: |
+        Given missing, expired, wrongly scoped or unentitled credentials
+        When a client requests protected content
+        Then access is denied without disclosing that content
+        And OAuth-mode MCP challenges identify the configured resource metadata
+    - id: optional-semantic-retrieval
+      statement: |
+        Given optional RAG retrieval for the published snapshot
+        When a client searches records with the required scopes
+        Then ready retrieval returns record hits with provenance
+        And absent or stale retrieval reports its unavailable state explicitly
+    - id: provider-failure-is-not-an-authentication-bypass
+      statement: |
+        Given OAuth authentication is enabled and its provider is unavailable
+        When a credential cannot be validated with usable trusted cached keys
+        Then access is denied with an unavailable response
+        And no fallback grants access through another authentication method
+    - id: immutable-remote-surface
+      statement: |
+        Given the remote server is running
+        When a client discovers its operations and tools
+        Then it exposes only the dedicated read allowlist
+        And no operation executes commands, modifies records or starts indexing
+    - id: bounded-failure
+      statement: |
+        Given a request exceeds a documented limit
+        When either transport handles it
+        Then it returns a structured error rather than an incomplete record
+verification:
+  unit_tests:
+    - id: internal/remote/corpus_test.go
+      proves:
+        - partial-record-retrieval
+        - published-source-only
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-10-29"

@@ -1,0 +1,102 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: delivery/distribution/binary-link
+lifecycle: active
+intent:
+  summary: |
+    Makes facet reachable from the user's own shell with a link to the
+    dispatcher's version-free pointer (dist/core/selected/facet), in a
+    directory the user chose from their login shell's PATH. The dispatcher is
+    on PATH only inside Claude's subprocesses, and a link to a versioned path
+    would be wrong after the next update, so the link goes to that pointer and
+    follows it. It never edits a
+    startup file and never replaces a facet that is not its own; where the
+    directory is not on the PATH it prints the line to add and leaves the
+    decision to the user.
+contract:
+  scenarios:
+    - id: the-link-follows-the-current-pointer
+      statement: |
+        Given a link made with --dir and the dispatcher's pointer later moved
+        to another version
+        When the link is run
+        Then it runs the new version, because it names dist/core/selected and
+        not a versioned directory
+    - id: a-directory-off-the-path-is-refused-with-the-line-to-add
+      statement: |
+        Given a directory that is not on the login shell's PATH
+        When --dir names it without --force
+        Then nothing is linked and the output gives the line and the startup
+        file for the detected shell, with no file written
+        And that file is one a login, non-interactive shell reads (.zprofile
+        for zsh; .bash_profile if present, else .profile, for bash), because
+        the PATH was measured with '<shell> -lc' and a line in .zshrc or
+        .bashrc would not be seen by it
+    - id: force-links-anyway-and-still-writes-no-startup-file
+      statement: |
+        Given a directory off the PATH
+        When --dir is given with --force
+        Then the link is made, the line to add is printed, and no startup file
+        is touched
+    - id: a-regular-file-is-never-replaced
+      statement: |
+        Given a regular file named facet in the directory
+        When --dir names it
+        Then the command refuses and the file is unchanged
+    - id: only-a-link-into-a-facet-cache-is-replaced
+      statement: |
+        Given an existing facet symlink
+        When --dir names its directory
+        Then a link into a facet cache is replaced — including one made against
+        the retired bin/<version> layout — and a link elsewhere is refused and
+        unchanged
+    - id: candidates-are-writable-user-directories-on-the-shell-path
+      statement: |
+        Given a login shell PATH holding system, missing, read-only, writable
+        and off-PATH directories
+        When --candidates runs
+        Then only existing writable directories under the home directory that
+        are on that PATH are listed, with the detected shell named
+    - id: windows-gets-a-wrapper-not-a-symlink
+      statement: |
+        Given Windows
+        When --dir names a directory
+        Then a facet.cmd calling the selected pointer is written, a wrapper
+        this command wrote is replaced, and one it did not write is not
+    - id: no-binary-behind-current-means-no-link
+      statement: |
+        Given a selected pointer with no binary behind it
+        When --dir names a directory
+        Then the command refuses and makes no link
+verification:
+  unit_tests:
+    - id: cli/setup_link_test.go
+      proves:
+        - the-link-follows-the-current-pointer
+        - a-directory-off-the-path-is-refused-with-the-line-to-add
+        - force-links-anyway-and-still-writes-no-startup-file
+        - a-regular-file-is-never-replaced
+        - only-a-link-into-a-facet-cache-is-replaced
+        - candidates-are-writable-user-directories-on-the-shell-path
+        - windows-gets-a-wrapper-not-a-symlink
+        - no-binary-behind-current-means-no-link
+knowledge:
+  not_for:
+    question: "When is this the wrong tool for the job?"
+    answer: |
+      Not an installer and not a PATH manager. It links one file. A system
+      directory is never offered, and the user's startup files are never
+      edited, however convenient that would be.
+  common_pitfalls:
+    question: "What mistakes do users typically make?"
+    answer: |
+      Linking before the dispatcher has run once: there is no current pointer
+      yet, and the command says so instead of linking to nothing.
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-10-09"
+  superseded_by: null
+  depends_on:
+    - delivery/distribution/binary-resolution

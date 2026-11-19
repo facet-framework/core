@@ -1,0 +1,248 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: registry/layout/private-anchors
+lifecycle: active
+intent:
+  summary: |
+    Keeps @facet: anchors in a working copy and out of every commit, for
+    the clone that asks for it and no other.
+
+    Somebody documenting a repository they do not own — a dependency, a
+    fork they cannot push to, a codebase whose team has not adopted FACET —
+    needs anchors in the source to make the registry work, and cannot put
+    them in the source. Git's clean and smudge filters are the mechanism:
+    on the way from the working copy to the index every anchor block is
+    lifted out into a sidecar under .git/, and on the way back it is put
+    where it stood. Git only ever sees the cleaned content, so no diff,
+    commit, push, merge or rebase carries an anchor — and none can conflict
+    on one, because the lines are never there.
+
+    Placement is by content, never by line number. A block sits above a
+    particular line and follows that line when a pull moves it; when a pull
+    removes the line, the block is kept aside and reported rather than
+    guessed into a nearby spot. Anchors the repository already commits pass
+    through untouched, so installing this on a project that has adopted
+    FACET changes nothing about the anchors it has.
+
+    Everything the setup writes lives in the clone: .git/config,
+    .git/info/attributes and .git/facet/anchors/. The repository changes by
+    zero bytes. All three sit in the git directory every worktree of the
+    clone shares, so one install serves them all and an anchor added in one
+    worktree stands in the others — whether a block has a place is judged
+    per checkout and stored nowhere.
+contract:
+  scenarios:
+    - id: a-private-anchor-never-reaches-a-blob
+      statement: |
+        Given a clone with the filter installed and an anchor block added on
+        its own lines in a tracked file
+        When the file is staged, committed and pushed
+        Then no blob, commit or remote carries the block — 'git show :path',
+        'git show HEAD:path' and the remote's history are all free of it
+      post_state:
+        anchor_lines_in_git: 0
+    - id: a-committed-anchor-passes-through
+      statement: |
+        Given a file whose committed version already carries an anchor block
+        When the clean filter runs
+        Then that block stays in the content, because it is the project's and
+        not private — installing the filter on a repository that commits
+        anchors must not delete a single one on the next 'git add'
+    - id: the-working-copy-round-trips
+      statement: |
+        Given a file with private anchors
+        When it is removed and checked out again
+        Then it comes back byte for byte, private anchors included, so a
+        checkout is not the event that loses documentation
+    - id: an-anchor-whose-place-moved-follows-it
+      statement: |
+        Given an upstream commit that inserts code above the declaration a
+        private block sits on
+        When it arrives through a pull
+        Then the block is still directly above that declaration, because the
+        placement key is the line's content and not its number
+    - id: an-anchor-whose-place-is-gone-is-kept-and-reported
+      statement: |
+        Given an upstream commit that renames the declaration a private block
+        sits on
+        When it arrives through a pull
+        Then the block is left out of the file rather than guessed into a
+        nearby spot, kept in the sidecar through every clean that follows,
+        named by 'facet filter status', and put back the moment the
+        declaration returns — never silently lost
+      post_state:
+        orphaned_anchors_dropped: 0
+    - id: a-separator-line-goes-with-its-block
+      statement: |
+        Given a private anchor added to an existing doc comment with the
+        customary empty comment line setting the tags off — ' *' in a PHP
+        docblock, '//' in Go — above the tags after a description, or below
+        them when the tags come first
+        When the clean filter runs
+        Then the separator leaves with the tags and the cleaned file is byte
+        for byte what HEAD has; a separator the comment already had between
+        two paragraphs stays, and a committed docblock anchor is recognised
+        with its separator and passes through untouched
+      post_state:
+        leaked_separator_lines: 0
+    - id: smudge-never-fails-a-checkout
+      statement: |
+        Given a sidecar that cannot be read, or no sidecar at all
+        When the smudge filter runs
+        Then the content passes through exactly as git handed it over, because
+        a filter that errors leaves the working copy half written and no
+        anchor is worth that
+    - id: install-touches-nothing-in-the-repository
+      statement: |
+        Given a clean clone
+        When 'facet filter install' runs
+        Then 'git status' has nothing to report, no .gitattributes appears in
+        the tree, 'filter.facet.required' is set so a missing binary refuses
+        rather than silently commits, a second install changes nothing, and
+        'facet filter uninstall' removes exactly what install wrote
+      post_state:
+        bytes_changed_in_repository: 0
+    - id: worktrees-share-the-anchors
+      statement: |
+        Given a clone with the filter installed and a private anchor in its
+        main worktree
+        When a linked worktree is added, and a private anchor is added there
+        Then the linked worktree checks out with the first anchor, its own
+        stays out of its index, and the main worktree's next checkout carries
+        both — the sidecar lives in the git directory the worktrees share,
+        and which blocks have a place is decided against each checkout's
+        file rather than recorded
+      post_state:
+        installs_needed_per_clone: 1
+    - id: status-can-be-made-to-agree-with-diff
+      statement: |
+        Given a file that just gained a private anchor
+        When 'git status' reports it modified while 'git diff' shows nothing —
+        git judges by size before it consults the filter
+        Then 'facet filter refresh' clears it by refreshing the files git holds
+        as modified with an explicit pathspec, which is the only form of
+        refresh that runs the filter, and the plugin's write hook does the
+        same on every edit
+    - id: status-distinguishes-missing-anchor-origins
+      statement: |
+        Given missing private blocks saved in the current worktree and a linked worktree
+        And a legacy sidecar block has no recorded origin
+        When 'facet filter status' runs in the current worktree
+        Then it counts local missing blocks separately from blocks originating elsewhere
+        And it identifies legacy missing blocks as having unknown origin
+        And the shared sidecar is unchanged
+    - id: shared-checkouts-preserve-anchor-provenance
+      statement: |
+        Given a block saved in one worktree and a legacy block with unknown origin
+        When the sidecar is merged and saved from another worktree with a new block
+        Then the existing origins are preserved
+        And only the new block receives the current worktree as its origin
+verification:
+  unit_tests:
+    - id: registry/filter_test.go
+      proves:
+        - a-private-anchor-never-reaches-a-blob
+        - a-committed-anchor-passes-through
+        - the-working-copy-round-trips
+        - an-anchor-whose-place-moved-follows-it
+        - an-anchor-whose-place-is-gone-is-kept-and-reported
+        - a-separator-line-goes-with-its-block
+    - id: cli/filter_test.go
+      proves:
+        - a-private-anchor-never-reaches-a-blob
+        - a-separator-line-goes-with-its-block
+        - a-committed-anchor-passes-through
+        - the-working-copy-round-trips
+        - an-anchor-whose-place-moved-follows-it
+        - an-anchor-whose-place-is-gone-is-kept-and-reported
+        - smudge-never-fails-a-checkout
+        - install-touches-nothing-in-the-repository
+        - worktrees-share-the-anchors
+        - status-can-be-made-to-agree-with-diff
+    - id: "cli/source_drift_test.go::TestPrivateFilterStatusSeparatesLocalForeignAndUnknownOrigins"
+      proves:
+        - status-distinguishes-missing-anchor-origins
+    - id: "registry/filter_origin_test.go::TestPrivateAnchorOriginsSurviveSharedCheckoutAndLegacySidecars"
+      proves:
+        - shared-checkouts-preserve-anchor-provenance
+knowledge:
+  prerequisite_knowledge:
+    question: "What must the user already understand to use this feature?"
+    answer: |
+      That the setup is per clone. A colleague's clone, and CI, have no
+      sidecar and see no private anchors — so a record anchored only
+      privately lints clean here and reports as unanchored there. Private
+      anchors are for documenting code you do not own or cannot change, not
+      for a team's shared registry; the moment the anchors should be shared,
+      they should be committed.
+
+      That the committed file has fewer lines than the one in the editor, by
+      the number of anchor lines above any given point. Line numbers in CI
+      output, stack traces and 'git blame' refer to the committed file.
+
+      That a private anchor stands on its own line. A tag trailing a
+      statement is code's line, and the filter leaves it — and commits it.
+  not_for:
+    question: "When is this the wrong tool for the job?"
+    answer: |
+      Not for hiding anchors from a team that has adopted FACET. The registry
+      exists to be shared, and an anchor only one clone can see documents
+      nothing for anyone else.
+
+      Not a way to keep anchors out of a repository whose maintainers object
+      to them while still linting in that repository's CI: CI has no sidecar.
+      The honest form of that arrangement is a registry that lives outside
+      the repository entirely.
+  discoverability:
+    question: "Where does the user enter this flow in the product?"
+    answer: |
+      'facet filter install' in a clone. 'facet filter status' lists what the
+      clone keeps privately and what lost its place; 'facet filter refresh'
+      makes 'git status' agree with 'git diff' after an edit; 'facet filter
+      uninstall' takes it out again. Status separates missing local blocks,
+      blocks originating in another worktree, and legacy blocks with unknown
+      origin. The clean and smudge subcommands are
+      git's to call, not the user's.
+
+      With source_views, 'facet --source-view <view> filter --repository <id>
+      status' inspects the selected checkout rather than the registry. The same
+      selection applies to install and refresh. New private associations retain
+      their logical repository and origin revision; older unknown origins stay
+      unknown. Missing exact placements remain reported without overwriting
+      another worktree's associations.
+    derive_from:
+      - anchors
+  common_pitfalls:
+    question: "What mistakes do users typically make?"
+    answer: |
+      Reading 'git status' as truth after adding an anchor. Git decides by
+      size before it consults the filter, so the file shows as modified while
+      'git diff' is empty, and 'git pull' refuses to run until 'git add' or
+      'facet filter refresh' clears it. The write hook does this on its own
+      inside a session; outside one it is a command to know.
+
+      Editing a committed anchor's role in a filtered clone. The committed
+      block is no longer in the content, so git sees its deletion; the edited
+      block is new, so it is private. Both are correct and the diff is
+      surprising.
+
+      Uninstalling and then committing. The private anchors are still in the
+      working copy and are ordinary content once the filter is gone; the next
+      'git add' stages them.
+  success_signal:
+    question: "How does the user know it worked?"
+    answer: |
+      'git show HEAD:path | grep @facet' returns only the anchors the
+      repository committed. 'facet lint' in this clone resolves the private
+      ones like any other. And 'facet filter status' lists them, with none
+      marked as missing from this worktree. A missing block from another
+      worktree or with unknown origin needs separate inspection; neither
+      category establishes a local orphan.
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-09-15"
+  superseded_by: null
+  depends_on:
+    - registry/layout/source-scanning

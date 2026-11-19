@@ -1,0 +1,236 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: registry/layout/glossary-tools
+lifecycle: active
+intent:
+  summary: |
+    Lets an agent keep the project's glossary: list the terms and their groups,
+    read one, define or change one, rename one, remove one, then commit the
+    branch and propose it — always on a branch, never in the working tree.
+
+    A separate door rather than a hole in the rule that agent tools never write
+    a .yaml. That refusal is load-bearing: an editor able to write a record is
+    the path by which prose becomes a promise. A record claims the product does
+    X and is backed by tests; a term says a word means Y, and nobody proves a
+    definition — it is agreed. So the glossary gets its own door with its own
+    refusals.
+
+    Those refusals are the ones the data type already carries. A term defined
+    twice is an error rather than an overwrite, so 'glossary_set' changes the
+    entry that is there and never adds a second beside it. An undeclared
+    category is refused rather than invented, because a typo in a grouping key
+    would otherwise split a category in two silently. A term with no category
+    stays uncategorised — there is no 'Other' to fall into. And nothing writes
+    where a term occurs: that is a property of the prose, and a stored list
+    would be free to disagree with it.
+
+    Renaming costs something no tool can give back. The glossary is joined to
+    the prose by content rather than by a reference id, so a rename moves no
+    link — it makes every occurrence of the old spelling stop being a term. It
+    answers with the records whose prose still says the old word.
+contract:
+  scenarios:
+    - id: a-glossary-change-arrives-as-a-proposal
+      statement: |
+        Given an agent defining a term
+        When the tool runs
+        Then the change is written on a branch in its own worktree and the
+        glossary in the working tree is unchanged, because a naming decision is
+        something a person agrees to rather than something that appears in the
+        file somebody is reading
+        And writes, commits and proposals stay within the selected registry
+        and this MCP server's authoring session
+        And repositories may use the same branch name independently
+        And a branch worktree already owned by another registry or server is
+        refused instead of reusing that registry's glossary
+        And concurrent requests defining distinct terms through the same
+        server preserve every term and definition when committed
+      post_state:
+        working_tree_changed: false
+    - id: setting-a-term-that-exists-changes-it
+      statement: |
+        Given a glossary that already defines a term
+        When an agent sets that term again with a different definition
+        Then the existing entry is changed and no second entry of the same name
+        appears, because a term defined twice is an error rather than an
+        overwrite and the tool must not be the thing that creates one
+      post_state:
+        entries_with_that_term: 1
+    - id: an-undeclared-category-is-refused
+      statement: |
+        Given a glossary declaring the categories 'parties' and 'documents'
+        When an agent sets a term into 'tenancy'
+        Then the write is refused and neither the category nor the term is
+        created, because a grouping key nobody checked is the one string where a
+        typo silently splits a category in two
+      post_state:
+        written: false
+    - id: a-term-with-no-category-stays-uncategorised
+      statement: |
+        Given an agent defining a term and naming no category
+        When the term is written
+        Then it carries no category rather than a default one, because absent
+        means nobody has classified it and filing it under a general group would
+        name a category the project never declared
+    - id: nothing-writes-where-a-term-occurs
+      statement: |
+        Given an agent that has just defined or changed a term
+        When the written file is read back
+        Then it carries the term, its definition and its category and no list of
+        the records that use it, because occurrence is a property of the prose
+        and a stored list would be free to disagree with it
+    - id: a-rename-says-what-it-orphaned
+      statement: |
+        Given a glossary defining a term that appears in the prose of several
+        records
+        When an agent renames it
+        Then the glossary carries the new spelling, nothing else is touched, and
+        the answer names the records, and any other project prose a linked
+        product reports, whose text still says the old word — the glossary
+        defines the word for all of it, so an answer naming only the records
+        would be read as 'nothing else says it'
+      post_state:
+        records_changed: 0
+    - id: removing-a-term-that-is-not-defined-is-an-error
+      statement: |
+        Given an agent removing a term the glossary does not define
+        When the tool runs
+        Then it is refused rather than reported as done, because an agent told
+        the removal succeeded would report a word as undefined that is still
+        being read as a term everywhere it appears
+      post_state:
+        written: false
+    - id: renaming-onto-a-defined-term-is-refused
+      statement: |
+        Given an agent renaming a term to a spelling the glossary already
+        defines
+        When the tool runs
+        Then it is refused and the file is left exactly as it was, because the
+        alternative is two definitions of one word — and a reader who opens the
+        term would then see whichever the file happens to list first, with
+        nothing saying a second one exists
+      post_state:
+        written: false
+    - id: the-glossary-tools-reach-only-the-glossary
+      statement: |
+        Given an agent holding these tools
+        When it looks for a way to write a record, the taxonomy, or any other
+        file
+        Then there is none — no tool takes a path, and the file written is the
+        registry's own glossary — so this door is as narrow as the one it sits
+        beside rather than a way around it
+      post_state:
+        written: false
+    - id: reading-returns-the-groups-as-a-reader-would-draw-them
+      statement: |
+        Given a glossary with declared categories, a term naming an undeclared
+        one, and a term naming none
+        When an agent lists the glossary
+        Then it receives the same grouping a reader is shown — declared
+        categories in file order including the empty ones, then undeclared ids,
+        then the uncategorised terms, unnamed — so an agent choosing where a new
+        term belongs chooses from what the project actually declared
+    - id: a-glossary-change-can-be-proposed
+      statement: |
+        Given an agent that has written a term on a branch
+        When it commits and proposes the branch
+        Then the commit holds exactly the glossary and the branch is pushed for
+        a person to merge, because a change that can be written and not
+        proposed sits in a worktree under .git/ where the person who is
+        supposed to agree to it never sees it
+      post_state:
+        committed_files: 1
+    - id: a-commit-with-nothing-written-is-refused
+      statement: |
+        Given a branch on which no term was written
+        When an agent commits it
+        Then it is refused rather than recorded as an empty commit, because the
+        caller believes it wrote something and an empty commit would agree with
+        it — the same refusal every branch session's empty commit makes, under
+        the same name, so that a caller testing for it need not know which
+        surface it came from
+      post_state:
+        written: false
+verification:
+  unit_tests:
+    - id: "registry/product_documents_test.go::TestAGlossaryRenameNamesWhatARegisteredProseSourceStillSays"
+      proves:
+        - a-rename-says-what-it-orphaned
+    - id: cli/glossary_mcp_test.go
+      proves:
+        - a-glossary-change-arrives-as-a-proposal
+        - setting-a-term-that-exists-changes-it
+        - an-undeclared-category-is-refused
+        - a-term-with-no-category-stays-uncategorised
+        - nothing-writes-where-a-term-occurs
+        - a-rename-says-what-it-orphaned
+        - renaming-onto-a-defined-term-is-refused
+        - removing-a-term-that-is-not-defined-is-an-error
+        - the-glossary-tools-reach-only-the-glossary
+        - reading-returns-the-groups-as-a-reader-would-draw-them
+        - a-glossary-change-can-be-proposed
+        - a-commit-with-nothing-written-is-refused
+knowledge:
+  prerequisite_knowledge:
+    question: "What must the user already understand to use this feature?"
+    answer: |
+      That a term is not a record. A definition says what a word means; a
+      record says what the product does. An agent asked to "document this" that
+      reaches for the glossary is filing a claim about behaviour in a place
+      where nothing checks it.
+
+      That the glossary is joined to the prose by content. Nothing references a
+      term — not a record and not any other page — so nothing has to be updated
+      when the glossary grows, and nothing can be updated when a term is
+      renamed.
+  not_for:
+    question: "When is this the wrong tool for the job?"
+    answer: |
+      Not for writing records. Agent write tools refuse .yaml for the reason
+      this surface exists as its own door rather than as an exception.
+
+      Not for a word that is an ordinary word. Every occurrence of a defined
+      term is decorated wherever prose is rendered, so defining a common word
+      makes the decoration meaningless. The remedy is to leave it undefined.
+
+      Not for recording where a term is used. That question is answered by
+      reading the prose, and this surface deliberately has no field for the
+      answer.
+  common_pitfalls:
+    question: "What mistakes do users typically make?"
+    answer: |
+      Reusing one branch across registries or separately started MCP servers.
+      A worktree already in use is refused; choose a separate branch. Identical
+      branch names in different repositories remain independent.
+
+      Renaming a term and expecting the prose to follow. Nothing follows: the
+      old spelling simply stops being a term wherever it stands. The rename
+      says which records and which other pages those are, and correcting them is
+      separate work.
+
+      Setting a category that has not been declared, and reading the refusal as
+      a missing feature. Declaring the category is the next step, and it is a
+      person's edit for the same reason the category list exists at all.
+  discoverability:
+    question: "Where does the user enter this flow in the product?"
+    answer: |
+      'facet mcp', where the glossary tools sit beside the registry tools. An agent
+      discovers them by listing tools; each names in its description what it
+      refuses.
+    derive_from:
+      - anchors
+  success_signal:
+    question: "How does the user know it worked?"
+    answer: |
+      A pull request whose diff is one changed entry in glossary.yaml, and a
+      working tree exactly as it was left.
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-09-17"
+  superseded_by: null
+  depends_on:
+    - registry/layout/project-glossary
+    - registry/layout/glossary-categories
+    - navigation/interfaces/mcp-server

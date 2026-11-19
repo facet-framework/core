@@ -1,0 +1,146 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: navigation/interfaces/product-services
+lifecycle: active
+intent:
+  summary: |
+    Routes optional product observations, drift additions, stop notices and
+    MCP tools across the native executable boundary while keeping Core commands
+    available without the product implementation. Core names no product: a
+    build registers what it knows about a product as a binding, and a product
+    owns its own .facetrc.yaml section.
+contract:
+  scenarios:
+    - id: batch-visible-warning-observations
+      statement: |
+        Given an installed product declaring observe-warnings
+        When drift warnings are surfaced
+        Then Core sends their identities and comparison baseline in one batch
+        And the product's aligned notes are appended to hook warnings
+        And no product means no product evidence is written
+    - id: forward-session-boundaries
+      statement: |
+        Given an installed product declaring observe-session
+        When the host reports a session boundary
+        Then Core forwards the session id, boundary kind and selected registry names
+        And product code owns any observation storage and opt-in rules
+    - id: product-failure-remains-visible-and-bounded
+      statement: |
+        Given a failing or nonresponding observer product
+        When Core dispatches observations
+        Then it reports the failure without claiming successful observation
+        And observation dispatch has a five-second deadline
+        And Core remains usable without that product's results
+    - id: explicit-opt-in-needs-its-product
+      statement: |
+        Given a product binding whose opt-in the project or environment sets, and no installed product with that id providing the service
+        When the service would be dispatched
+        Then Core reports the binding's missing-product message under that product's id
+        And does not claim that the event was stored
+        And an unreadable configuration is reported once as a configuration failure
+    - id: an-unowned-configuration-section-is-tolerated
+      statement: |
+        Given a .facetrc.yaml with a top-level section Core does not define
+        When the configuration is loaded and checked against the configuration schema
+        Then the load succeeds without reading the section and the schema accepts it as a mapping
+        And the section stays readable for the product that owns it
+    - id: a-product-section-is-validated-on-load
+      statement: |
+        Given a build that registers a product section
+        When the configuration is loaded
+        Then the product's validator runs and its refusal fails the load
+        And a Core key or a section another product registered cannot be registered
+    - id: a-binding-adds-placeholder-and-drift-help
+      statement: |
+        Given a build that registers a product binding with a command and a drift help paragraph
+        When the product is not installed
+        Then the command exists and says how to install the product
+        And facet drift --help ends with the binding's paragraph
+    - id: product-drift-fields-are-additive
+      statement: |
+        Given an installed product declaring drift-report
+        When Core emits a drift report
+        Then the product can add JSON fields and human text without replacing Core fields
+        And failures are explicit product_errors rather than successful empty findings
+    - id: product-stop-notices-are-deduplicated
+      statement: |
+        Given an installed product declaring stop-notices
+        When a session stops
+        Then Core displays the product's grouped notices once per product, repository and key
+        And review failures remain visible
+    - id: installed-product-mcp-tools
+      statement: |
+        Given an installed product declaring mcp-tools and mcp-call
+        When Core starts its MCP server
+        Then valid tools use a product namespace and calls revalidate the installed package
+        And a tool its product's binding names for compatibility keeps its unprefixed name, for that product only
+        And discovery failure leaves the Core tools available
+verification:
+  unit_tests:
+    - id: "cli/product_services_test.go::TestProductWarningAndSessionDispatch"
+      proves:
+        - batch-visible-warning-observations
+        - forward-session-boundaries
+    - id: "pkg/productplugin/runtime_test.go::TestServiceProtocolAndBounds"
+      proves:
+        - product-failure-remains-visible-and-bounded
+    - id: "cli/product_bindings_test.go::TestARequestedProductThatIsAbsentIsReported"
+      proves:
+        - explicit-opt-in-needs-its-product
+    - id: "registry/product_sections_test.go::TestASectionNoProductOwnsIsTolerated"
+      proves:
+        - an-unowned-configuration-section-is-tolerated
+    - id: "registry/product_sections_test.go::TestARegisteredSectionIsValidatedOnLoad"
+      proves:
+        - a-product-section-is-validated-on-load
+    - id: "registry/product_sections_test.go::TestASectionHasOneOwner"
+      proves:
+        - a-product-section-is-validated-on-load
+    - id: "cli/product_bindings_test.go::TestABindingAddsItsPlaceholderAndDriftHelp"
+      proves:
+        - a-binding-adds-placeholder-and-drift-help
+    - id: "cli/product_bindings_test.go::TestABindingKeepsOnlyItsOwnCompatibilityToolName"
+      proves:
+        - installed-product-mcp-tools
+    - id: "cli/product_reports_test.go::TestProductDriftAdditionsCannotOverwriteCore"
+      proves:
+        - product-drift-fields-are-additive
+    - id: "cli/product_reports_test.go::TestProductStopNoticeDeduplicatesPerRepository"
+      proves:
+        - product-stop-notices-are-deduplicated
+    - id: "cli/product_reports_test.go::TestProductMCPNamespacedAndRevoked"
+      proves:
+        - installed-product-mcp-tools
+knowledge:
+  prerequisite_knowledge:
+    answer: |
+      Install an authorized native product package before using its observations.
+      The product owns the evidence semantics and its configuration section;
+      Core owns command dispatch and transport limits.
+  not_for:
+    answer: |
+      This interface does not sandbox native code or install products on demand.
+      It does not turn an absent or failed product into an empty successful report.
+  discoverability:
+    answer: |
+      Installed observers participate in facet drift and session hooks, and
+      installed MCP tools appear in facet mcp under their product namespace.
+      Package state is visible through facet plugin product list.
+  common_pitfalls:
+    answer: |
+      Observation failure is printed on stderr, drift-report failure appears
+      under product_errors. A configuration section of a product the build does
+      not link is not validated by Core; its typos surface only once the product
+      reads it.
+  success_signal:
+    answer: |
+      Product notes accompany the surfaced warning, session observations reach
+      the installed product, and a missing requested product is named instead of
+      an invented empty result.
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-11-13"
+  depends_on:
+    - delivery/distribution/product-runtime

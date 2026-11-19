@@ -1,0 +1,22 @@
+{
+  "id": "bpmn",
+  "version": "0.1.0",
+  "api": 0,
+  "tools": [
+    "repo.list",
+    "repo.read",
+    "bpmn.diagram"
+  ],
+  "reads": [
+    {
+      "dir": "docs/bpmn",
+      "ext": [
+        ".bpmn"
+      ]
+    }
+  ],
+  "sidecar": {
+    "bin": "bpmn",
+    "env": []
+  }
+}

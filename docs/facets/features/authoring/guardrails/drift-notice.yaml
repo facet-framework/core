@@ -1,0 +1,161 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: authoring/guardrails/drift-notice
+lifecycle: active
+intent:
+  summary: |
+    Checks, at the end of a turn, changes to anchored sources as well as deleted
+    and renamed references. New notices hold the Stop once with a review reason,
+    so the agent can still check them within the running turn. A changed source
+    file is a signal to review, not a semantic error.
+
+    Notices already delivered do not block again in the same session. New
+    affected records stay visible during a Stop continuation too. The check
+    covers the working tree, not a confirmed historical freshness.
+contract:
+  scenarios:
+    - id: a-file-in-a-new-directory-is-seen
+      statement: |
+        Given an anchored file created inside a directory that is itself new
+        When the turn ends
+        Then the file is examined, rather than being hidden behind the single
+        untracked-directory entry git reports for it
+      post_state:
+        file_scanned: true
+    - id: a-planned-record-is-not-reported-as-drift
+      statement: |
+        Given an anchored source file whose record is lifecycle planned, when the
+        source changes and the record does not, then nothing is reported.
+      pre_state:
+        record_lifecycle: planned
+    - id: an-active-record-is-still-reported
+      statement: |
+        Given an anchored source file whose record is lifecycle active, when the
+        source changes and the record does not, then the drift is reported.
+    - id: a-record-with-variants-is-judged-as-active
+      statement: |
+        Given a record that declares variants and therefore carries no top-level
+        lifecycle, when its anchored source changes alone, then the drift is
+        reported rather than suppressed.
+    - id: the-hook-reads-the-shared-drift-report
+      statement: |
+        Given a turn that deleted an anchored file or removed an anchor
+        When the turn ends
+        Then the notice names the same associations 'facet drift --json'
+        lists as referenceChanges, because the hook words that report rather
+        than detecting anything itself
+      post_state:
+        additional_context_emitted: true
+    - id: an-undeterminable-baseline-is-said
+      statement: |
+        Given a repository whose accepted baseline cannot be resolved
+        When the turn ends
+        Then the notice says drift could not be determined, rather than
+        staying silent as if nothing had drifted
+    - id: a-moved-file-leaves-no-record-pointing-at-nothing
+      statement: |
+        Given a record naming a file by path, in verification or in prose
+        When that file is renamed
+        Then the record is named as still pointing at where the file was,
+        because a rename leaves it wrong without changing a line of it
+      post_state:
+        stop_review_emitted: true
+    - id: a-new-review-blocks-stop-once
+      statement: |
+        Given an active record and a changed anchored source without a change to the record
+        When the Stop hook reports this record for the first time in the session
+        Then it returns decision block and a review reason naming record and source
+        And the next Stop for the same notice does not block again
+    - id: review-notice-restores-task-completion
+      statement: |
+        Given a new drift notice in the binary or the shell path
+        When the Stop hook returns the review reason
+        Then it asks for a current check with facet drift --json in the affected repository or worktree
+        And then asks for a complete final report on the original task
+        And requires correcting outdated statements while keeping to the authorised scope
+    - id: concurrent-notices-claim-delivery-once
+      statement: |
+        Given simultaneous hook invocations with the same session id and notice key
+        And writable persistent marker storage
+        When they claim a previously undelivered review notice
+        Then exactly one invocation reports it
+        And a later invocation in the same session remains silent
+        And another session may still report its own notice
+    - id: a-continuation-still-delivers-new-records
+      statement: |
+        Given a notice already delivered and stop_hook_active true
+        When a source of another active record has changed
+        Then the new record receives a Stop block with a review reason
+        And the notice already delivered is not repeated
+    - id: incoming-source-clone-changes-are-noticed
+      statement: |
+        Given a workspace registry with a declared independent source clone
+        And the clone has an accepted baseline before an incoming commit
+        When the turn ends with the outer workspace repository clean
+        Then the notice names the affected record and its workspace-relative source path
+verification:
+  unit_tests:
+    - id: "cli/hook_bounds_dedup_test.go::TestConcurrentNoticesClaimDeliveryOnce"
+      proves:
+        - concurrent-notices-claim-delivery-once
+    - id: "cli/hook_bounds_dedup_test.go::TestShellConcurrentNoticesClaimDeliveryOnce"
+      proves:
+        - concurrent-notices-claim-delivery-once
+    - id: cli/hook_planned_test.go
+      proves:
+        - a-planned-record-is-not-reported-as-drift
+        - an-active-record-is-still-reported
+        - a-record-with-variants-is-judged-as-active
+    - id: registry/drift_test.go
+      proves:
+        - a-file-in-a-new-directory-is-seen
+        - a-moved-file-leaves-no-record-pointing-at-nothing
+    - id: cli/reference_changes_test.go
+      proves:
+        - the-hook-reads-the-shared-drift-report
+        - an-undeterminable-baseline-is-said
+    - id: "cli/source_drift_test.go::TestSourceDriftCLIUsesCloneBaselineAndAcceptsWorkspacePath"
+      proves:
+        - incoming-source-clone-changes-are-noticed
+knowledge:
+  prerequisite_knowledge:
+    question: "What must the user already understand to use this feature?"
+    answer: |
+      The project needs an adopted registry and source anchors. In legacy
+      directory mode, independent clones must be declared in sources. With
+      source_views, shared repository IDs and ignored local bindings select
+      the checkouts, and implementation paths use repository:path. Reviewing
+      incoming commits needs an accepted baseline or an explicit reviewed revision.
+  not_for:
+    question: "When is this the wrong tool for the job?"
+    answer: |
+      The notice is a review signal, not a semantic audit or a retirement
+      decision. Against HEAD it only covers uncommitted changes.
+  discoverability:
+    question: "Where does the user enter this flow in the product?"
+    answer: |
+      The Stop hook reports new affected records at the end of a turn.
+      Use 'facet drift --json' to inspect the comparison and the catch-up
+      skill to review incoming commits.
+    derive_from:
+      - anchors
+  common_pitfalls:
+    question: "What mistakes do users typically make?"
+    answer: |
+      Treating a clean outer repository as proof its source clones are current.
+      Their comparisons run independently. Repeated notices are deduplicated
+      in one session, so use the CLI to inspect the remaining review scope.
+      Deduplication requires a stable session id and writable marker storage.
+      When storage cannot be written, the hook emits the review rather than
+      silently suppressing it; the same notice can then recur.
+  success_signal:
+    question: "How does the user know it worked?"
+    answer: |
+      The first notice names the affected record and source path in its
+      review reason. The same notice does not block the next Stop again.
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-07-26"
+  superseded_by: null

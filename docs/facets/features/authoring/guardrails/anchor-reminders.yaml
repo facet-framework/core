@@ -1,0 +1,160 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: authoring/guardrails/anchor-reminders
+lifecycle: active
+intent:
+  summary: |
+    Reminds an agent editing anchored source to carry its record along and
+    reports unresolved anchors, because the anchor is the link that is easy to
+    write and forget. Reminders occur once per feature and file, reset when the
+    record changes and expire so repetition does not make the prompt unreadable.
+    End-of-turn drift separately checks record changes; Bash events inspect the
+    dirty working tree, including staged and untracked files, and an unchanged
+    tree is silent.
+contract:
+  scenarios:
+    - id: dangling-anchor-reported
+      statement: |
+        Given a source file carrying an @facet: tag with no corresponding record
+        When the file is written or edited
+        Then the unresolved id and its expected record path are reported
+      post_state:
+        additional_context_emitted: true
+    - id: anchor-reminder-deduplicated
+      statement: |
+        Given a source file whose @facet: anchors all resolve
+        When the same file is edited more than once without its record moving
+        Then the record-update reminder is emitted only on the first edit
+      post_state:
+        notices_emitted: 1
+    - id: the-reminder-speaks-again-once-the-record-moves
+      statement: |
+        Given a file that has already been reminded about
+        When its record is edited and the file is then edited again
+        Then the reminder is emitted a second time, because the obligation it
+        carried was discharged and the next edit is a new one
+      post_state:
+        additional_context_emitted: true
+    - id: the-reminder-carries-what-the-record-claims
+      statement: |
+        Given a source file implementing a feature whose record has an intent
+        and contract scenarios
+        When the file is edited
+        Then the reminder carries the intent condensed to a line and the
+        scenario ids, so the edit can be judged against the claims without
+        opening the record
+      post_state:
+        additional_context_emitted: true
+    - id: a-related-file-is-told-apart-from-an-implementation
+      statement: |
+        Given a file anchored only with '@facet-role: related'
+        When it is edited
+        Then it is named in one line and without the record's claims, because a
+        contract rarely breaks there and equal weight teaches the reader to skim
+      post_state:
+        additional_context_emitted: true
+    - id: shared-code-anchors-resolve-across-registries
+      statement: |
+        Given a file both registries scan, carrying an anchor whose record
+        exists in only one of them
+        When the file is written or edited
+        Then no unresolved-anchor notice is emitted
+      post_state:
+        output: empty
+    - id: bulk-tool-edits-carry-anchor-context
+      statement: |
+        Given a FACET working tree with two changed anchored source files
+        When a Bash PostToolUse event arrives with that tree as its cwd
+        Then one JSON response carries both file reminders and the binary
+        includes the matching record intent and scenario ids
+        And a repeated event is silent for already reminded features and files
+      post_state:
+        additional_context_emitted: true
+    - id: clean-bash-is-silent
+      statement: |
+        Given a committed working tree containing anchored source files
+        When a read-only Bash command finishes without changing that tree
+        Then no anchor context is emitted
+      post_state:
+        output: empty
+    - id: a-bash-event-stays-bounded-on-a-large-dirty-tree
+      statement: |
+        Given a working tree with hundreds of uncommitted files, more than
+        forty of them carrying anchors, as during an adoption
+        When a Bash PostToolUse event arrives
+        Then only files carrying an anchor cost any per-file work, at most
+        forty of them are reminded about, and the reminder says that the rest
+        were not checked
+        And without the binary the per-file work runs under a time budget that
+        ends it entirely, so nothing outlives the hook
+      post_state:
+        files_reminded: 40
+        processes_after_hook: 0
+    - id: multi-edit-carries-anchor-context
+      statement: |
+        Given a source file with a resolving FACET anchor
+        When a MultiEdit PostToolUse event names that file
+        Then the file's record reminder is emitted as for Edit
+      post_state:
+        additional_context_emitted: true
+    - id: markers-do-not-accumulate-forever
+      statement: |
+        Given per-session markers left by earlier sessions
+        When a session starts
+        Then those older than thirty days are removed, so the plugin's data
+        directory does not grow by a directory a session without end
+      post_state:
+        old_markers_removed: true
+verification:
+  unit_tests:
+    - id: cli/hook_integration_test.go
+      proves:
+        - clean-bash-is-silent
+    - id: cli/hook_test.go
+      proves:
+        - dangling-anchor-reported
+        - a-related-file-is-told-apart-from-an-implementation
+        - the-reminder-carries-what-the-record-claims
+        - anchor-reminder-deduplicated
+        - the-reminder-speaks-again-once-the-record-moves
+        - markers-do-not-accumulate-forever
+        - shared-code-anchors-resolve-across-registries
+        - bulk-tool-edits-carry-anchor-context
+        - clean-bash-is-silent
+        - a-bash-event-stays-bounded-on-a-large-dirty-tree
+knowledge:
+  prerequisite_knowledge:
+    question: "What must the user already understand to use this feature?"
+    answer: |
+      An anchor is the only thing tying a record to the code it describes, and
+      it is the part that is easiest to write and forget. What rots the other
+      way — a rename that leaves a record pointing at a path nobody has — is the
+      drift notice's job, not this one's.
+
+      The reminder is once per feature per file. A prompt that repeats on every
+      keystroke is one people stop reading, so a marker records that it has been
+      said — and is cleared when the record moves, because the obligation is
+      then genuinely new. Markers expire rather than accumulating forever.
+  not_for:
+    question: "When is this the wrong tool for the job?"
+  discoverability:
+    question: "Where does the user enter this flow in the product?"
+    derive_from:
+      - anchors
+  common_pitfalls:
+    question: "What mistakes do users typically make?"
+    answer: |
+      Expecting the record-update reminder on every edit. It fires once per
+      file per session, so a second edit to the same file is silent by design,
+      not because the change is considered harmless.
+  success_signal:
+    question: "How does the user know it worked?"
+    answer: |
+      Editing a file that carries an '@facet:' anchor produces a reminder
+      naming the feature it implements.
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-07-26"
+  superseded_by: null

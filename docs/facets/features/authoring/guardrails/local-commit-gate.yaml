@@ -1,0 +1,99 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: authoring/guardrails/local-commit-gate
+lifecycle: active
+intent:
+  summary: |
+    Wires 'facet lint --staged' into the version-control pre-commit hook so
+    terminal commits receive the same registry checks as commits made through
+    Claude's Bash gate. Existing hooks are preserved and hook managers receive a
+    configuration entry rather than a competing hook. A missing 'facet' binary
+    fails the commit because an unexecuted check must not look like a clean
+    registry.
+contract:
+  scenarios:
+    - id: a-dry-run-writes-nothing
+      statement: |
+        Given a repository with no pre-commit hook
+        When the user runs 'facet setup precommit' without --write
+        Then the output says what would be written
+        And no file exists in the hooks directory afterwards
+    - id: the-hook-refuses-a-broken-staged-commit
+      statement: |
+        Given the hook was written with --write
+        When a terminal commit stages a record or anchor that introduces a lint error
+        Then the commit is refused and the output names the error
+        And a commit staging only clean changes goes through
+    - id: a-missing-binary-fails-the-commit
+      statement: |
+        Given the hook is installed and 'facet' is not on PATH
+        When a commit is made
+        Then the commit fails with a message saying facet was not found and
+        nothing was checked
+    - id: a-foreign-hook-is-never-overwritten
+      statement: |
+        Given a pre-commit hook that FACET did not write
+        When the user runs 'facet setup precommit --write' or '--remove'
+        Then the hook is unchanged
+        And --write prints the lines to add to it
+    - id: a-hook-manager-owns-the-hooks
+      statement: |
+        Given husky, lefthook or pre-commit is configured in the repository
+        When the user runs 'facet setup precommit --write'
+        Then no hook file is written
+        And the entry for that manager's configuration is printed
+    - id: the-hook-is-written-where-hooks-are-read
+      statement: |
+        Given core.hooksPath points at a custom directory
+        When the user runs 'facet setup precommit --write'
+        Then the hook is written there and not in the default hooks directory
+    - id: remove-deletes-only-its-own-hook
+      statement: |
+        Given a hook that FACET wrote
+        When the user runs 'facet setup precommit --remove'
+        Then the hook is gone
+verification:
+  unit_tests:
+    - id: cli/setup_precommit_test.go
+      proves:
+        - a-dry-run-writes-nothing
+        - the-hook-refuses-a-broken-staged-commit
+        - a-missing-binary-fails-the-commit
+        - a-foreign-hook-is-never-overwritten
+        - a-hook-manager-owns-the-hooks
+        - the-hook-is-written-where-hooks-are-read
+        - remove-deletes-only-its-own-hook
+knowledge:
+  prerequisite_knowledge:
+    question: "What must the user already understand to use this feature?"
+    answer: |
+      The hook is written only into the directory the VCS names for hooks, never
+      over a hook somebody else wrote, and not at all beside a hook manager
+      (husky, lefthook, pre-commit), whose configuration gets a printed entry
+      instead. A hook that cannot find 'facet' fails the commit and says so,
+      because a hook that passes without its binary looks exactly like a clean
+      registry.
+  not_for:
+    question: "When is this the wrong tool for the job?"
+  discoverability:
+    question: "Where does the user enter this flow in the product?"
+    derive_from:
+      - anchors
+  common_pitfalls:
+    question: "What mistakes do users typically make?"
+    answer: |
+      Committing with --no-verify and believing the hook still protected the
+      commit. It does not run; the CI check is the one that cannot be skipped.
+  success_signal:
+    question: "How does the user know it worked?"
+    answer: |
+      A terminal commit that stages a new lint error is refused with that error
+      in the output, and the same commit without it goes through.
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-10-09"
+  superseded_by: null
+  depends_on:
+    - authoring/guardrails/commit-gate

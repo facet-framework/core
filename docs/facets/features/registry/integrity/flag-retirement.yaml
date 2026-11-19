@@ -1,0 +1,58 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: registry/integrity/flag-retirement
+lifecycle: active
+intent:
+  summary: |
+    Holds a record's declared feature flags against the source, so a flag
+    that has been removed from the code — or has outlived the date its owner
+    set for taking it out — stops being a claim the record still makes.
+
+    Flags describe exposure and lifecycle describes existence, so a record
+    can be perfectly accurate about both and still name a flag key that no
+    longer exists anywhere. Nothing else in the registry would notice: the
+    record validates, the anchors resolve, and the flag is simply a line of
+    documentation about a switch that is gone.
+contract:
+  scenarios:
+    - id: flag-key-must-exist-in-source
+      statement: |
+        Given a record declaring a feature-flag key that appears nowhere in
+        source outside the records themselves
+        When 'facet lint' runs
+        Then an error reports that the gate was removed without the record
+        being told
+      post_state:
+        severity: error
+    - id: overdue-flag-is-a-warning
+      statement: |
+        Given a flag whose retire_by date has passed
+        When 'facet lint' runs
+        Then a warning is reported and the run still succeeds
+      post_state:
+        exit_code: 0
+verification:
+  unit_tests:
+    - id: registry/variant_test.go
+      proves:
+        - flag-key-must-exist-in-source
+        - overdue-flag-is-a-warning
+knowledge:
+  prerequisite_knowledge:
+    question: "What must the user already understand to use this feature?"
+  not_for:
+    question: "When is this the wrong tool for the job?"
+  discoverability:
+    question: "Where does the user enter this flow in the product?"
+    derive_from:
+      - anchors
+  common_pitfalls:
+    question: "What mistakes do users typically make?"
+  success_signal:
+    question: "How does the user know it worked?"
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-07-26"
+  superseded_by: null

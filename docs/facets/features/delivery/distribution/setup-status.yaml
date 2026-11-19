@@ -1,0 +1,178 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: delivery/distribution/setup-status
+lifecycle: active
+intent:
+  summary: |
+    Measures how far a project's FACET setup goes, one row per check, each
+    with a state, one sentence and the evidence it rests on. Unmeasured is
+    not ok and not-applicable is not red, because a report that folded either
+    into another would state something nobody measured. It is a report, so
+    red rows do not fail it (--strict does). Its evidence identifies checks
+    that still need verification in the agent host.
+contract:
+  scenarios:
+    - id: every-check-is-a-row-with-evidence
+      statement: |
+        Given any project
+        When facet setup status --json runs
+        Then it prints one row per check id in the setup's order, each with a
+        state from the four, a finding and the evidence it rests on
+    - id: the-table-is-aligned-and-summed
+      statement: |
+        Given any project
+        When facet setup status runs without --json
+        Then a table with id, state and finding in aligned columns is printed,
+        followed by a count of the four states
+    - id: a-report-does-not-fail-unless-asked
+      statement: |
+        Given a project with red rows
+        When facet setup status runs
+        Then the exit code is 0, and with --strict it is not
+    - id: a-lint-that-checked-nothing-is-red
+      statement: |
+        Given an adopted project whose lint checks zero records
+        When lint.strict is measured
+        Then it is red, because a green lint that read nothing proves nothing
+    - id: a-trigger-pattern-matching-no-file-is-red
+      statement: |
+        Given a workflow whose paths: lists a pattern that matches no tracked
+        file, such as apps/** in a tree without apps/
+        When ci.trigger-coverage is measured
+        Then it is red and names that pattern, and only that pattern
+    - id: an-ignore-rule-hiding-an-anchor-is-red
+      statement: |
+        Given a .facetignore pattern that excludes a tracked file carrying the
+        only anchor of an existing record
+        When facetignore is measured
+        Then it is red and names the file, because lint would call it orphaned
+    - id: an-anchor-naming-no-record-may-be-ignored
+      statement: |
+        Given a .facetignore pattern that excludes a tracked file whose
+        anchors name no record, such as an example, or name a record that is
+        also anchored in a file the scan reads, such as a design draft
+        When facetignore is measured
+        Then it is ok, because hiding that file orphans nothing
+    - id: what-cannot-be-measured-here-is-never-ok
+      statement: |
+        Given a check this binary cannot answer, such as whether the plugin is
+        active or a binary whose version could not be established (an unstamped
+        "dev" build, or 0.1.0-dev.unknown without source metadata)
+        When it is reported
+        Then its state is unmeasured and the finding says why
+    - id: the-binary-and-its-pointer-are-compared-with-the-running-version
+      statement: |
+        Given a cache whose dist/core/selected pointer leads to an install of
+        another version (read from its install.json), to an install without
+        install.json, or to nothing
+        When binary.current-pointer is measured
+        Then it is red and says which, and a retired bin/current is not read
+    - id: the-login-shell-is-asked-not-the-subprocess
+      statement: |
+        Given a login shell whose PATH does or does not reach facet
+        When binary.on-shell-path is measured
+        Then the answer comes from running that shell with command -v facet,
+        and a facet of another version is red
+    - id: the-servers-answer-a-handshake
+      statement: |
+        Given a project
+        When mcp and lsp are measured
+        Then each server is started in this process and asked a real
+        handshake, and lists feature_find or answers initialize
+    - id: a-commented-lint-line-is-not-a-pre-commit-gate
+      statement: |
+        Given a pre-commit hook or manager configuration whose only mention of
+        facet lint is in a comment
+        When git.precommit is measured
+        Then it is red, because nothing runs the check
+    - id: scaffold-uses-declared-specification-compatibility
+      statement: |
+        Given a complete scaffold and a Core binary with an independent product version
+        When the scaffold check runs
+        Then only specification edition 0.1.0 is accepted
+        And an edition outside the declared compatibility list is red
+        And the product version remains unchanged
+    - id: a-core-only-binary-does-not-require-atlas
+      statement: |
+        Given the Core CLI was built without Atlas commands or reader assets
+        When facet setup status reports the ui check
+        Then its state is not-applicable
+        And the finding says a browser application is not included in this binary
+    - id: optional-parts-are-absent-or-measured
+      statement: |
+        Given a project without plugins, a semantic index, a filter or a test
+        runner
+        When those rows are measured
+        Then each says not-applicable, and says red only for a part that is
+        configured and broken
+verification:
+  unit_tests:
+    - id: "cli/scaffold_version_test.go::TestScaffoldUsesDeclaredCompatibility"
+      proves:
+        - scaffold-uses-declared-specification-compatibility
+    - id: cli/command_options_test.go
+      proves:
+        - a-core-only-binary-does-not-require-atlas
+    - id: cli/setup_status_test.go
+      proves:
+        - every-check-is-a-row-with-evidence
+        - the-table-is-aligned-and-summed
+        - a-report-does-not-fail-unless-asked
+        - a-lint-that-checked-nothing-is-red
+        - a-trigger-pattern-matching-no-file-is-red
+        - an-ignore-rule-hiding-an-anchor-is-red
+        - an-anchor-naming-no-record-may-be-ignored
+        - what-cannot-be-measured-here-is-never-ok
+        - the-binary-and-its-pointer-are-compared-with-the-running-version
+        - the-login-shell-is-asked-not-the-subprocess
+        - the-servers-answer-a-handshake
+        - optional-parts-are-absent-or-measured
+        - a-commented-lint-line-is-not-a-pre-commit-gate
+knowledge:
+  prerequisite_knowledge:
+    question: "What must the user already understand to use this feature?"
+    answer: |
+      The setup report measures the binary it runs in. The Core CLI includes
+      registry commands and snapshots and no browser reader, so its ui row
+      reports that part as not applicable.
+  discoverability:
+    question: "Where does the user enter this flow in the product?"
+    answer: |
+      Run 'facet setup status', optionally with --json, --evidence or --strict.
+    derive_from:
+      - anchors
+  success_signal:
+    question: "How does the user know it worked?"
+    answer: |
+      Each check has a state, finding and evidence. A Core-only binary reports
+      the ui row as not-applicable rather than treating the absent reader as a
+      broken installation.
+  not_for:
+    question: "When is this the wrong tool for the job?"
+    answer: |
+      Not a gate. It never fails a build on its own and writes nothing; the
+      lint and the commit gate are the enforcement. Not a proof that the
+      plugin's hooks fire: that is known to Claude Code only, so hooks.plugin
+      is always unmeasured here. Verify in the host that the configured hooks
+      receive real hook JSON.
+  common_pitfalls:
+    question: "What mistakes do users typically make?"
+    answer: |
+      Reading unmeasured as fine. It means nobody looked, and the finding says
+      why. The git filter row does not run the add-and-diff round trip; it
+      checks the install, the binary and the orphans.
+
+      Reading the not-applicable ui row as a fault. A Core-only binary has no
+      browser reader by design, and nothing needs to be installed for it.
+
+      Core checks the scaffold against its declared specification compatibility,
+      independently of its product version. Use facet version --json to inspect
+      both. The first public specification edition is 0.1.0 and its record schema is 0.1; product versions are independent.
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-10-09"
+  superseded_by: null
+  depends_on:
+    - delivery/distribution/binary-resolution

@@ -1,0 +1,5 @@
+{
+  "name": "facet-framework",
+  "owner": {"name": "FACET Framework"},
+  "plugins": [{"name": "facet", "source": "./", "description": "FACET records, anchors and drift checks."}]
+}

@@ -1,0 +1,143 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: delivery/distribution/public-core-release
+lifecycle: active
+intent:
+  summary: |
+    Builds and releases FACET Core inside the public Core repository from the
+    exported tree: CI checks the tree against its export receipt and gates
+    everything behind one ci-green job, and the release workflow publishes the
+    receipt's version only after CI succeeded on that commit and the release
+    environment approved. npm publishing stays off unless separately enabled
+    and approved.
+contract:
+  scenarios:
+    - id: the-tree-matches-its-export-receipt
+      statement: |
+        Given an exported Core tree with PUBLIC-SOURCE-MANIFEST.json at its root
+        When release-receipt.sh verify runs
+        Then it passes only when every listed file exists as a regular file with the declared sha256 and mode and git tracks nothing else
+        And a changed file, a changed mode or an extra tracked file is each named and fails the check
+        And paths are compared as written, so a non-ASCII, spaced or backslashed path verifies and a tracked path with a tab or a newline is named as extra
+    - id: the-public-layout-packages-the-dispatcher-archives
+      statement: |
+        Given the exported tree in the public layout, with the module github.com/facet-framework/core and the command at ./cmd/facet
+        When release-package-core.sh packages the receipt's version for .
+        Then the archives carry the names bin/facet asks for and the root LICENSE and NOTICE
+        And the packaged binary reports <version>+g<commit>, distribution github-facet-framework-core, channel rc, its commit, dirty false and the commit time
+        And packaging twice gives byte-identical output
+    - id: the-dispatcher-installs-the-packaged-release
+      statement: |
+        Given a packaged release and bin/facet with the default version the export wrote into it
+        When bin/facet runs with only the packaged files reachable at github.com/<repo>/releases/download/v<version>/
+        Then it requests exactly the host archive and checksums.txt, installs under dist/core/github-<owner>-<repo>/<platform>/<version> with install.json, current and selected
+        And the installed binary reports the version, channel, commit and build time of release-manifest.json
+        And a second run with every download failing is answered from the cache without a request
+    - id: release-notes-come-from-the-changelog
+      statement: |
+        Given a CHANGELOG.md written by people
+        When the notes of a version are requested
+        Then an rc gets its own section, or else the Unreleased section, and a release gets only its own dated section that does not say unreleased
+        And a section without a single list entry, a development version, a missing section or two sections of the same version is refused, and no release is created without notes
+    - id: public-tags-are-v-version
+      statement: |
+        Given the export receipt at the repository root
+        When release-publish.sh checks or creates a tag and a release
+        Then it accepts v<version> for Core only and refuses the development tag namespace
+        And an rc is created as a pre-release under v<version>
+    - id: ci-green-requires-every-job
+      statement: |
+        Given ci.yml
+        When any job fails, is cancelled or is skipped
+        Then ci-green fails, except that dependency review is skipped outside pull requests
+        And every action in the public workflows is pinned by a full commit SHA with its version tag
+    - id: a-release-waits-for-ci-and-approval
+      statement: |
+        Given a push to main or a manual run
+        When release.yml plans the release
+        Then it refuses a ref other than main, a tree that differs from its receipt, a development version, a commit without a successful ci.yml push run, missing release notes and a tag that names another commit or a published release
+        And attestation, tag and GitHub release run only in the job behind the release environment, after every platform binary ran natively
+        And npm publishing runs only when the repository variable FACET_NPM_PUBLISH is true, behind the npm environment, and only a plan that is publishable and complete
+        And dry runs and publishing runs queue in separate concurrency groups, none cancelling another
+    - id: an-unprotected-environment-stops-the-plan
+      statement: |
+        Given the environment a release job waits for, release always and npm when FACET_NPM_PUBLISH is true
+        When the plan asks the GitHub API for it and its deployment branch policies
+        Then it goes on only if the environment exists, has a required-reviewers rule naming someone, has can_admins_bypass false, and deploys from selected branches that are exactly main
+        And a missing environment, one without reviewers, one administrators can bypass or that does not state can_admins_bypass, one without a branch policy or open to protected branches, one with another or a second branch, and an API failure each stop the plan
+    - id: self-approval-needs-no-second-reviewer-unless-required
+      statement: |
+        Given the same environment check, and the repository variable FACET_RELEASE_REQUIRE_SECOND_REVIEWER passed into it
+        When the variable is true
+        Then a required-reviewers rule without prevent_self_review true stops the plan
+        And when the variable is unset, empty or false, such a rule passes with one line saying the releaser may approve their own run
+        And any other value of the variable stops the plan
+    - id: an-unprotected-main-or-tag-namespace-stops-the-plan
+      statement: |
+        Given the same environment check in the plan
+        When it reads the rules of main, the branch protection of main and the repository's tag rulesets through the GitHub API
+        Then it goes on only if main needs a pull request with at least one approving review that administrators cannot bypass, either as an active branch ruleset with an empty bypass list or as branch protection with enforce_admins and no bypass allowances
+        And only if an active tag ruleset covering refs/tags/v* without exclusions restricts creation, update and deletion, with at most the GitHub Actions app and deploy keys allowed to bypass it
+        And a main without such protection, protection administrators or named actors can bypass, a missing or evaluate-only tag ruleset, one without a creation, update or deletion rule, one for other tags and one others may bypass each stop the plan, naming the setting
+        And a ruleset bypass list or branch protection the token cannot read stops the plan with a message that the token lacks permission, never passing
+    - id: ci-and-release-build-with-one-pinned-go
+      statement: |
+        Given ci.yml and release.yml
+        When a job sets up Go
+        Then the release build, the packaging dry run and the licenses job use the exact version in FACET_GO_VERSION, which both workflows declare identically
+        And every other job uses it too, except the go matrix's go.mod leg and the format job, which use the version go.mod names
+        And no public workflow sets up a floating version such as stable
+    - id: missing-third-party-notices-stop-ci-and-the-plan
+      statement: |
+        Given a NOTICE that names files or directories such as THIRD_PARTY.json and THIRD_PARTY_LICENSES/
+        When the CI licenses job or the release plan runs release-notice-check.sh
+        Then it fails unless every named file is present and non-empty and every named directory holds something
+        And a missing or empty NOTICE fails as well
+    - id: npm-publishing-is-resumable
+      statement: |
+        Given an approved npm job with the release archives and its publish plan
+        When it publishes
+        Then it verifies the archives against checksums.txt, packs them, and publishes with an npm of 11.5.1 or later through trusted publishing for every package the registry already knows
+        And a package name the registry does not know yet is published with the token the npm environment supplies to the publish step alone; without that token the run stops before anything is published and names those packages
+        And each package whose version the registry holds with the plan's integrity is skipped, so a re-run finishes a run that stopped half way
+        And a version the registry holds with another integrity, a registry error other than not found, an older npm and a plan that is not publishable each stop it before that package is published
+knowledge:
+  prerequisite_knowledge:
+    question: "What must a maintainer know first?"
+    answer: |
+      The public tree is a curated export of the development sources, recorded
+      by PUBLIC-SOURCE-MANIFEST.json at its root; the archives come from
+      delivery/distribution/core-release-packaging, run in the public layout.
+  not_for:
+    question: "What does this not do?"
+    answer: |
+      It does not push the release branch or merge it into main; that happens
+      before this workflow runs, when the exported tree is published to the
+      public repository. Its workflows are only proven by wiring tests and a
+      local run of their commands; a public runner has not executed them yet.
+  discoverability:
+    question: "Where does a maintainer enter this?"
+    answer: |
+      .github/workflows/ci.yml and release.yml; locally,
+      sh scripts/release-receipt.sh verify checks an exported tree against its
+      receipt.
+  common_pitfalls:
+    question: "What is easy to get wrong?"
+    answer: |
+      A release section still marked unreleased, a release branch whose
+      changelog has no entry, an environment not yet set up with reviewers,
+      administrator bypass off and a main-only branch policy, or a NOTICE
+      naming notices the export does not ship: the release stops before
+      anything is tagged. Moving FACET_GO_VERSION without a new third-party
+      inventory collected with that Go stops licenses and every packaging run.
+  success_signal:
+    question: "How is success recognized?"
+    answer: |
+      ci-green is green on release/<version>, and after the merge a GitHub
+      release v<version> carries six archives, checksums.txt and
+      release-manifest.json with an attestation.
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-11-14"

@@ -1,0 +1,100 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: registry/integrity/plugin-lint
+lifecycle: active
+intent:
+  summary: |
+    Lets an installed plugin bring lint rules to 'facet lint': a plugin that declares the tool "facet.lint" has its own sidecar binary called with the registry's records and the files its "reads" allows, and the findings it answers join the normal report and exit code.
+    The binary is verified, granted and time-bounded like any sidecar tool, so its size stays with the plugin that needs it rather than with every facet binary.
+    A binary that fails its checksum, fails, answers nonsense or runs past its time limit is an Error of that plugin, and an ungranted one is a Warning that says how to grant it.
+contract:
+  scenarios:
+    - id: a-plugins-findings-join-the-report
+      statement: |
+        Given an installed plugin whose lint tool answers an Error and a Warning
+        When 'facet lint' runs
+        Then both findings appear in the report with their severities
+        And each finding names the plugin
+        And the Error fails the run like a core Error
+    - id: a-plugins-warning-does-not-fail-the-run
+      statement: |
+        Given an installed plugin whose lint tool answers only a Warning
+        When 'facet lint' runs
+        Then the Warning appears in the report
+        And the run does not fail
+    - id: a-plugin-sees-only-what-it-declared
+      statement: |
+        Given a plugin declaring one directory under "reads" with the extension ".dmn"
+        And a ".txt" file in that directory
+        And a file elsewhere in the repository
+        When its lint tool is called
+        Then the request carries the registry's records
+        And the request carries the ".dmn" files under the declared directory as text
+        And the request does not carry the ".txt" file
+        And the request does not carry the file elsewhere
+    - id: a-timeout-is-an-error-of-the-plugin
+      statement: |
+        Given a lint sidecar that never answers
+        When 'facet lint' runs
+        Then the call is stopped at its time limit
+        And the report carries an Error naming that plugin
+    - id: a-failed-call-is-an-error-not-a-pass
+      statement: |
+        Given a lint sidecar that answers with <failure>
+        When 'facet lint' runs
+        Then the report carries an Error naming that plugin
+      examples:
+        - name: failures
+          columns:
+            - failure
+          rows:
+            -
+              - an error in place of a result
+            -
+              - a result that is not an object
+            -
+              - a result without a findings list
+    - id: an-empty-answer-is-a-clean-run
+      statement: |
+        Given a lint sidecar that answers an empty findings list
+        When 'facet lint' runs
+        Then no finding names the plugin
+        And the run does not fail
+    - id: a-tampered-binary-never-runs
+      statement: |
+        Given a plugin whose sidecar binary no longer matches the sum it was packed with
+        When 'facet lint' runs
+        Then the binary is not executed
+        And the report carries an Error saying the package does not verify
+    - id: an-ungranted-lint-tool-is-a-warning
+      statement: |
+        Given a plugin that declares facet.lint but was not granted it
+        When 'facet lint' runs
+        Then the binary is not executed
+        And the report carries a Warning naming the grant that would run it
+        And the run does not fail
+    - id: no-plugin-with-lint-changes-nothing
+      statement: |
+        Given no installed plugin declares facet.lint, or no plugin directory exists
+        When 'facet lint' runs
+        Then the report is identical to the one produced without plugins
+verification:
+  unit_tests:
+    - id: registry/pluginlint_test.go
+      proves:
+        - a-plugins-findings-join-the-report
+        - a-plugins-warning-does-not-fail-the-run
+        - a-plugin-sees-only-what-it-declared
+        - a-timeout-is-an-error-of-the-plugin
+        - a-failed-call-is-an-error-not-a-pass
+        - an-empty-answer-is-a-clean-run
+        - a-tampered-binary-never-runs
+        - an-ungranted-lint-tool-is-a-warning
+        - no-plugin-with-lint-changes-nothing
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-10-08"
+  depends_on:
+    - registry/integrity/record-validation

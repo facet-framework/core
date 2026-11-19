@@ -1,0 +1,12 @@
+{
+  "id": "adr",
+  "version": "0.1.0",
+  "api": 0,
+  "tools": [
+    "repo.list",
+    "repo.read"
+  ],
+  "reads": [
+    "docs/adr"
+  ]
+}

@@ -1,0 +1,164 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: registry/integrity/proof-references
+lifecycle: active
+intent:
+  summary: |
+    Checks both halves of a proof reference: the named test and the scenario it
+    claims to prove, whether named by a verification 'proves' list or an
+    '@facet-proves:' tag. Renaming or removing a scenario must not leave a
+    passing test looking like proof of a promise that no longer exists. Missing
+    path-based test targets are errors under FACET §3.4 and FACET §11.2;
+    symbolic test ids are preserved.
+contract:
+  scenarios:
+    - id: a-dangling-proves-reference-is-an-error
+      statement: |
+        Given a verification entry whose 'proves' names a scenario id absent
+        from the same record's contract.scenarios
+        When 'facet lint' runs
+        Then an error is reported, because a test claiming to prove a promise
+        that was renamed or never written leaves a record that looks verified
+        and is not
+      post_state:
+        severity: error
+    - id: an-unproven-scenario-is-a-warning
+      statement: |
+        Given a contract scenario with no 'proves' entry pointing at it
+        anywhere in the record — including one whose only reference is itself
+        dangling
+        When 'facet lint' runs
+        Then a warning names it, so the unproven count is the real one rather
+        than one a stale reference silently inflates as covered
+      post_state:
+        severity: warning
+    - id: a-verification-naming-a-missing-file-is-an-error
+      statement: |
+        Given a verification entry whose id names a file that is not in the
+        project and is not inside an uninitialized Git submodule
+        When 'facet lint' runs
+        Then an error is reported, because the entry establishes nothing
+        while still reading as coverage — and the same entry pointing at a
+        file that is there is clean
+      post_state:
+        severity: error
+    - id: an-uninitialized-submodule-target-is-a-warning
+      statement: |
+        Given a missing test path inside a real Git submodule
+        whose checkout is not initialised
+        When facet lint runs
+        Then verification-targets reports a warning with the submodule path
+        and a runnable git submodule update --init hint; the
+        missing checkout alone does not fail the lint
+      post_state:
+        severity: warning
+    - id: initialized-and-merely-declared-submodules-do-not-hide-missing-tests
+      statement: |
+        Given a missing test in an initialised submodule, a bare
+        .gitmodules declaration without a gitlink, or a path outside
+        the uninitialised submodule
+        When facet lint runs
+        Then the missing test stays an error; an existing test in the
+        initialised submodule produces no finding
+      post_state:
+        severity: error
+    - id: an-id-that-does-not-claim-a-path-is-left-alone
+      statement: |
+        Given a verification id in a form that names no file — a module path
+        like 'api::promo::it_cap', or a CI job named in prose
+        When 'facet lint' runs
+        Then nothing is reported, because a check that called a project's own
+        naming convention an error would be switched off, and a check nobody
+        runs protects nothing
+      post_state:
+        findings: 0
+    - id: a-test-or-job-name-after-a-path-still-names-the-file
+      statement: |
+        Given a verification id carrying a test or job name after the path —
+        'tests/cap.py::test_applied', '.github/workflows/ci.yml:adopt'
+        When 'facet lint' runs
+        Then the file is what is checked, so the suffix neither hides a
+        missing file nor turns a present one into a finding
+    - id: one-missing-file-is-one-finding
+      statement: |
+        Given one missing file named as the proof of many scenarios
+        When 'facet lint' runs
+        Then it is reported once rather than once per scenario, because
+        thirteen identical lines is a signal nobody reads to the end
+      post_state:
+        findings_per_missing_file: 1
+    - id: a-dangling-anchor-proves-reference-is-an-error
+      statement: |
+        Given an anchor's '@facet-proves:' tag naming a scenario id absent
+        from the same record's contract.scenarios
+        When 'facet lint' runs
+        Then an error is reported — the code-side mirror of a dangling
+        verification 'proves' reference
+      post_state:
+        severity: error
+    - id: anchor-with-no-proves-tag-is-not-an-error
+      statement: |
+        Given an anchor carrying no '@facet-proves:' tag at all
+        When 'facet lint' runs
+        Then no finding is reported, because an optional tag's absence
+        claims nothing
+      post_state:
+        findings: 0
+verification:
+  unit_tests:
+    - id: registry/proves_test.go
+      proves:
+        - a-dangling-proves-reference-is-an-error
+        - an-unproven-scenario-is-a-warning
+    - id: registry/verification_targets_test.go
+      proves:
+        - a-verification-naming-a-missing-file-is-an-error
+        - an-id-that-does-not-claim-a-path-is-left-alone
+        - a-test-or-job-name-after-a-path-still-names-the-file
+        - one-missing-file-is-one-finding
+        - an-uninitialized-submodule-target-is-a-warning
+        - initialized-and-merely-declared-submodules-do-not-hide-missing-tests
+    - id: registry/anchor_proves_test.go
+      proves:
+        - a-dangling-anchor-proves-reference-is-an-error
+        - anchor-with-no-proves-tag-is-not-an-error
+knowledge:
+  prerequisite_knowledge:
+    question: "What must the user already understand to use this feature?"
+    answer: |
+      A proof naming a scenario the record does not declare is the failure this
+      prevents. It happens exactly when a scenario is renamed or removed, which
+      is also the moment the proof silently stops meaning anything — the test
+      still runs, still passes, and no longer stands for the promise it was
+      written for.
+
+      The other half of that line is the test id, and FACET §3.4 and FACET §11.2
+      require a verification naming a nonexistent test to be an error. Left
+      unenforced, it breaks the ordinary way: a surface moves, the records keep
+      pointing at where its tests used to live, and every scenario those entries
+      name reads as proven by a file that is not there.
+
+      Only where the id is claiming a path. A project writes a test id in its
+      own form — a Rust module path, a CI job name — and a check that reported
+      those would be telling a project its naming convention is wrong, which is
+      how a check gets switched off.
+
+      An unproven scenario is only a warning, and an anchor with no proves tag
+      is not a finding at all. Absence claims nothing; it is the positive claim
+      that has to hold up.
+  not_for:
+    question: "When is this the wrong tool for the job?"
+  discoverability:
+    question: "Where does the user enter this flow in the product?"
+    derive_from:
+      - anchors
+  common_pitfalls:
+    question: "What mistakes do users typically make?"
+  success_signal:
+    question: "How does the user know it worked?"
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-07-26"
+  superseded_by: null

@@ -1,0 +1,133 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: authoring/session/hook-dispatch
+lifecycle: active
+intent:
+  summary: |
+    Runs session hooks in the repository affected by an operation. Uses the
+    native binary when available and otherwise the shell fallback.
+contract:
+  scenarios:
+    - id: the-shell-fallback-admits-it-cannot-read-registries
+      statement: |
+        Given a project declaring several registries and no facet binary
+        When a session starts, or a commit is attempted
+        Then the shell fallback states that it could not read the layout,
+        rather than reporting the default one or passing the gate in silence
+      post_state:
+        additional_context_emitted: true
+        permission_decision: none
+    - id: binary-preferred-when-present
+      statement: |
+        Given a facet binary is already built and cached
+        When any hook fires
+        Then the event is handled by the binary rather than the shell
+        implementation, so a session and its CI run identical logic
+      post_state:
+        handled_by: binary
+    - id: only-the-selected-install-is-used
+      statement: |
+        Given the dispatcher's cache holds an install behind dist/core/selected,
+        and the retired 1.x cache beside it still holds bin/current
+        When a hook resolves the binary to hand its event to
+        Then it runs the binary behind dist/core/selected, resolved from the
+        same base directory as the dispatcher, and with only the old cache it
+        hands the event to the shell instead
+    - id: an-unrunnable-facet-binary-leaves-the-event-to-the-shell
+      statement: |
+        Given FACET_BINARY names a missing or non-executable file, and an
+        install sits behind dist/core/selected
+        When a hook resolves the binary to hand its event to
+        Then it hands it to none, so the shell fallback handles the event, as
+        bin/facet refuses the same setting
+    - id: shell-fallback-without-binary
+      statement: |
+        Given no facet binary is available
+        When any hook fires
+        Then the POSIX shell implementation handles the event, and the hook
+        never downloads or builds anything to make itself work
+      post_state:
+        handled_by: shell
+        network_access: false
+    - id: the-hooks-work-in-the-repository-the-files-are-in
+      statement: |
+        Given a session launched in one checkout while the files being edited
+        live in a git worktree elsewhere
+        When a record in that worktree is written, or the turn ends
+        Then the record is found where it actually is and the drift check reads
+        the worktree, rather than reporting a missing record and a clean tree
+      post_state:
+        root: the worktree
+    - id: codex-patch-checks-affected-worktrees
+      statement: |
+        Given a patch that changes anchored files in two adopted worktrees
+        And an invalid record in an unrelated file
+        When the agent applies the patch
+        Then one hook response includes the affected files' feature records
+        And the unrelated record is absent from that response
+      post_state:
+        response_envelopes: 1
+    - id: codex-and-claude-write-and-commit-feedback-match
+      statement: |
+        Scenario Outline: Equivalent operations receive equivalent feedback
+          Given the same project state for Claude and Codex
+          When both agents perform <operation>
+          Then both receive identical <feedback>
+
+          Examples:
+            | operation                                | feedback         |
+            | an invalid record edit                   | write validation |
+            | a commit with a staged unresolved anchor | commit denial    |
+    - id: independent-invocations-keep-their-responses
+      statement: |
+        Given separate CLI command trees handling different repositories
+        When patch feedback and compacted session context are requested concurrently
+        Then each invocation receives only its own JSON response
+        And the response preserves that invocation's hook event name
+    - id: native-tools-reach-shared-guardrails
+      statement: |
+        Given the installed plugin hook configuration
+        When a host selects hooks for Bash, exec_command or apply_patch
+        Then PreToolUse selects the shared commit gate exactly once
+        And PostToolUse selects record validation and anchor checking exactly once each
+verification:
+  unit_tests:
+    - id: "cli/hook_codex_test.go::TestHookCommandOutputsStayWithTheirInvocation"
+      proves:
+        - independent-invocations-keep-their-responses
+    - id: cli/hook_test.go
+      proves:
+        - the-hooks-work-in-the-repository-the-files-are-in
+    - id: cli/shell_test.go
+      proves:
+        - shell-fallback-without-binary
+    - id: "cli/hook_codex_test.go::TestCodexPatchAggregatesOnlyAffectedFiles"
+      proves:
+        - codex-patch-checks-affected-worktrees
+    - id: "cli/hook_codex_test.go::TestCodexAndClaudeHookIngressDifferential"
+      proves:
+        - codex-and-claude-write-and-commit-feedback-match
+knowledge:
+  prerequisite_knowledge:
+    question: "What must the user already understand to use this feature?"
+  not_for:
+    question: "When is this the wrong tool for the job?"
+  discoverability:
+    question: "Where does the user enter this flow in the product?"
+    derive_from:
+      - anchors
+  common_pitfalls:
+    question: "What mistakes do users typically make?"
+    answer: |
+      Relying on the shell fallback in a monorepo. It reads only the flat
+      top-level keys of .facetrc.yaml, so a project declaring registries gets a
+      notice instead of a summary and an unchecked commit instead of a gate. It
+      says so both times; the fix is to make the binary available.
+  success_signal:
+    question: "How does the user know it worked?"
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-07-26"
+  superseded_by: null

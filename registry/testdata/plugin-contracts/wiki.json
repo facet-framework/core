@@ -1,0 +1,25 @@
+{
+  "id": "wiki",
+  "version": "0.1.0",
+  "api": 0,
+  "tools": [
+    "repo.state",
+    "repo.log",
+    "repo.write",
+    "repo.branch",
+    "repo.commit",
+    "repo.pr",
+    "confluence.state",
+    "confluence.reach",
+    "confluence.import",
+    "confluence.mirror"
+  ],
+  "sidecar": {
+    "bin": "confluence",
+    "env": [
+      "CONFLUENCE_URL",
+      "CONFLUENCE_EMAIL",
+      "CONFLUENCE_API_TOKEN"
+    ]
+  }
+}

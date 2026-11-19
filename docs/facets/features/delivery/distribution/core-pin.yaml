@@ -1,0 +1,159 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: delivery/distribution/core-pin
+lifecycle: active
+intent:
+  summary: |
+    Lets a project pin the exact FACET Core version it expects in .facetrc.yaml,
+    so a binary that is not that version refuses work instead of silently
+    judging the project, and names the remedy for how it was installed.
+contract:
+  scenarios:
+    - id: a-mismatched-pin-stops-work
+      statement: |
+        Given a project pinning a Core version other than the running one, a development build included
+        When an ordinary command is invoked
+        Then it exits non-zero before doing any work
+        And the message names the configuration file, both versions, the install origin and the remedy for that origin
+        And a project with several registries is refused once for its one top-level pin
+    - id: an-invalid-pin-is-a-configuration-error
+      statement: |
+        Given a requires section that is not a mapping, has a key other than core, or a core that is not one SemVer version written as a string
+        When an ordinary command is invoked
+        Then it fails with an error naming the file and what the author wrote
+        And the project schema refuses the same declarations
+        And loading the rest of the configuration is not affected by it
+    - id: the-pin-is-one-exact-version
+      statement: |
+        Given a pin written with or without a leading v
+        When it is compared with the running product version
+        Then only the identical version satisfies it, where build metadata after + on the running build is not part of the version
+        And a pin that names build metadata itself is compared in full
+        And a project without the key has no pin at all
+    - id: version-reports-the-pin
+      statement: |
+        Given a project configuration
+        When facet version --json is invoked
+        Then project_pin names the file, the pinned version and whether the running build satisfies it
+        And a malformed pin is reported with its error instead
+        And project_pin is absent when no pin is declared
+    - id: repair-commands-survive-a-mismatch
+      statement: |
+        Given a project pinning a Core version other than the running one
+        When version, help, completion or a setup command is invoked
+        Then the command runs
+        And a command named init that an application adds is refused like any other
+    - id: git-filters-pass-content-through-despite-a-mismatch
+      statement: |
+        Given a git repository whose project pins a Core version other than the running one
+        When git runs facet filter clean or smudge on a file
+        Then the filter exits zero
+        And its output is byte for byte what it produces in the same repository without a pin
+    - id: a-hook-reports-the-pin-and-keeps-guarding
+      statement: |
+        Given a project whose pin is unmet or invalid, also with records outside the default layout
+        When an agent hook with a context field is invoked, a Codex patch over several files included
+        Then the hook exits zero with one response carrying the notice at most once
+        And an invalid pin is called invalid rather than a mismatch
+        And its guards, such as the commit gate, still decide as before
+        And a pin the running build meets adds no notice
+    - id: the-hook-notice-repeats-only-at-session-start
+      statement: |
+        Given a project pinning a Core version other than the running one
+        When two tool-use hooks run in the same session and a session start follows
+        Then only the first tool-use response carries the notice
+        And the session start carries it again
+        And a different mismatch in the same session is reported as new
+    - id: the-mcp-server-answers-every-tool-call-with-the-pin
+      statement: |
+        Given a project whose pin is unmet or invalid
+        When an agent calls any tool of facet mcp
+        Then the call returns that problem as the tool's error result and the tool does no work
+        And correcting the pin takes effect on the next call without restarting the server
+verification:
+  unit_tests:
+    - id: "cli/corepin_test.go::TestAPinMismatchStopsACommandBeforeItWorks"
+      proves:
+        - a-mismatched-pin-stops-work
+    - id: "cli/corepin_test.go::TestADevelopmentBuildDoesNotSatisfyItsReleasePin"
+      proves:
+        - a-mismatched-pin-stops-work
+    - id: "cli/corepin_test.go::TestAMultiRegistryProjectIsPinnedOnce"
+      proves:
+        - a-mismatched-pin-stops-work
+        - version-reports-the-pin
+    - id: "cli/corepin_test.go::TestAnInvalidPinIsAConfigurationError"
+      proves:
+        - an-invalid-pin-is-a-configuration-error
+    - id: "registry/corepin_test.go::TestEveryMalformedPinIsRefusedByLoaderAndSchema"
+      proves:
+        - an-invalid-pin-is-a-configuration-error
+    - id: "registry/corepin_test.go::TestLoadConfigIgnoresTheCorePin"
+      proves:
+        - an-invalid-pin-is-a-configuration-error
+    - id: "registry/corepin_test.go::TestCorePinIsReadAndNormalised"
+      proves:
+        - the-pin-is-one-exact-version
+    - id: "registry/corepin_test.go::TestPinSatisfactionIsExactEquality"
+      proves:
+        - the-pin-is-one-exact-version
+    - id: "registry/corepin_test.go::TestBuildMetadataIsNotPartOfThePinnedVersion"
+      proves:
+        - the-pin-is-one-exact-version
+    - id: "registry/corepin_test.go::TestNoPinMeansNoPin"
+      proves:
+        - the-pin-is-one-exact-version
+    - id: "cli/corepin_test.go::TestVersionJSONReportsInstallAndPin"
+      proves:
+        - version-reports-the-pin
+    - id: "cli/corepin_test.go::TestRepairCommandsRunDespiteAPinMismatch"
+      proves:
+        - repair-commands-survive-a-mismatch
+    - id: "cli/corepin_test.go::TestACommandNamedInitIsNotExempt"
+      proves:
+        - repair-commands-survive-a-mismatch
+    - id: "cli/corepin_test.go::TestGitFiltersPassContentThroughDespiteAPinMismatch"
+      proves:
+        - git-filters-pass-content-through-despite-a-mismatch
+    - id: "cli/corepin_test.go::TestAHookReportsAPinMismatchOnceAndKeepsItsGuard"
+      proves:
+        - a-hook-reports-the-pin-and-keeps-guarding
+    - id: "cli/corepin_test.go::TestAnInvalidPinKeepsTheHooksOfANonDefaultLayout"
+      proves:
+        - a-hook-reports-the-pin-and-keeps-guarding
+    - id: "cli/corepin_test.go::TestAHookIsSilentAboutAMetPin"
+      proves:
+        - a-hook-reports-the-pin-and-keeps-guarding
+    - id: "cli/corepin_test.go::TestACodexPatchCarriesThePinNoticeOnce"
+      proves:
+        - a-hook-reports-the-pin-and-keeps-guarding
+    - id: "cli/corepin_test.go::TestMergingHookOutputsKeepsADeny"
+      proves:
+        - a-hook-reports-the-pin-and-keeps-guarding
+    - id: "cli/corepin_test.go::TestToolUseHooksCarryThePinNoticeOncePerSession"
+      proves:
+        - the-hook-notice-repeats-only-at-session-start
+    - id: "cli/corepin_test.go::TestTheMCPServerAnswersEveryToolCallWithAnUnmetPin"
+      proves:
+        - the-mcp-server-answers-every-tool-call-with-the-pin
+knowledge:
+  prerequisite_knowledge:
+    question: "What must a reader know first?"
+    answer: "npx and the facet dispatcher choose a binary before it starts, so only the running binary can notice that it is not the version a project pinned. The pin is compared with the product version facet version prints, and the remedy depends on the install origin described in delivery/distribution/install-origin."
+  not_for:
+    question: "What does this not establish?"
+    answer: "It does not install, select or update anything. A pin is one exact version, never a range, and there is no environment override that skips it. The placeholder commands a build registers for optional products that are not installed do not check the pin, because they replace the pre-run and do no work beyond saying the product is missing. The shell hook fallback does not read the pin, and facet lsp exits with the message instead of serving."
+  discoverability:
+    question: "Where is this available?"
+    answer: "Declare requires.core in .facetrc.yaml. facet version --json reports project_pin; hooks and facet mcp tool results carry the notice."
+  common_pitfalls:
+    question: "What can be misread?"
+    answer: "A development build such as 0.1.0-dev.… does not satisfy a 0.1.0 pin. Stop, SessionEnd and PreCompact hook responses have no context field and carry no notice, and tool-use hooks report it once per session, so a later silent response does not mean the pin is met. An absent project_pin means no pin was declared; a broken one carries an error."
+  success_signal:
+    question: "How can the result be recognized?"
+    answer: "In a pinned project an ordinary command run by another Core version exits non-zero with the file, both versions, the origin and its remedy, while facet version, setup and the git filters still work."
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-11-14"

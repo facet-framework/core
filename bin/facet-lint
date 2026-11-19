@@ -1,0 +1,34 @@
+#!/usr/bin/env sh
+# @facet: authoring/session/hook-dispatch
+# @facet-role: related
+# Runs the full FACET lint suite against the current project.
+# Available as a bare command in any session where the FACET plugin is enabled.
+# Usage: facet-lint [REPO_ROOT]
+
+set -e
+
+resolve_plugin_root() {
+  if [ -n "$CLAUDE_PLUGIN_ROOT" ] && [ -d "$CLAUDE_PLUGIN_ROOT/tools/facet-lint" ]; then
+    printf '%s\n' "$CLAUDE_PLUGIN_ROOT"
+    return 0
+  fi
+  _self="$0"
+  case "$_self" in
+  */*) ;;
+  *) _self=$(command -v -- "$0" 2>/dev/null) || _self="$0" ;;
+  esac
+  CDPATH= cd -- "$(dirname -- "$_self")/.." && pwd
+}
+
+PLUGIN_ROOT=$(resolve_plugin_root)
+REPO_ROOT="${1:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+
+# A project that vendored the linter runs its own copy, so local output matches
+# what its CI produces. Otherwise fall back to the plugin's bundled copy.
+if [ -f "$REPO_ROOT/tools/facet-lint/run-all.sh" ]; then
+  LINT_DIR="$REPO_ROOT/tools/facet-lint"
+else
+  LINT_DIR="$PLUGIN_ROOT/tools/facet-lint"
+fi
+
+exec sh "$LINT_DIR/run-all.sh" "$REPO_ROOT"

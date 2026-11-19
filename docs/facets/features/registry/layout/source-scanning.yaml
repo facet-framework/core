@@ -1,0 +1,189 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: registry/layout/source-scanning
+lifecycle: active
+intent:
+  summary: |
+    Selects the files opened for anchor scanning and lets a project exclude
+    source without removing it from the repository. Directory exclusions avoid
+    dependency-tree scans while a per-file opt-out handles fixtures and
+    templates containing literal anchor syntax. Records have their own directory
+    walk, so source ignore rules cannot silently hide them.
+contract:
+  scenarios:
+    - id: files-can-opt-out-of-scanning
+      statement: |
+        Given a source file declaring '@facet-ignore-file' in its head
+        When anchors are scanned
+        Then the file contributes no anchors, however many @facet: tags it
+        contains, so fixtures and templates do not register features they
+        never implement
+      post_state:
+        anchors_from_file: 0
+    - id: explaining-the-opt-out-is-not-taking-it
+      statement: |
+        Given a file that names the opt-out marker below its head, in a comment
+        explaining what the marker does
+        When anchors are scanned
+        Then the file is scanned normally, because an over-matched opt-out
+        produces silence rather than a finding — the opposite of an
+        over-matched '@facet:', and the harder of the two to ever notice
+      post_state:
+        head_lines_considered: 10
+    - id: ignore-rules-are-honoured
+      statement: |
+        Given a repository with a .gitignore excluding build output
+        When anchors are scanned
+        Then ignored paths are not scanned
+    - id: an-untracked-exclude-is-an-ignore-rule-too
+      statement: |
+        Given a directory excluded only through .git/info/exclude — never
+        through a tracked .gitignore, and never added to the index
+        When the corpus is built
+        Then its files are not scanned, because a checkout hidden that way is excluded on purpose; ignoring that
+        rule could scan a whole nested repository outside the requested
+        source
+      pre_state:
+        the_same_tree_without_the_exclude_entry_is_scanned: true
+    - id: facetignore-excludes-what-cannot-carry-anchors
+      statement: |
+        Given a repository with a .facetignore listing patterns such as '*.mp3'
+        When anchors are scanned
+        Then matching files are never opened, so versioned media costs nothing
+        to keep, and the exclusion says nothing about whether git tracks them
+    - id: facetignore-cannot-hide-records
+      statement: |
+        Given a .facetignore whose patterns would match the record files
+        themselves, such as '*.yaml'
+        When the registry is loaded
+        Then every record is still found, because records are enumerated by
+        their own directory walk rather than by the scan
+    - id: prose-is-recognised-by-name-where-it-has-no-extension
+      statement: |
+        Given a LICENSE beside an extensionless shell script, both containing
+        the anchor syntax
+        When anchors are scanned
+        Then the LICENSE contributes no anchors and no lines, and the script
+        contributes both — a blocklist of extensions cannot see a file whose
+        kind is written in its name, so treating that licence as source would make prose look like undocumented
+        code to every check that counts lines
+      post_state:
+        anchors_from_the_licence: 0
+        lines_counted_for_the_licence: 0
+    - id: every-reader-of-the-tree-walks-it-the-same-way
+      statement: |
+        Given the several walks that read a repository — the anchor scan, the
+        reachability walk behind test-only-anchors, the literal search, and
+        every other walk built in the same module
+        When each walks the tree
+        Then all apply the same ignore rules, descend into the same hidden
+        directories and refuse the same VCS metadata directories, because the
+        walk is configured in exactly one place — a second copy of those
+        options drifts silently, and within a single 'facet lint' run that inconsistency could let the scan
+        read an anchor while the reachability walk misses every use of it
+      post_state:
+        walker_configurations: 1
+    - id: a-large-file-is-streamed-not-held
+      statement: |
+        Given a file larger than two megabytes, such as a bundle or a lockfile
+        When the tree is scanned
+        Then its lines are counted exactly and its anchors and opt-out are read
+        from its first megabyte, without the whole file being held in memory —
+        every write hook lints and every lint scans, so with agents working in
+        parallel a large file held whole costs memory per agent
+        And an anchor buried past that first megabyte is not found
+      post_state:
+        bytes_held_per_large_file: 1048576
+    - id: ignored-source-clones-require-explicit-sources
+      statement: |
+        Given independent source clones ignored by their enclosing workspace repository
+        When anchors are scanned with those clone directories declared in sources
+        Then their anchors are found
+        And a default scan without sources excludes those ignored clones
+verification:
+  unit_tests:
+    - id: registry/facet_test.go
+      proves:
+        - files-can-opt-out-of-scanning
+        - explaining-the-opt-out-is-not-taking-it
+        - facetignore-excludes-what-cannot-carry-anchors
+        - facetignore-cannot-hide-records
+    - id: registry/scan_test.go
+      proves:
+        - ignore-rules-are-honoured
+        - prose-is-recognised-by-name-where-it-has-no-extension
+        - a-large-file-is-streamed-not-held
+    - id: registry/gitignore_test.go
+      proves:
+        - ignore-rules-are-honoured
+    - id: registry/walker_single_config_test.go
+      proves:
+        - every-reader-of-the-tree-walks-it-the-same-way
+    - id: "registry/source_changes_test.go::TestIgnoredSourceClonesRequireExplicitSources"
+      proves:
+        - ignored-source-clones-require-explicit-sources
+knowledge:
+  prerequisite_knowledge:
+    question: "What must the user already understand to use this feature?"
+    answer: |
+      In legacy directory mode, source paths in .facetrc.yaml are relative
+      to the registry workspace; each independent ignored clone must be
+      listed explicitly to expose its anchors. With source_views, shared
+      repository IDs and ignored local bindings select the checkouts, and
+      references use repository:path. Existing sources remain directory
+      filters within those selected checkouts. Each tree applies its own
+      Git file selection and ignore rules.
+
+      A scan that reads everything is slow on a large repository and wrong on
+      one that vendors a dependency tree. The two mechanisms exist because the
+      two cases differ: a whole tree that can never carry an anchor, and one
+      file that legitimately contains the literal syntax — a fixture, a
+      template, a test. (A tag in a README is handled by neither: prose
+      extensions are never scanned at all.)
+
+      The per-file opt-out is a declaration, not a mention: it counts in the
+      file's head and nowhere else. A mention outside the head must not disable
+      scanning, or a file explaining the opt-out mechanism could unintentionally
+      exclude its own implementation.
+
+      Records themselves are never at risk. They are loaded by their own
+      directory walk, so no ignore pattern can hide one, and a project that
+      over-excludes loses anchors loudly rather than records silently.
+  not_for:
+    question: "When is this the wrong tool for the job?"
+    answer: |
+      The scanner does not discover ignored clones automatically or audit
+      history. It reads the selected working trees; a source view requires
+      an existing checkout at the requested revision. Record files are loaded
+      separately and cannot be hidden by a source ignore pattern.
+  discoverability:
+    question: "Where does the user enter this flow in the product?"
+    answer: |
+      Declare sources in .facetrc.yaml for legacy directory mode, or configure
+      source_views and .facet/sources.local.yaml to select repository bindings.
+      Run 'facet --source-view <name> lint' for a named view. Use .facetignore
+      to exclude files that cannot carry anchors
+      and @facet-ignore-file in a source file's head for a file-level opt-out.
+    derive_from:
+      - anchors
+  common_pitfalls:
+    question: "What mistakes do users typically make?"
+    answer: |
+      In legacy directory mode, the default scan uses the outer Git file
+      list and excludes ignored clones. Listing only a parent directory does
+      not select repositories recursively; list each clone or a source
+      directory inside it. In source-view mode, selected repositories use
+      their own Git file selection and ignore rules; sources filters do not
+      replace the shared repository IDs or local checkout bindings.
+  success_signal:
+    question: "How does the user know it worked?"
+    answer: |
+      The anchor scan lists anchors from each explicitly selected clone.
+      'facet lint' no longer reports an otherwise valid active record as
+      unanchored when its anchor stands in that selected source tree.
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-07-26"
+  superseded_by: null

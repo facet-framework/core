@@ -1,0 +1,73 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: delivery/distribution/install-origin
+lifecycle: active
+intent:
+  summary: |
+    The running Core binary says which installer owns the file it was started
+    from: the facet dispatcher's cache, an npm package, or nothing it can
+    vouch for. Remedies and future updaters depend on knowing who may replace it.
+contract:
+  scenarios:
+    - id: dispatcher-install-is-recognised
+      statement: |
+        Given an executable with an install.json naming product core beside it
+        When its install origin is classified
+        Then the origin is facet-cache and carries the install's distribution and version
+    - id: npm-install-is-recognised
+      statement: |
+        Given an executable whose resolved path has an element named exactly node_modules
+        When its install origin is classified, also through a symlink pointing there
+        Then the origin is npm with the resolved path, even if an install.json lies beside it
+    - id: an-untrusted-install-manifest-is-not-guessed
+      statement: |
+        Given an executable beside an install.json that is unreadable, invalid or names another product
+        When its install origin is classified
+        Then the origin is unmanaged and a note says why
+        And an executable with neither marker is unmanaged without a note
+    - id: version-reports-the-install-origin
+      statement: |
+        Given any running Core binary
+        When facet version is invoked
+        Then the JSON form carries an install object with the origin and the executable path with symlinks resolved
+        And the readable form prints them on one install line
+verification:
+  unit_tests:
+    - id: "release/origin_test.go::TestClassifyInstall"
+      proves:
+        - dispatcher-install-is-recognised
+        - npm-install-is-recognised
+        - an-untrusted-install-manifest-is-not-guessed
+    - id: "release/origin_test.go::TestClassifyInstallReadsWindowsSeparators"
+      proves:
+        - npm-install-is-recognised
+    - id: "release/origin_test.go::TestASymlinkIsClassifiedByWhatItPointsTo"
+      proves:
+        - npm-install-is-recognised
+    - id: "release/origin_test.go::TestCurrentInstallResolvesTheRunningExecutable"
+      proves:
+        - version-reports-the-install-origin
+    - id: "cli/corepin_test.go::TestVersionJSONReportsInstallAndPin"
+      proves:
+        - version-reports-the-install-origin
+knowledge:
+  prerequisite_knowledge:
+    question: "What must a reader know first?"
+    answer: "The facet dispatcher writes install.json beside each Core binary it installs under dist/core/<distribution>/<platform>/<version>/. npm packages place the binary somewhere below node_modules."
+  not_for:
+    question: "What does this not establish?"
+    answer: "It does not install, select or update anything, and it is not a signature. No command acts on the origin today besides naming a remedy in delivery/distribution/core-pin."
+  discoverability:
+    question: "Where is this available?"
+    answer: "facet version prints an install line; facet version --json carries the install object."
+  common_pitfalls:
+    question: "What can be misread?"
+    answer: "Unmanaged means the binary could not vouch for an installer, not that it is broken; a go build, a copy on PATH and FACET_BINARY all read as unmanaged. The origin describes the file, not the build, so it is not part of the build identity."
+  success_signal:
+    question: "How can the result be recognized?"
+    answer: "A binary copied into node_modules reports npm, the same binary in the dispatcher's cache reports facet-cache, and a plain build reports unmanaged."
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-11-14"

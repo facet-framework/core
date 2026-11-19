@@ -1,0 +1,176 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: registry/layout/source-views
+lifecycle: active
+intent:
+  summary: |
+    Selects one coherent source view across independently versioned repositories
+    while keeping feature references independent of local checkout locations.
+contract:
+  scenarios:
+    - id: select-one-snapshot-per-repository
+      statement: |
+        Given named views selecting bindings for stable repository identities
+        When a source view is resolved
+        Then each repository reads only its selected checkout
+        And a historical view cannot borrow files from a newer checkout
+        And shared configuration and repository-qualified references remain unchanged
+    - id: relocate-without-renaming-references
+      statement: |
+        Given a repository checkout relocated to another local directory
+        When its local binding is updated and the same view is resolved
+        Then its repository-qualified references and content snapshot remain unchanged
+        And portable provenance contains no checkout location
+    - id: reject-unavailable-or-incoherent-selection
+      statement: |
+        Given a missing binding, an unknown view, or an ambiguous binding assignment
+        When a source view is resolved
+        Then resolution fails without selecting a different checkout
+        And a configured ref must resolve to the selected checkout's HEAD
+    - id: separate-shared-identity-from-local-placement
+      statement: |
+        Given shared source-view configuration and machine-local bindings
+        When configuration is read
+        Then checkout paths belong only to local bindings
+        And undeclared configuration fields are rejected
+    - id: retain-distinct-repository-relative-references
+      statement: |
+        Given selected repositories containing files with identical relative paths
+        When anchors or test references are resolved
+        Then each reference retains its stable repository identity
+        And an unqualified reference in a multi-repository view is rejected
+        And a reference cannot escape the selected repository
+    - id: scan-only-the-selected-version
+      statement: |
+        Given alternative worktrees with different anchors and private anchor placement
+        When the selected view is scanned
+        Then only the bound worktree contributes anchors and files
+        And scanning does not rewrite private associations belonging to another worktree
+    - id: reject-changes-after-resolution
+      statement: |
+        Given a resolved source view
+        When selected source content changes before it is read again
+        Then the prior view is rejected rather than silently remeasured
+        And resolving again records the same HEAD with a different dirty content snapshot
+    - id: execute-tests-in-the-selected-repository
+      statement: |
+        Given a runner assigned to a selected repository
+        When tests are discovered and executed
+        Then discovery uses that repository rather than the registry checkout
+        And execution records source revision and content snapshot alongside record hashes
+    - id: keep-registry-evidence-independent
+      statement: |
+        Given records and implementation in independently versioned repositories
+        When source drift or test evidence is produced
+        Then source paths retain their logical repository identity
+        And registry revision and record hashes remain independent source inputs
+        And a record-only edit changes registry evidence without changing the source snapshot
+    - id: staged-ingress-keeps-explicit-selection
+      statement: |
+        Given an explicit source-view selection and an unavailable default view
+        When the staged-lint command or commit hook is invoked with that selection
+        Then the invocation uses the explicit selection rather than refusing on the default
+    - id: hook-context-keeps-the-explicit-selection
+      statement: |
+        Given an explicit --source-view selection whose backend binding differs from the default view's
+        When a hook resolves its registry context for the invocation's working directory
+        Then the hook context carries the same source-view snapshot as the invocation
+        And its anchor scan reads only the selected backend checkout
+verification:
+  unit_tests:
+    - id: "cli/hook_source_view_test.go::TestHookContextKeepsExplicitFrozenSourceView"
+      proves:
+        - hook-context-keeps-the-explicit-selection
+    - id: "cli/hook_commitgate_sourceview_test.go::TestStagedSourceViewCLIUsesRevisionConfigAndExplicitSelection"
+      proves:
+        - staged-ingress-keeps-explicit-selection
+    - id: "cli/hook_commitgate_sourceview_test.go::TestStagedSourceViewHookIngressKeepsExplicitSelection"
+      proves:
+        - staged-ingress-keeps-explicit-selection
+    - id: "internal/sourceview/sourceview_test.go::TestNamedViewsResolveOneCheckoutWithoutChangingReferences"
+      proves:
+        - select-one-snapshot-per-repository
+    - id: "internal/sourceview/sourceview_test.go::TestLocalRelocationPreservesIdentityAndSnapshot"
+      proves:
+        - relocate-without-renaming-references
+    - id: "internal/sourceview/sourceview_test.go::TestUnavailableAmbiguousOrWrongVersionBindingsFail"
+      proves:
+        - reject-unavailable-or-incoherent-selection
+    - id: "internal/sourceview/sourceview_test.go::TestSharedAndLocalBindingsRejectUnknownConfigurationFields"
+      proves:
+        - separate-shared-identity-from-local-placement
+    - id: "internal/sourceview/sourceview_test.go::TestSourceReferencesCannotEscapeRepository"
+      proves:
+        - retain-distinct-repository-relative-references
+    - id: "internal/sourceview/sourceview_test.go::TestDirtyContentAndChangesAfterResolutionAreDistinguished"
+      proves:
+        - reject-changes-after-resolution
+    - id: "registry/source_view_consumers_test.go::TestSelectedViewScansOnlyBoundWorktreeAndPreservesPortableIdentity"
+      proves:
+        - scan-only-the-selected-version
+        - reject-changes-after-resolution
+    - id: "registry/source_view_consumers_test.go::TestSelectedRepositoriesKeepIdenticalRelativePathsDistinct"
+      proves:
+        - retain-distinct-repository-relative-references
+    - id: "registry/source_view_consumers_test.go::TestSelectedRunnerDiscoveryUsesBoundProductNotRegistry"
+      proves:
+        - execute-tests-in-the-selected-repository
+    - id: "registry/source_view_consumers_test.go::TestSelectedSourceDriftReportsLogicalRepository"
+      proves:
+        - keep-registry-evidence-independent
+    - id: "registry/source_view_consumers_test.go::TestRegistryChangesRemainIndependentFromSelectedProduct"
+      proves:
+        - keep-registry-evidence-independent
+knowledge:
+  prerequisite_knowledge:
+    question: "What must the user already understand to use this feature?"
+    answer: |
+      Declare stable repository IDs and named views in .facetrc.yaml, and bind
+      their checkout locations in ignored .facet/sources.local.yaml. A selected
+      binding must name an available Git checkout root; an optional ref must
+      match its HEAD. Registry records remain a separate input.
+  not_for:
+    question: "When is this the wrong tool for the job?"
+    answer: |
+      A view selects existing checkouts; it does not fetch, switch branches,
+      reconstruct historical records or compare alternate versions in one
+      aggregate. It does not promise that private anchors attach to a different
+      declaration in another version.
+  discoverability:
+    question: "Where does the user enter this flow in the product?"
+    answer: |
+      Configure source_views in .facetrc.yaml and local bindings in
+      .facet/sources.local.yaml. Select a named view with FACET_SOURCE_VIEW or
+      the global --source-view flag; default_view supplies the project default.
+      MCP source_view_get exposes the selected view with its independent
+      source and registry identities as portable context. Use filter
+      --repository for private anchors in a chosen checkout.
+    derive_from:
+      - anchors
+  common_pitfalls:
+    question: "What mistakes do users typically make?"
+    answer: |
+      Selecting a historical ref while binding a newer checkout is rejected;
+      prepare a matching worktree first. Multi-repository references need the
+      repository prefix. Changing source during measurement invalidates the
+      resolved view. Current policy text is not automatically evidence that a
+      policy applied to a historical implementation. Staged verification reads
+      immutable Git trees: committing-checkout source uses HEAD/index, while
+      external source repositories use one captured committed state, not dirty
+      working files. Normal source views continue to measure working content.
+  success_signal:
+    question: "How does the user know it worked?"
+    answer: |
+      Anchors and test files use stable repository:path references from only
+      the selected checkout. Test evidence records the selected source revision
+      and content hash separately from registry provenance and record hashes;
+      unavailable or changed inputs produce an error instead of mixed results.
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-11-03"
+  depends_on:
+    - registry/layout/multi-registry
+    - registry/layout/source-scanning
+  superseded_by: null

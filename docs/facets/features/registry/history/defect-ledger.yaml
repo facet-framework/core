@@ -1,0 +1,184 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: registry/history/defect-ledger
+lifecycle: active
+intent:
+  summary: |
+    Records bugfix commits per feature through the anchors in changed files so
+    maintenance decisions rest on evidence rather than recollection. Every
+    ledger entry keeps its commit, date and affected anchored paths because
+    heuristic attribution can be wrong and a bare count cannot be checked or
+    corrected. Counts are derived from entries, so no stored total can drift
+    from its evidence.
+contract:
+  scenarios:
+    - id: a-fix-is-attributed-through-the-anchors-it-touched
+      statement: |
+        Given a commit whose subject the bugfix heuristic accepts
+        And which changed a file carrying an '@facet:' anchor
+        When the history is backfilled
+        Then the named feature's record gains one entry carrying the commit
+        hash, the authored date and that file — and only the files the commit
+        touched that anchor this feature, so the evidence names nothing the
+        feature does not own
+      post_state:
+        entries_added: 1
+        unanchored_files_recorded: 0
+    - id: a-second-pass-changes-nothing
+      statement: |
+        Given a record that already carries a commit in its ledger
+        When the same range is backfilled again
+        Then the commit is skipped and the record's bytes are unchanged, so an
+        overlapping range costs a walk and nothing else and a long backfill can
+        be run in pieces
+      post_state:
+        entries_added: 0
+        record_rewritten: false
+    - id: an-excluded-commit-stays-excluded
+      statement: |
+        Given a reviewer has recorded a commit under 'defects.excluded' with a
+        reason, because the attribution was wrong
+        When the history is backfilled again
+        Then the commit is not recorded, and the exclusion and its reason
+        survive the rewrite — a correction that had to be made again on every
+        run would be the same as no correction
+      post_state:
+        entries_added: 0
+        exclusion_preserved: true
+    - id: a-fix-nothing-anchors-is-reported-not-dropped
+      statement: |
+        Given a bugfix commit that touched no anchored file
+        When the history is backfilled
+        Then it is listed as unresolved rather than silently discarded, so the
+        size of the ledger's blind spot is visible to whoever reads the number
+      post_state:
+        silently_dropped: 0
+    - id: only-the-defects-block-is-rewritten
+      statement: |
+        Given a record a person wrote, with its own key order and comments
+        When a backfill appends to its ledger
+        Then every byte outside the 'defects' block is unchanged, because a tool
+        that reformats a document it was only asked to annotate makes its own
+        diff unreviewable — and the diff is how a wrong attribution is caught
+      post_state:
+        keys_reordered: false
+        comments_lost_outside_block: false
+    - id: the-count-is-derived-from-the-evidence
+      statement: |
+        Given a record carrying a ledger
+        When the total or the per-file count is read
+        Then it is computed from the entries rather than read from a stored
+        field, so no number can disagree with the commits that produced it
+      post_state:
+        stored_aggregates: 0
+    - id: a-record-nobody-has-looked-at-is-not-a-zero
+      statement: |
+        Given a record with no 'defects' block
+        When the ranking is printed
+        Then the record is absent rather than listed at zero, because "nothing
+        has looked" and "this has never broken" are different claims and only
+        one of them is true
+      post_state:
+        reported_as_zero: false
+verification:
+  unit_tests:
+    - id: registry/defects_test.go
+      proves:
+        - the-count-is-derived-from-the-evidence
+        - a-record-nobody-has-looked-at-is-not-a-zero
+    - id: registry/backfill_test.go
+      proves:
+        - a-fix-is-attributed-through-the-anchors-it-touched
+        - a-second-pass-changes-nothing
+        - an-excluded-commit-stays-excluded
+        - a-fix-nothing-anchors-is-reported-not-dropped
+        - only-the-defects-block-is-rewritten
+knowledge:
+  prerequisite_knowledge:
+    question: "What must the user already understand to use this feature successfully?"
+    answer: |
+      That the ledger is only as complete as the commit log is disciplined. The
+      default heuristic reads Conventional Commits — 'fix:', 'fix(scope):',
+      'hotfix:' — and a repository whose fixes say "oops" or "address review" is
+      invisible to it. '--match' takes any regular expression, so a project with
+      its own convention states it rather than accepting the default's recall.
+
+      That anchoring is the attribution. Code carrying no '@facet:' tag belongs
+      to no feature, so a fix to it is reported as unresolved. Improving the
+      ledger and improving the anchors are the same work.
+
+      The question is worth answering because the answers are expensive. Where
+      an extra reviewer, a rewrite, a characterisation test or a second pair of
+      eyes is worth paying for is a resourcing decision, and it is normally made
+      from recollection: the feature somebody was paged about, the module a
+      senior engineer distrusts. Version control holds what has actually been
+      fixed; anchors connect that evidence to the affected features.
+
+      It joins the two through the anchors that already exist. A bugfix commit
+      changed files; those files carry '@facet:' tags; the tags name features.
+      No second mapping is invented, so the attribution is exactly as good as
+      the anchoring — a property the project can see and improve.
+
+      It is a ledger, not a counter. Every entry names its commit, its date and
+      the anchored files it touched, because an attribution produced by a
+      heuristic over commit messages will sometimes be wrong, and a bare number
+      can be neither checked nor corrected, only distrusted.
+
+      No total is stored. The count is the length of the list, derived on read,
+      so no aggregate can drift from the evidence beneath it.
+  not_for:
+    question: "When is this the wrong tool for the job?"
+    answer: |
+      Not a quality score. A high count means bugs were found and fixed there,
+      which is also what a well-tested, heavily-used feature looks like. A
+      feature nobody exercises sits at zero for the same reason a correct one
+      does, and ranking teams by this number would reward the second.
+
+      Not an incident record. It counts fixes in version control, including
+      fixes for bugs that never reached a user, and it will never know about an
+      outage that was resolved by a config change.
+
+      Not a live signal. It says what has been fixed, never what is broken now;
+      that is what 'observation' and an alert are for.
+  discoverability:
+    question: "Where does the user enter this flow in the product?"
+    answer: |
+      'facet defects' ranks features, '--by-file' ranks files, '--json' feeds a
+      tool. 'facet defects backfill' fills the ledger from git history and takes
+      '--since', '--limit' and '--dry-run' so a first pass can be bounded and
+      read before it is widened.
+
+      Atlas, a separate product, reads the same ledger.
+    derive_from:
+      - anchors
+  common_pitfalls:
+    question: "What mistakes do users typically make?"
+    answer: |
+      Running an unbounded first pass over a long history. The walk is linear in
+      commits and a large repository can take hours; '--since' and '--limit'
+      exist so the first run is a sample whose output can be checked before the
+      whole thing is trusted.
+
+      Reading a count without reading the entries. A commit that touched six
+      anchored files is recorded against all six features, because the
+      alternative is a diff-reading heuristic that would be confidently wrong
+      rather than coarsely right. The file list is there to be checked.
+
+      Deleting a wrong entry instead of excluding it. A deletion is undone by
+      the next pass; an entry under 'defects.excluded', with its reason, is not.
+  success_signal:
+    question: "How does the user know it worked?"
+    answer: |
+      'facet defects' names features the team already suspected, with the
+      commits to show for it — and usually one nobody had thought of.
+
+      A second run of the same range reports "recorded 0, skipped N" and leaves
+      every record byte-identical.
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-09-10"
+  superseded_by: null
+  depends_on:
+    - registry/integrity/record-validation

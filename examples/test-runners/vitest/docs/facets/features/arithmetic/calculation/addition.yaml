@@ -1,0 +1,25 @@
+schema_version: "0.1"
+id: arithmetic/calculation/addition
+lifecycle: active
+intent:
+  summary: Add signed integers.
+contract:
+  scenarios:
+    - id: positive
+      statement: |
+        Given two positive integers
+        When they are added
+        Then their sum is returned
+    - id: negative
+      statement: |
+        Given one negative integer
+        When it is added to a positive integer
+        Then the signed sum is returned
+verification:
+  unit_tests:
+    - id: tests/addition.test.js
+      proves: [positive, negative]
+lineage:
+  owner:
+    team: example
+  created_at: "2026-10-07"

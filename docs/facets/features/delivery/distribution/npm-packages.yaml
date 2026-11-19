@@ -1,0 +1,106 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: delivery/distribution/npm-packages
+lifecycle: active
+intent:
+  summary: |
+    Turns a packaged Core release into npm packages — facet-framework,
+    facet-tools, the @facet-tools/core launcher and one platform package per
+    binary — whose binaries are the release archive's bytes, checked against
+    release-manifest.json. The public Release workflow can pack and publish them after the GitHub release,
+    gated by FACET_NPM_PUBLISH and the npm approval environment so preparing
+    release archives alone does not publish packages.
+contract:
+  scenarios:
+    - id: packages-carry-the-release-bytes
+      statement: |
+        Given a dist directory with release-manifest.json and the archives it names
+        When the npm packages are generated
+        Then each platform package holds exactly the binary extracted from its archive, executable
+        And its sha256 equals the manifest's binary_sha256, and no Go build runs
+    - id: a-mismatched-archive-or-binary-aborts
+      statement: |
+        Given an archive whose bytes differ from the manifest's archive_sha256, or a binary that differs from binary_sha256
+        When the npm packages are generated
+        Then generation fails naming that file, and no output directory is written
+    - id: every-version-is-the-release-version-exactly
+      statement: |
+        Given a manifest version such as 0.1.0-dev.20261114.2, 0.1.0-rc.1 or 0.1.0
+        When the npm packages are generated
+        Then every package has that version, without build metadata
+        And facet-framework depends on @facet-tools/core and the launcher optionally on each platform package by that exact version, never a range
+    - id: platform-packages-map-the-six-platforms
+      statement: |
+        Given a manifest with linux, darwin and windows on amd64 and arm64
+        When the npm packages are generated
+        Then they are named <launcher>-linux-x64, -linux-arm64, -darwin-x64, -darwin-arm64, -win32-x64 and -win32-arm64 with matching npm os and cpu
+        And a manifest of product atlas yields @facet-tools/atlas and its platform packages in the same shape, without entry packages
+        And a manifest missing a platform is refused unless --allow-partial is given for a local build
+        And the scoped Core packages carry publishConfig access public, every Core package names the public Core repository, and Atlas packages carry neither
+    - id: the-plan-names-tag-and-order
+      statement: |
+        Given a release of channel dev, rc or stable
+        When the packages are packed
+        Then publish-plan.json names dist-tag dev, next or latest, the access, each tarball with the integrity npm pack measured
+        And orders the platform packages first, then the launcher, then facet-framework and facet-tools
+        And says publishable false, with each reason in blocked_by, for an incomplete platform set, an undecided access, or a packaged NOTICE that refers to a file no package contains ("third-party notices not included", the files in notice_missing)
+        And a NOTICE that refers to no other file adds no such reason
+    - id: tarballs-hold-only-the-whitelisted-files
+      statement: |
+        Given the packed tarballs
+        When their contents are listed
+        Then a platform package holds package.json, README.md, LICENSE and its binary
+        And the launcher and entry packages hold package.json, README.md, LICENSE and their one JavaScript file, nothing else
+        And every Core package holds NOTICE as well, and Atlas packages none
+        And when the Core archives carry THIRD_PARTY.json and THIRD_PARTY_LICENSES/, every Core package holds exactly those files as well
+    - id: no-private-marker-reaches-a-tarball
+      statement: |
+        Given generated packages about to be packed
+        When a text file in them, including one under THIRD_PARTY_LICENSES/, names the owner of the private module path, .npmrc, _authToken or GH_TOKEN
+        Then packing is refused, naming the file, before any tarball is written
+        And the platform binaries, which are not text, are scanned for the owner instead: a binary naming it is still packed, and publish-plan.json says publishable false with blocked_by "binary names private source <owner>"
+    - id: the-license-is-read-from-the-archive
+      statement: |
+        Given the LICENSE file, and for Core the NOTICE file, the release archives carry
+        When the npm packages are generated
+        Then every package carries that LICENSE and declares its SPDX id (Apache-2.0 or AGPL-3.0-only), and every Core package carries that NOTICE byte for byte
+        And a text the generator does not recognise, archives with differing LICENSE or NOTICE files, or a Core archive without NOTICE stop generation, naming the archive
+    - id: packages-carry-the-archive-third-party-notices
+      statement: |
+        Given Core archives that carry THIRD_PARTY.json and THIRD_PARTY_LICENSES/
+        When the npm packages are generated and packed
+        Then every Core package and its tarball hold THIRD_PARTY.json and the files under THIRD_PARTY_LICENSES/ byte for byte as the archive holds them, each listed in files
+        And notice_missing is empty, so the plan carries no "third-party notices not included"
+        And an archive whose corpus differs from the others, or that holds THIRD_PARTY.json without any file under THIRD_PARTY_LICENSES/, stops generation, naming the archive
+    - id: the-release-packs-but-never-publishes
+      statement: |
+        Given packaged Core release archives
+        When the release workflow prepares the npm tarballs and publish-plan.json
+        Then the packing step does not itself publish to npm
+        And packing requires neither a registry token nor an OIDC token
+    - id: public-publication-follows-the-approved-release
+      statement: |
+        Given a Core run of the public Release workflow after a successful GitHub release
+        When dry_run is false and FACET_NPM_PUBLISH is true
+        Then the npm job waits for the npm approval environment
+        And it downloads release-dist and packs the npm packages
+        And it requires a complete, publishable publish-plan.json
+        And it publishes in plan order using OIDC trusted publishing or NPM_TOKEN for initial package publication
+        And otherwise the npm job is skipped
+knowledge:
+  discoverability:
+    question: "Where does a maintainer enter this?"
+    answer: |
+      Run sh scripts/release-npm-pack.sh [--allow-partial] <dist> after
+      scripts/release-package-core.sh to prepare packages locally. In the
+      public Release workflow, the npm job runs after the GitHub release when
+      dry_run is false and FACET_NPM_PUBLISH is true, behind the npm approval
+      environment. It downloads release-dist, packs and checks the plan, then
+      publishes in plan order. Trusted publishing uses the job OIDC token;
+      initial package publication needs NPM_TOKEN in the npm environment.
+      Templates and the generator live under npm/.
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-11-14"

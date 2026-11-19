@@ -1,0 +1,125 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: registry/layout/anchor-proves-tag
+lifecycle: active
+intent:
+  summary: |
+    Reads '@facet-proves:' tags beside an anchor to name the scenarios the code
+    beneath it exists for, independently of the role tag's order. The first
+    unrelated line ends the anchor run so a proof cannot attach across arbitrary
+    code. An anchor with no proof tag claims an empty list.
+contract:
+  scenarios:
+    - id: the-tag-may-sit-either-side-of-the-role-line
+      statement: |
+        Given an anchor whose '@facet-proves:' tag follows '@facet-role:', or
+        precedes it, or stands with no role line at all
+        When the source is scanned
+        Then all three are read the same, and the role still parses in the
+        first two — an author should not have to learn an order
+    - id: an-anchor-without-the-tag-claims-nothing
+      statement: |
+        Given an anchor carrying no '@facet-proves:' tag
+        When the source is scanned
+        Then its list of proven scenarios is empty, and the role still parses,
+        because almost every anchor in any corpus is this one and it must
+        scan as it always did
+      post_state:
+        proves_entries: 0
+    - id: an-unrelated-line-ends-the-anchor-run
+      statement: |
+        Given a '@facet-proves:' line separated from its anchor by a line of
+        code
+        When the source is scanned
+        Then it attaches to nothing, because a tag reaching across arbitrary
+        distance would let a file claim proofs its anchor never stood next to
+      post_state:
+        proves_entries: 0
+    - id: back-to-back-anchors-keep-their-own-lists
+      statement: |
+        Given two anchors written one directly after the other, each with its
+        own tag
+        When the source is scanned
+        Then each keeps its own list, rather than the second being swallowed
+        into the first's run
+      post_state:
+        anchors_found: 2
+    - id: scanning-content-and-scanning-a-file-agree
+      statement: |
+        Given the same source read from disk and handed over as bytes
+        When both are scanned
+        Then they produce the same anchors, because two entry points that
+        disagreed would make the answer depend on who asked
+verification:
+  unit_tests:
+    - id: registry/scan_proves_test.go
+      proves:
+        - the-tag-may-sit-either-side-of-the-role-line
+        - an-anchor-without-the-tag-claims-nothing
+        - an-unrelated-line-ends-the-anchor-run
+        - back-to-back-anchors-keep-their-own-lists
+        - scanning-content-and-scanning-a-file-agree
+knowledge:
+  not_for:
+    question: "When is this the wrong tool for the job?"
+    answer: |
+      Not a check that the named scenarios exist. Naming a scenario no record
+      declares is reported by registry/integrity/proof-references; this only
+      reads what was written.
+
+      Not a way to attach a proof to code further down the file. The run ends
+      at the first line that is not a tag, on purpose.
+  common_pitfalls:
+    question: "What mistakes do users typically make?"
+    answer: |
+      Putting a blank line or a comment between the anchor and the tag. That
+      ends the run, and the tag attaches to nothing — silently, because a tag
+      that names no anchor is not an error.
+
+      Expecting an order. There is none between the role tag and this one.
+  discoverability:
+    question: "Where does the user enter this flow in the product?"
+    answer: |
+      Writing '@facet-proves: <scenario-id>[, <scenario-id>]' on the line
+      after an '@facet:' anchor, in the comment style of the file's language.
+    derive_from:
+      - anchors
+  success_signal:
+    question: "How does the user know it worked?"
+    answer: |
+      'facet lint' reports a dangling entry by name; a tag that attached to
+      nothing is reported by neither, so the surer signal is the placement
+      itself: the tag stands on the line directly after its '@facet:' anchor
+      or that anchor's '@facet-role:' line, with no code in between.
+  prerequisite_knowledge:
+    question: "What must the user already understand to use this feature?"
+    answer: |
+      This is the syntax half of the wiring registry/integrity/proof-references
+      checks. That record holds a named scenario against the record it claims to
+      be in; this one decides what counts as "named" in the first place.
+
+      The rule for an author is that there is no rule to learn: the tag may
+      follow '@facet-role:', precede it, or stand alone. Both are read on every
+      line while an anchor is pending, and the first line matching neither ends
+      the run.
+
+      That ending is the part worth defending. A tag that reached across
+      arbitrary distance would let a file claim proofs for code its anchor never
+      stood next to — the anchor's promise is about the lines under it, so the
+      run has to stop where the lines stop being tags.
+
+      An anchor with no tag carries an empty list. An absent proof declaration
+      claims nothing and does not interfere with role parsing.
+
+      Parsing tag syntax is separate from validating proof references: the
+      former defines what was named, while the latter checks that the named
+      scenario exists.
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-09-21"
+  depends_on:
+    - registry/layout/source-scanning
+  depended_on_by:
+    - registry/integrity/proof-references

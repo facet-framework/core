@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "registry": {
+      "command": "facet",
+      "args": [
+        "mcp",
+        "--root",
+        "."
+      ]
+    }
+  }
+}

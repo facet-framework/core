@@ -1,0 +1,131 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: registry/integrity/unclaimed-tests
+lifecycle: active
+intent:
+  summary: |
+    Names test files no record claims, complementing the checks for anchored
+    records and anchored implementations. Findings are grouped by directory so
+    helper tests and fixtures do not drown other lint findings in per-file
+    warnings; adding 'proves' without reading the test body would falsely claim
+    coverage.
+contract:
+  scenarios:
+    - id: a-test-no-record-names-is-reported
+      statement: |
+        Given a test file that no record's verification names
+        When 'facet lint' runs
+        Then a warning names its directory and the file, so the loss of a
+        promise cannot pass as an ordinary deletion
+      post_state:
+        severity: warning
+    - id: a-named-test-is-not-reported
+      statement: |
+        Given a test file a record names under verification, in any of the
+        forms a test id is written — a bare path, or a path with a test name
+        after it
+        When 'facet lint' runs
+        Then it is not reported, because it is claimed
+    - id: one-directory-is-one-finding
+      statement: |
+        Given several unclaimed test files in one directory
+        When 'facet lint' runs
+        Then they are named together in one finding, because a signal loud
+        enough per file goes unread
+      post_state:
+        findings_per_directory: 1
+    - id: a-go-file-that-declares-no-test-is-a-fixture
+      statement: |
+        Given a '_test.go' file that declares nothing 'go test' would run —
+        a fake server, a helper, a corpus to read
+        When the check runs
+        Then it is passed over, because there is no promise it could be
+        claimed for and its warning would name work nobody can do; a real
+        test beside it in the same directory is still reported
+      post_state:
+        findings_about_the_fixture: 0
+    - id: a-snapshot-is-not-a-test
+      statement: |
+        Given a jest snapshot beside the spec that wrote it
+        When 'facet lint' runs
+        Then it is not reported, because it is the imprint of a test rather
+        than a test, and no record could honestly name it as a proof
+verification:
+  unit_tests:
+    - id: registry/unclaimed_tests_test.go
+      proves:
+        - a-test-no-record-names-is-reported
+        - a-named-test-is-not-reported
+        - one-directory-is-one-finding
+        - a-snapshot-is-not-a-test
+        - a-go-file-that-declares-no-test-is-a-fixture
+knowledge:
+  prerequisite_knowledge:
+    question: "What must the user already understand to use this feature?"
+    answer: |
+      That a warning here is a question, not a defect. The answer may be "this
+      test proves no promise", and leaving it unclaimed is then the correct
+      state rather than an omission.
+
+      "Every record is anchored in source" is checked (orphan-records). "The
+      source that fulfils a record is anchored" is checked (unanchored-
+      hotspots). The complementary question is: "every test that proves a
+      promise is named by it".
+
+      A test can run green while no record claims it proves anything; deleting
+      it can then lose a promise without a record identifying the loss.
+
+      It is the mirror of the verification-targets check. That one asks whether
+      a named test exists; this one asks whether an existing test is named.
+      Between them both halves of a proof reference are walked from both ends.
+
+      Reported per directory, not per file. Not every unclaimed test is a
+      defect: a spec file may check a helper, build a fixture, or hold a
+      property that is no promise in FACET's sense. Dozens of per-file warnings
+      would drown the rest of the lint; one line per directory can be read.
+
+      It must not become a number somebody improves. A 'proves' entry added to
+      clear a warning without reading the test body makes the registry worse —
+      it looks like cover, and lintProves cannot tell the difference.
+  not_for:
+    question: "When is this the wrong tool for the job?"
+    answer: |
+      Not a coverage measure. It counts files nobody claimed, never lines,
+      branches or scenarios.
+
+      Not a reason to add 'proves' entries in bulk. lintProves checks only
+      that the scenario id exists in the same record; an entry written from a
+      filename rather than from the test body is worse than the warning it
+      silences.
+
+      Not a judgement on the test. An unclaimed test is a good test whose
+      purpose no record states.
+  common_pitfalls:
+    question: "What mistakes do users typically make?"
+    answer: |
+      Reading the count as work to be finished. Part of it is meant to stay
+      unclaimed; what the project owes is a decision per file, not a zero.
+
+      Supplying a narrower LintOptions.IsTestPath to make the number smaller.
+      That classifier is shared with test-only-anchors, and narrowing it here
+      changes an answer over there.
+  success_signal:
+    question: "How does the user know it worked?"
+    answer: |
+      Every directory holding a test nobody claims is named, with its files,
+      and a deletion of a claimed test turns up as a verification-targets
+      error rather than silence.
+    derive_from:
+      - anchors
+  discoverability:
+    question: "Where does the user enter this flow in the product?"
+    answer: |
+      'facet lint' reports it as the 'unclaimed-tests' check.
+    derive_from:
+      - anchors
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-09-21"
+  superseded_by: null

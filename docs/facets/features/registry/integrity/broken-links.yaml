@@ -1,0 +1,141 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: registry/integrity/broken-links
+lifecycle: active
+intent:
+  summary: |
+    Reports a repository-relative reference in intent.decision_records or
+    observation.alerts[].runbook that names no file in the working tree.
+
+    Why a dead link here costs more than a dead link usually does: FACET §1 says a
+    record's Intent "does not restate the reasoning that lives in linked
+    sources". The reasoning sits at the decision_records target on purpose, so
+    a broken one does not degrade the record — it removes the only path to the
+    thing the record deliberately did not copy. A runbook is the same shape
+    for whoever is paged: the one path to the response, not a restatement of
+    it.
+
+    Deliberately narrower than FACET §11.2's own example ("a URL returns 404"): only
+    repository-relative paths are checked. An http(s):// value is skipped
+    entirely rather than reported, because resolving it needs the network this
+    check must not have (FACET §6.3, determinism). Silence on a URL means "not
+    examined", not "reachable".
+
+    A fragment addresses a heading inside a file, so it is stripped before the
+    existence check — and kept in the message, so a reader can find the
+    reference they wrote.
+
+    Judged over every record category that has an intent facet, not over
+    features alone: decision_records is equally valid on a policy
+    (schema/policy.schema.json), and a check that assumed otherwise would be
+    silent exactly where a policy's reasoning lives.
+
+    A warning throughout. FACET §11.2 lists the category as one, and the honest fix
+    is usually to write the missing document rather than to delete the link.
+contract:
+  scenarios:
+    - id: a-named-path-that-exists-is-not-a-finding
+      statement: |
+        Given a record naming a decision document or a runbook that is in the
+        checkout
+        When the lint runs
+        Then it says nothing about that reference
+    - id: a-named-path-that-is-missing-is-a-warning
+      statement: |
+        Given a record naming a path no file answers
+        When the lint runs
+        Then it warns, and the finding carries the missing path, the field it
+        came from and the id of the record that wrote it — the three things
+        somebody needs to fix it without searching
+    - id: a-fragment-addresses-a-heading-not-a-file
+      statement: |
+        Given a reference like docs/pm/plan.md#a-section
+        When the existence check runs
+        Then the fragment is stripped before the file is looked for, and a
+        missing file is still reported with the fragment intact in the message
+    - id: a-url-is-never-fetched
+      statement: |
+        Given an http(s):// value in either field
+        When the lint runs
+        Then it is skipped rather than reported, because resolving it would
+        need the network the check must not have
+      post_state:
+        network_requests: 0
+    - id: every-record-category-with-an-intent-is-checked
+      statement: |
+        Given a policy record whose intent.decision_records names a missing
+        file
+        When the lint runs
+        Then it is reported the same as a feature's would be
+    - id: each-alert-is-located-by-its-own-index
+      statement: |
+        Given a record with two alerts where only the second one's runbook is
+        missing
+        When the lint runs
+        Then exactly one finding names observation.alerts[1].runbook, so two
+        broken runbooks never collapse into one finding nobody can act on
+    - id: an-alert-without-a-runbook-is-not-a-broken-link
+      statement: |
+        Given an alert that names no runbook at all
+        When the lint runs
+        Then this check stays silent, because an absent runbook is a different
+        signal from a broken one, and reporting an empty path as broken would
+        say the owner wrote something wrong instead of nothing
+    - id: the-check-can-be-skipped
+      statement: |
+        Given '--skip broken-links'
+        When the lint runs
+        Then no finding of this check appears
+verification:
+  unit_tests:
+    - id: registry/lint_broken_links_test.go
+      proves:
+        - a-named-path-that-exists-is-not-a-finding
+        - a-named-path-that-is-missing-is-a-warning
+        - a-fragment-addresses-a-heading-not-a-file
+        - a-url-is-never-fetched
+        - every-record-category-with-an-intent-is-checked
+        - each-alert-is-located-by-its-own-index
+        - an-alert-without-a-runbook-is-not-a-broken-link
+        - the-check-can-be-skipped
+knowledge:
+  not_for:
+    question: "When is this the wrong tool for the job?"
+    answer: |
+      Not a link checker. It never fetches anything; a URL is skipped, and
+      skipping is not a verdict about whether it resolves.
+
+      Not a completeness check. A record that names no decision document and
+      no runbook is invisible to it — whether one should exist is a question
+      for a reader, not for a path lookup.
+
+      Not an alert-coverage check. Whether an alert needs a runbook is a
+      separate question; this check only judges a runbook that was written
+      and points nowhere.
+  common_pitfalls:
+    question: "What mistakes do users typically make?"
+    answer: |
+      Deleting the link to silence the warning. The link is usually right and
+      the document is missing; removing it loses the one pointer to reasoning
+      the record deliberately does not restate.
+
+      Reading silence on a URL as "the URL works". It was never asked.
+  discoverability:
+    question: "Where does the user enter this flow in the product?"
+    answer: |
+      'facet lint' reports it as the 'broken-links' check, and
+      '--skip broken-links' turns it off.
+    derive_from:
+      - anchors
+  success_signal:
+    question: "How does the user know it worked?"
+    answer: |
+      Either every repository-relative reference resolves and nothing is said,
+      or each broken one is named with its path, its field and its record.
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-09-21"
+  depends_on:
+    - registry/integrity/record-validation

@@ -1,0 +1,97 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: delivery/distribution/build-identity
+lifecycle: active
+intent:
+  summary: |
+    Inspect a Core build independently of the specification and record formats
+    it supports. Missing provenance remains visible instead of implying a
+    public release from a version number alone.
+contract:
+  scenarios:
+    - id: development-build-identifies-source
+      statement: |
+        Given a development build with an internal distribution stamp, source commit, dirty state and timestamp
+        When its identity is resolved
+        Then its version uses the Core 0.1.0 development line with timestamp and source suffix
+        And the identity retains the internal distribution and dirty state
+    - id: missing-provenance-remains-unknown
+      statement: |
+        Given a build without distribution or source metadata
+        When its identity is resolved
+        Then its distribution is unidentified and dirty state is unknown
+        And an explicit legacy or release-candidate version is preserved
+        And an unstamped development version is 0.1.0-dev.unknown
+    - id: a-stamped-build-reports-its-build-time
+      statement: |
+        Given a build stamped with an RFC3339 build time
+        When its identity is reported by facet version and facet version --json
+        Then both show that time in UTC, as build_time in JSON
+        And a build without a readable time shows unknown in text and omits build_time in JSON
+    - id: version-inspection-survives-broken-project-configuration
+      statement: |
+        Given an invalid project configuration
+        When facet version is invoked
+        Then it reports the build identity without loading that configuration
+        And the JSON form includes product protocol compatibility
+    - id: format-declarations-match-the-implementation
+      statement: |
+        Given the Core compatibility declaration
+        When its supported formats are checked
+        Then its record schema versions match the canonical schema
+        And its product protocol matches the native product runtime
+    - id: the-reported-specification-is-the-edition-beside-the-build
+      statement: |
+        Given the Core version declaration and the specification document of one source tree
+        When facet version reports the specification of a build from that tree
+        Then it reports the declared specification_version
+        And that edition equals the version header of the specification document beside it and is listed in compatible_specifications
+        And a declaration that names another edition than the specification header fails the release package's test
+verification:
+  unit_tests:
+    - id: "release/identity_test.go::TestDevelopmentIdentity"
+      proves:
+        - development-build-identifies-source
+    - id: "release/identity_test.go::TestUnknownProvenanceAndExplicitVersion"
+      proves:
+        - missing-provenance-remains-unknown
+    - id: "release/identity_test.go::TestBuildTimeIsReportedInUTCOrLeftOut"
+      proves:
+        - a-stamped-build-reports-its-build-time
+    - id: "cli/version_test.go::TestVersionReportsTheStampedBuildTime"
+      proves:
+        - a-stamped-build-reports-its-build-time
+    - id: "cli/version_test.go::TestVersionIgnoresBrokenProjectConfiguration"
+      proves:
+        - version-inspection-survives-broken-project-configuration
+        - a-stamped-build-reports-its-build-time
+    - id: "release/identity_test.go::TestCompatibilityMatchesFormats"
+      proves:
+        - format-declarations-match-the-implementation
+    - id: "release/specification_test.go::TestEmbeddedContractNamesTheSpecificationBesideIt"
+      proves:
+        - the-reported-specification-is-the-edition-beside-the-build
+    - id: "release/specification_test.go::TestSpecificationAgreementRefusesADifferentEdition"
+      proves:
+        - the-reported-specification-is-the-edition-beside-the-build
+knowledge:
+  prerequisite_knowledge:
+    question: "What must a reader know first?"
+    answer: "Product releases, specification editions, record schemas and the native product protocol have independent version lines. The public Core source declares specification edition 0.1.0; release/core-version.json and the specification header in the same source tree must agree."
+  not_for:
+    question: "What does this not establish?"
+    answer: Identity metadata is not a signature or an update decision. Existing release tags and installer behavior are unchanged.
+  discoverability:
+    question: "Where is this available?"
+    answer: "Run facet version for a readable identity or facet version --json for provenance and format compatibility. Both also report the install origin of the running executable; that belongs to delivery/distribution/install-origin, and the project pin to delivery/distribution/core-pin, not to the build identity."
+  common_pitfalls:
+    question: "What can be misread?"
+    answer: An explicit version stamp alone does not identify the distribution. Unidentified provenance and a null dirty state mean the build did not establish those facts.
+  success_signal:
+    question: "How can the result be recognized?"
+    answer: "The output separates the Core product version from its supported specification, schemas and product protocol. The reported specification is the edition of the specification document in the same source tree."
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-11-13"

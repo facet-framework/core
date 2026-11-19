@@ -1,0 +1,217 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: registry/layout/project-glossary
+lifecycle: active
+intent:
+  summary: |
+    Defines project terms once and links exact, case-sensitive, whole-word
+    occurrences in rendered prose to their definitions, avoiding explanations
+    that drift between records. Association is by content rather than explicit
+    references, so adding a glossary term need not change every record using it.
+    Duplicate definitions are errors and near misses warn because a misspelling
+    can look like a defined term while linking nowhere.
+contract:
+  scenarios:
+    - id: a-repeated-term-is-an-error
+      statement: |
+        Given a glossary that defines the same term string twice
+        When 'facet lint' runs
+        Then an error is reported naming the term, because two definitions of
+        one word leave a reader with no way to tell which one holds
+      post_state:
+        severity: error
+    - id: a-case-variant-in-prose-is-a-near-miss
+      statement: |
+        Given a glossary defining 'Consignee' and a record whose prose writes
+        'consignee'
+        When 'facet lint' runs
+        Then a warning names the word, the record, and the defined term it was
+        probably meant to be — the lower-case spelling links nowhere, and
+        nothing else in the project would ever say so
+      post_state:
+        severity: warning
+    - id: a-typo-in-prose-is-a-near-miss
+      statement: |
+        Given a glossary defining 'Consignee' and a record whose prose writes
+        'Consigne'
+        When 'facet lint' runs
+        Then a warning names it and suggests 'Consignee', because a term of art
+        one edit away from a defined one is a misspelling of it far more often
+        than it is a second word
+      post_state:
+        severity: warning
+    - id: an-inflection-is-not-a-near-miss
+      statement: |
+        Given a glossary defining 'Consignee' and a record whose prose writes
+        'Consignees'
+        When 'facet lint' runs
+        Then nothing is reported, because a plural is correct usage rather than
+        a typo, and a check that fires on correct usage is one people learn to
+        switch off
+      post_state:
+        findings: 0
+    - id: a-multi-word-term-is-not-judged-word-by-word
+      statement: |
+        Given a glossary defining 'Bill of Lading' and prose that writes it
+        exactly right
+        When 'facet lint' runs
+        Then no word of it is reported, because the near-miss scan walks words
+        and a term of art may contain spaces — judging 'Lading' on its own
+        would warn about the one spelling that is correct
+      post_state:
+        findings: 0
+    - id: the-near-miss-check-reads-intent-and-contract-only
+      statement: |
+        Given a near-miss word that appears only in a knowledge answer
+        When 'facet lint' runs
+        Then no warning is produced, because a warning is a claim that
+        something is wrong and the owner-written answers quote the product's
+        own wording — an exact term there is still an occurrence of the term
+      post_state:
+        findings: 0
+    - id: a-term-is-never-linked-inside-a-longer-word
+      statement: |
+        Given a glossary defining 'Order' and prose containing 'Reorder' and
+        'Ordering'
+        When terms are found in that prose, for linking or for the near-miss
+        check
+        Then neither word is touched, because a term is matched whole or not at
+        all — a substring match would decorate half of every sentence
+    - id: no-glossary-changes-nothing
+      statement: |
+        Given a project that declares no glossary.yaml
+        When 'facet lint' runs
+        Then no finding of either kind is produced, whatever the prose says
+      post_state:
+        findings: 0
+    - id: a-malformed-glossary-is-caught-by-its-schema
+      statement: |
+        Given a glossary.yaml with a mistyped key
+        When 'facet lint' runs
+        Then a schema finding names glossary.yaml itself, rather than the file
+        unmarshalling to an empty list and every term in it silently ceasing to
+        be defined
+    - id: a-broken-glossary-is-contained
+      statement: |
+        Given a glossary.yaml that will not parse at all
+        When 'facet lint' runs
+        Then the unreadable file is one error and every other check still runs,
+        and '--skip glossary' silences it entirely — the escape hatch is
+        useless if the file it names is loaded before the skip is read
+      post_state:
+        other_checks_ran: true
+    - id: the-corpus-ships-the-glossary-verbatim
+      statement: |
+        Given a project without a glossary.yaml, and then the same project with one
+        When the corpus is built
+        Then the first carries no glossary and the second carries the file's
+        text unchanged, because "no glossary declared" and "a glossary with
+        nothing in it" are different statements, and a second parse would give
+        the project two answers to which terms are defined
+verification:
+  unit_tests:
+    - id: registry/glossary_test.go
+      proves:
+        - a-repeated-term-is-an-error
+        - a-case-variant-in-prose-is-a-near-miss
+        - a-typo-in-prose-is-a-near-miss
+        - an-inflection-is-not-a-near-miss
+        - a-multi-word-term-is-not-judged-word-by-word
+        - the-near-miss-check-reads-intent-and-contract-only
+        - a-term-is-never-linked-inside-a-longer-word
+        - no-glossary-changes-nothing
+        - a-malformed-glossary-is-caught-by-its-schema
+        - a-broken-glossary-is-contained
+    - id: "corpus/corpus_test.go::TestCorpusShipsTheGlossaryUnparsed"
+      proves:
+        - the-corpus-ships-the-glossary-verbatim
+knowledge:
+  prerequisite_knowledge:
+    question: "What must the user already understand to use this feature?"
+    answer: |
+      That the glossary is a list of terms of art, not a dictionary. Every
+      entry is linked wherever it appears, so a word that is also an ordinary
+      English word will be decorated in every sentence that happens to use it.
+      The remedy is not a setting: it is to leave that word undefined, or to
+      define the capitalised form that marks it as a term of art in the first
+      place.
+
+      That a term is matched exactly and case-sensitively. 'Consignee' and
+      'consignee' are two different strings; if only the first is defined, the
+      second links nowhere and the linter says so.
+
+      Records use vocabulary that appears in many of them and is explained in
+      none. A term like 'Consignee' — the party named in the transport document
+      who receives the goods, not necessarily the buyer and not the carrier — is
+      either silently presumed by every record that needs it, or explained again
+      in each, with the risk that two explanations drift apart. A shared
+      definition avoids both silent assumptions and diverging explanations.
+
+      Nothing in a record references the glossary. There is no 'glossary_refs'
+      field and no markup: every exact, case-sensitive, whole-word occurrence of
+      a defined term in the prose is an occurrence of that term, found where the
+      prose is read or rendered — association by content rather than by a
+      reference id, which is what keeps a record from changing merely because
+      the glossary grew.
+
+      Two lint checks stand in for the reference field that does not exist. A
+      term defined twice is an error, because two definitions of one word are a
+      contradiction nobody can resolve by reading. A word that is nearly a
+      defined term is a warning, because it is usually the same term spelled
+      wrong and would otherwise link nowhere while looking as though it had.
+
+      Optional: a project without the glossary gets no glossary findings and
+      needs no glossary references in its records.
+  not_for:
+    question: "When is this the wrong tool for the job?"
+    answer: |
+      Not a translation memory. The optional 'renderings' field holds per-locale
+      terminology, and Core does not currently evaluate it; it is intended for
+      deployments translating generated documentation rather than for reading
+      the registry.
+
+      Not a place for prose the records should carry. A definition explains
+      what a word means, not what the product does with it — the second belongs
+      in the record whose contract asserts it.
+
+      Not a substitute for a taxonomy. The taxonomy declares the areas a
+      product has; the glossary explains the vocabulary those areas are
+      described in, and neither can be derived from the other.
+  discoverability:
+    question: "Where does the user enter this flow in the product?"
+    answer: |
+      docs/facets/glossary.yaml, beside taxonomy.yaml and variants.yaml in the
+      records directory. Checked by 'facet lint' and shipped unchanged in the
+      corpus, where whatever renders the records can link the terms in their
+      prose.
+    derive_from:
+      - anchors
+  common_pitfalls:
+    question: "What mistakes do users typically make?"
+    answer: |
+      Defining a word that is common in the project's prose for reasons that
+      have nothing to do with the term. Every occurrence then becomes a link,
+      and the links stop meaning anything.
+
+      Reading a near-miss warning as an instruction to add the near miss to the
+      glossary. Two entries one edit apart are almost always one term spelled
+      two ways, and defining both makes the disagreement permanent instead of
+      visible.
+
+      Expecting the linter to find a term that was never written down. The
+      near-miss check compares against what the glossary declares; a term of
+      art nobody has defined is invisible to it, exactly as it was before.
+  success_signal:
+    question: "How does the user know it worked?"
+    answer: |
+      A reader who does not know what the word means finds out without leaving
+      the record, and the question "what do we call this" has one answer
+      somebody can point at rather than an opinion per record.
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-09-16"
+  superseded_by: null
+  depends_on:
+    - registry/integrity/record-validation
