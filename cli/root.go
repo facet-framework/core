@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/facet-framework/core/internal/sourceview"
@@ -36,7 +37,7 @@ type Options struct {
 	// Identity overrides Version when an application supplies build metadata.
 	Identity *release.Identity
 	// ReaderAssets selects the application's embedded reader. Nil produces
-	// the headless Core setup report without linking a reader or its assets.
+	// the Atlas cache status in the setup report.
 	ReaderAssets fs.FS
 	// Commands are fresh application-owned command instances, such as a
 	// product command `ui`. A command becomes part of this tree and must not
@@ -117,6 +118,9 @@ func NewCommand(opts Options) *cobra.Command {
 	root.AddCommand(opts.Commands...)
 	registerProductCommands(root, productStore())
 	registerMissingProductCommands(root)
+	if !slices.ContainsFunc(root.Commands(), func(cmd *cobra.Command) bool { return cmd.Name() == "ui" || slices.Contains(cmd.Aliases, "ui") }) {
+		root.AddCommand(newAtlasUICmd(version))
+	}
 	return root
 }
 

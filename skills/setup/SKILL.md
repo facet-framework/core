@@ -1,6 +1,6 @@
 ---
 name: setup
-description: Walk a project through the whole FACET setup in one guided run — the binary on the shell's PATH, the scaffold, layout and CI triggers, taxonomy and conventions, the agent layer (hooks, MCP, LSP, status line), git (private anchors, a pre-commit lint, CI), the first records or a back-fill in one of three variants, and the optional extensions (plugins, semantic search, test runners, and a UI command where the installed build has one). Every step measures before it asks and proves its result where it takes effect. Use when the user asks to set up, onboard, install, configure, or adopt FACET end to end, asks what is still missing in a FACET setup, or names a single setup step (binary, scaffold, hooks, filter, precommit, adopt, ui).
+description: Walk a project through the whole FACET setup in one guided run — the binary on the shell's PATH, the scaffold, layout and CI triggers, taxonomy and conventions, the agent layer (hooks, MCP, LSP, status line), git (private anchors, a pre-commit lint, CI), the first records or a back-fill in one of three variants, the Atlas browser reader via facet ui, and optional extensions (plugins, semantic search, test runners). Every step measures before it asks and proves its result where it takes effect. Use when the user asks to set up, onboard, install, configure, or adopt FACET end to end, asks what is still missing in a FACET setup, or names a single setup step (binary, scaffold, hooks, filter, precommit, adopt, ui).
 ---
 
 # Set up FACET, step by step
@@ -281,7 +281,7 @@ One question each, all optional:
 
 | Part | Tool | Proof |
 |---|---|---|
-| UI command | only where `facet --help` lists a `ui` command (not in Core): run it | the address it prints answers |
+| Browser reader | Recommended. Run `facet ui`. On first use, Core downloads FACET Atlas after the user agrees. Follow the `ui` skill for non-interactive setup. | The address it prints |
 | Plugins | `facet plugin list`; add only on an explicit request with a source | `list` shows it with its grant |
 | Wiki | only where `facet --help` lists the wiki (not in Core): its `new` command or the Confluence import | its `check` command green |
 | Semantic search | `facet rag index`; the key only from an environment variable — ask for the variable's name, never the key | `facet rag query` returns hits |

@@ -1,0 +1,185 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: delivery/distribution/atlas-launcher
+lifecycle: active
+intent:
+  summary: |
+    Starts FACET Atlas from Core. Core downloads the pinned Atlas release on
+    demand and caches a verified installation for later runs.
+contract:
+  scenarios:
+    - id: first-run-downloads-and-starts
+      statement: |
+        Given an empty Atlas cache and a terminal
+        When the user runs facet ui
+        Then the prompt shows the version, archive, size, source, license and cache path
+        When the user answers yes
+        Then Core downloads the archive and publishes its executables with the pinned digest as the completion marker
+        And Atlas receives ui followed by the supplied Atlas arguments
+    - id: cached-atlas-runs-offline
+      statement: |
+        Given a valid Atlas cache and an unreachable download source
+        When the user runs facet ui without a terminal
+        Then Core starts the cached executable with the supplied Atlas arguments without asking for consent
+    - id: wrong-digest-is-refused
+      statement: |
+        Given an empty Atlas cache and an archive with a different SHA-256 digest
+        When the user authorizes the download with facet ui --yes
+        Then Core reports the expected and actual SHA-256 digests
+        And the version cache contains neither a completion marker nor an Atlas executable
+    - id: non-interactive-launch-requires-consent
+      statement: |
+        Given an empty Atlas cache and no terminal input
+        When the user runs facet ui without --yes
+        Then the error points to facet ui --yes
+        And Core sends no download request
+    - id: supplied-ui-takes-precedence
+      statement: |
+        Given an application that supplies its own ui command to the Core command tree
+        When the user runs facet ui
+        Then Core runs the supplied command
+    - id: product-ui-takes-precedence
+      statement: |
+        Given a native product package that declares ui
+        When the user installs it with a native grant and runs facet ui
+        Then the package receives the ui invocation and its Atlas arguments
+    - id: decline-skips-download
+      statement: |
+        Given an empty Atlas cache and a terminal
+        When the user answers n at the download prompt
+        Then Core reports that the download was declined
+        And Core sends no download request
+    - id: archive-paths-stay-in-cache
+      statement: |
+        Given an empty Atlas cache and a digest-matching archive with a relative path outside the extraction directory
+        When Core extracts the archive
+        Then Core reports an extraction error
+        And neither the file outside the extraction directory nor the version cache is created
+    - id: archive-links-and-absolute-paths-are-refused
+      statement: |
+        Given an empty Atlas cache and a digest-matching archive containing a tar symlink, tar hardlink, absolute tar path or zip symlink
+        When Core extracts the archive
+        Then Core reports an extraction error and leaves the version cache absent
+    - id: inspect-and-remove-cache-offline
+      statement: |
+        Given a pinned Atlas release on a supported platform
+        When the user runs facet ui --atlas-version
+        Then Core shows the Atlas version, its contained Core version and the local install status
+        And it gives the cache path when Atlas is installed
+        When the user runs facet ui --remove
+        Then Core removes the version cache and lock and reports what it removed or that Atlas is absent
+        And neither management command sends a download request
+    - id: preserve-atlas-streams-and-status
+      statement: |
+        Given an Atlas process that reads input, writes output and returns its own exit status
+        When Core starts it through facet ui
+        Then Atlas receives the remaining standard input
+        And its standard output and diagnostics reach their respective streams
+        And Core returns the Atlas exit code
+    - id: matching-atlas-core-pin-allows-launch
+      statement: |
+        Given a cached Atlas and a selected project that pins the Core version inside Atlas or has no Core pin
+        When the user runs facet ui for that project
+        Then Atlas receives ui and the supplied arguments, including the selected project root
+    - id: mismatched-atlas-core-pin-refuses-launch
+      statement: |
+        Given an empty Atlas cache and a selected project that pins the running Core, which differs from the Core inside Atlas
+        When the user runs facet ui --yes for that project
+        Then Core reports the project's pin, the Atlas version and the Core version inside Atlas, and names the pinned Core that an Atlas release must contain
+        And Core sends no download request and starts no Atlas process
+    - id: launcher-flags-come-first
+      statement: |
+        Given an empty Atlas cache
+        When --yes, --atlas-version or --remove follows an Atlas flag as a standalone flag before the argument separator --
+        Then Core exits with status 2 and shows the corrected order
+        And Core sends no download request
+    - id: stalled-download-is-aborted
+      statement: |
+        Given an empty Atlas cache and a download response that stops sending bytes
+        When the read deadline expires
+        Then Core reports a stalled download and leaves the version cache absent
+    - id: stale-install-files-are-swept
+      statement: |
+        Given download files and extraction directories left in the Atlas cache parent for more than an hour
+        When Core installs Atlas
+        Then Core removes the old temporary entries and preserves recent and unrelated entries
+verification:
+  unit_tests:
+    - id: "cli/command_options_test.go::TestApplicationCommandsAndFrontEndAssetsAreExplicit"
+      proves:
+        - supplied-ui-takes-precedence
+    - id: "internal/atlaslauncher/launcher_test.go::TestLauncherFlagsMustPrecedeAtlasFlags"
+      proves:
+        - launcher-flags-come-first
+  integration_tests:
+    - id: "internal/atlaslauncher/launcher_test.go::TestApprovedArchiveStartsAtlasAndRunsAgainOffline"
+      proves:
+        - first-run-downloads-and-starts
+        - cached-atlas-runs-offline
+    - id: "internal/atlaslauncher/launcher_test.go::TestDigestMismatchLeavesNoInstallation"
+      proves:
+        - wrong-digest-is-refused
+    - id: "internal/atlaslauncher/launcher_test.go::TestNonTerminalNeedsExplicitConsent"
+      proves:
+        - non-interactive-launch-requires-consent
+    - id: "internal/atlaslauncher/launcher_test.go::TestDecliningThePromptMakesNoRequest"
+      proves:
+        - decline-skips-download
+    - id: "internal/atlaslauncher/launcher_test.go::TestArchiveTraversalIsRefusedBeforePublishing"
+      proves:
+        - archive-paths-stay-in-cache
+    - id: "internal/atlaslauncher/launcher_test.go::TestArchiveLinksAndAbsoluteNamesAreRefusedBeforePublishing"
+      proves:
+        - archive-links-and-absolute-paths-are-refused
+    - id: "internal/atlaslauncher/launcher_test.go::TestVersionAndRemoveUseTheLocalZipCache"
+      proves:
+        - inspect-and-remove-cache-offline
+    - id: "internal/atlaslauncher/launcher_test.go::TestChildStreamsAndExitCodeArePreserved"
+      proves:
+        - preserve-atlas-streams-and-status
+    - id: "cli/atlas_ui_test.go::TestAtlasLaunchUsesTheSelectedProjectsCorePin"
+      proves:
+        - matching-atlas-core-pin-allows-launch
+        - mismatched-atlas-core-pin-refuses-launch
+    - id: "cli/product_plugin_test.go::TestProductCLIInstallDispatchAndRemove"
+      proves:
+        - product-ui-takes-precedence
+    - id: "internal/atlaslauncher/launcher_test.go::TestDownloadAbortsWhenResponseBodyStopsMakingProgress"
+      proves:
+        - stalled-download-is-aborted
+    - id: "internal/atlaslauncher/launcher_test.go::TestInstallSweepsOnlyStaleAtlasTemporaryEntries"
+      proves:
+        - stale-install-files-are-swept
+knowledge:
+  prerequisite_knowledge:
+    question: "What does the first launch require?"
+    answer: |
+      Core needs network access and consent for the first download. In a
+      project with a Core pin, that pin must match the Core inside Atlas.
+  discoverability:
+    question: "How do I start the reader or check its version?"
+    answer: |
+      Run facet ui to start the reader. Run facet ui --atlas-version to see the
+      pinned Atlas and contained Core versions and the local install status.
+    derive_from:
+      - anchors
+  success_signal:
+    question: "How do I know the reader started?"
+    answer: |
+      Atlas prints the address where it is serving the project.
+  not_for:
+    question: "How do I read a project with a different Core pin?"
+    answer: |
+      Use a Core release whose pinned Atlas contains the Core version the
+      project pins. Changing the project pin to the Core inside Atlas makes
+      the other Core commands refuse the project.
+  common_pitfalls:
+    question: "Where do launcher flags go?"
+    answer: |
+      Put launcher flags before Atlas flags, as in facet ui --yes --no-open.
+      The launcher passes arguments after -- through to Atlas.
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-11-22"

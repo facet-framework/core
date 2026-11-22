@@ -84,6 +84,20 @@ func TestProductCLIInstallDispatchAndRemove(t *testing.T) {
 	if _, err := execute("fixture-product"); err == nil {
 		t.Fatal("uninstalled command is still registered")
 	}
+	// An installed product can claim ui and takes precedence over the launcher.
+	manifest.Commands = []string{"ui"}
+	raw, _ = json.Marshal(manifest)
+	if err = os.WriteFile(filepath.Join(stage, "plugin.json"), raw, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := execute("plugin", "product", "add", stage, "--grant-native"); err != nil {
+		t.Fatal(err)
+	}
+	out, err = execute("ui", "--root", root, "--no-open")
+	lines = strings.Split(strings.TrimSpace(out), "\n")
+	if err != nil || len(lines) < 2 || strings.Join(lines[1:], "|") != "--facet-product-command|ui|--|--no-open" {
+		t.Fatalf("product ui dispatch: %q, %v", out, err)
+	}
 	// Reusing Core's name must fail before installation and leave Core intact.
 	manifest.Commands = []string{"drift"}
 	raw, _ = json.Marshal(manifest)

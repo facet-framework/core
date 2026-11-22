@@ -38,6 +38,13 @@ contract:
         And a manifest of product atlas yields @facet-tools/atlas and its platform packages in the same shape, without entry packages
         And a manifest missing a platform is refused unless --allow-partial is given for a local build
         And the scoped Core packages carry publishConfig access public, every Core package names the public Core repository, and Atlas packages carry neither
+    - id: every-core-package-page-shows-how-to-start
+      statement: |
+        Given a Core release with version V
+        When the npm packages are generated
+        Then the READMEs of facet-framework, @facet-tools/core and each platform package start a project with npx facet-framework@V init
+        And the @facet-tools/core README shows npm install --save-dev facet-framework@V
+        And no README keeps a template marker or placeholder, and the packages of another product carry none of Core's usage text
     - id: the-plan-names-tag-and-order
       statement: |
         Given a release of channel dev, rc or stable

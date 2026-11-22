@@ -5,6 +5,12 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions
 follow [Semantic Versioning](https://semver.org/). Release candidates may still
 change any public API, flag or schema.
 
+## 0.1.0-rc.3
+
+### Added
+- `facet ui` downloads and verifies the pinned FACET Atlas release on first
+  use, then starts the browser reader from the local cache.
+
 ## 0.1.0-rc.2
 
 First public release candidate of FACET. Commands, flags, Go APIs, MCP

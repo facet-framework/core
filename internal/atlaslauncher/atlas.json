@@ -1,0 +1,36 @@
+{
+  "version": "0.1.0-rc.1",
+  "core": "0.1.0-rc.2",
+  "platforms": {
+    "darwin/amd64": {
+      "archive": "facet-atlas_0.1.0-rc.1_darwin_amd64.tar.gz",
+      "sha256": "9b97af279dfe901816785302ea1636816f3c30802bbdf8b43ce0b7fb7c497848",
+      "size": 19830125
+    },
+    "darwin/arm64": {
+      "archive": "facet-atlas_0.1.0-rc.1_darwin_arm64.tar.gz",
+      "sha256": "dcfe7b281d74b0e0874bc89b48041149e15e6c04b190754f2866dedeb62ae582",
+      "size": 18575087
+    },
+    "linux/amd64": {
+      "archive": "facet-atlas_0.1.0-rc.1_linux_amd64.tar.gz",
+      "sha256": "6c4558c5d8242feb38c0373b999b01e8c6e08fc64ae5cf5fc76ac7240e0f7433",
+      "size": 19153024
+    },
+    "linux/arm64": {
+      "archive": "facet-atlas_0.1.0-rc.1_linux_arm64.tar.gz",
+      "sha256": "cc46027f9a1760311cabd33e2273f8bb143b0b69722e2d24e8bda9f7f440404b",
+      "size": 17540054
+    },
+    "windows/amd64": {
+      "archive": "facet-atlas_0.1.0-rc.1_windows_amd64.zip",
+      "sha256": "78f49ccc0cd4e75fedc2b51cd420098026dd4ad85afd794c0a0f3478b0f1aaeb",
+      "size": 19724627
+    },
+    "windows/arm64": {
+      "archive": "facet-atlas_0.1.0-rc.1_windows_arm64.zip",
+      "sha256": "2bcbac3d966b6c5b4f701f96d8be3135d729b97809c5579f11f2111b0f76a0b7",
+      "size": 17907014
+    }
+  }
+}

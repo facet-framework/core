@@ -12,12 +12,13 @@ import (
 	"testing"
 	"testing/fstest"
 
+	"github.com/facet-framework/core/internal/atlaslauncher"
 	"github.com/facet-framework/core/registry"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/spf13/cobra"
 )
 
-func TestCoreCommandTreeDoesNotRequireABrowserApplication(t *testing.T) {
+func TestCoreCommandTreeIncludesTheAtlasLauncher(t *testing.T) {
 	cmd := NewCommand(Options{})
 	for _, name := range []string{"lint", "snapshot", "setup", "mcp", "lsp"} {
 		found, _, err := cmd.Find([]string{name})
@@ -25,25 +26,42 @@ func TestCoreCommandTreeDoesNotRequireABrowserApplication(t *testing.T) {
 			t.Fatalf("Core command %q missing: %v", name, err)
 		}
 	}
-	if _, _, err := cmd.Find([]string{"ui"}); err == nil {
-		t.Fatal("Core unexpectedly registered a ui command")
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetArgs([]string{"ui", "--help"})
+	if err := cmd.Execute(); err != nil || !strings.Contains(out.String(), "--atlas-version") ||
+		!strings.Contains(out.String(), "The remaining arguments go to Atlas.") {
+		t.Fatalf("Core launcher help: %v, output %q", err, out.String())
+	}
+	t.Setenv("FACET_ATLAS_CACHE", t.TempDir())
+	launcher := atlaslauncher.New("test")
+	version := launcher.Version()
+	root := pinnedProject(t, "9.9.9")
+	code, stdout, stderr := runTree(t, "1.2.3", nil, "ui", "--atlas-version", "--root", root)
+	if code != 0 || strings.TrimSpace(stdout) != "FACET Atlas "+version+" (Core "+launcher.AtlasCoreVersion()+") is not installed" || stderr != "" {
+		t.Fatalf("Atlas version in a pinned project: exit %d, stdout %q, stderr %q", code, stdout, stderr)
 	}
 	got := checkUI(newStatusEnv(t.TempDir()))
-	if got.State != stateNotApplicable {
-		t.Fatalf("ui row without front-end assets: %+v", got)
-	}
-	// The row says why, in words that name no product this binary lacks.
-	if !strings.Contains(got.Finding, "a browser application is not included in this binary") {
-		t.Fatalf("ui row does not say what is missing: %q", got.Finding)
+	if got.State != stateNotApplicable || got.Finding != "FACET Atlas "+version+" is downloaded on the first `facet ui`" {
+		t.Fatalf("ui row before the Atlas download: %+v", got)
 	}
 }
 
 func TestApplicationCommandsAndFrontEndAssetsAreExplicit(t *testing.T) {
-	extra := &cobra.Command{Use: "ui"}
+	const invoked = "application UI"
+	extra := &cobra.Command{Use: "ui", Run: func(cmd *cobra.Command, _ []string) {
+		cmd.Println(invoked)
+	}}
 	cmd := NewCommand(Options{Commands: []*cobra.Command{extra}})
 	found, _, err := cmd.Find([]string{"ui"})
 	if err != nil || found != extra {
 		t.Fatalf("application command not registered: %v", err)
+	}
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetArgs([]string{"ui", "--root", t.TempDir()})
+	if err := cmd.Execute(); err != nil || strings.TrimSpace(out.String()) != invoked {
+		t.Fatalf("application command run: %v, output %q", err, out.String())
 	}
 	for _, tc := range []struct {
 		assets fstest.MapFS
@@ -125,7 +143,7 @@ func TestCommandVersionsRemainLocalToEachTree(t *testing.T) {
 // names no package of this tree admits nothing. "scaffold" is the payload
 // 'facet init' writes, which carries Core files only.
 var coreCommandModulePackages = map[string]bool{
-	"cli": true, "corpus": true, "docsite": true, "facet": true, "filelock": true,
+	"atlaslauncher": true, "cli": true, "corpus": true, "docsite": true, "facet": true, "filelock": true,
 	"integrations": true, "productplugin": true, "rag": true, "registry": true,
 	"release": true, "remote": true, "scaffold": true, "sourceview": true,
 }

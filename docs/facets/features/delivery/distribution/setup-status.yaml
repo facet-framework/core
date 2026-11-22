@@ -95,10 +95,16 @@ contract:
         And the product version remains unchanged
     - id: a-core-only-binary-does-not-require-atlas
       statement: |
-        Given the Core CLI was built without Atlas commands or reader assets
+        Given the Core CLI has no embedded reader assets or cached Atlas download
         When facet setup status reports the ui check
         Then its state is not-applicable
-        And the finding says a browser application is not included in this binary
+        And the finding says which Atlas version facet ui downloads on first use
+    - id: cached-atlas-is-ok
+      statement: |
+        Given the Core CLI has a verified Atlas download in its cache
+        When facet setup status reports the ui check
+        Then its state is ok
+        And the finding identifies the Atlas version and cache path
     - id: optional-parts-are-absent-or-measured
       statement: |
         Given a project without plugins, a semantic index, a filter or a test
@@ -111,9 +117,12 @@ verification:
     - id: "cli/scaffold_version_test.go::TestScaffoldUsesDeclaredCompatibility"
       proves:
         - scaffold-uses-declared-specification-compatibility
-    - id: cli/command_options_test.go
+    - id: "cli/setup_status_test.go::TestCoreSetupReportsAtlasIsDownloadedOnFirstUse"
       proves:
         - a-core-only-binary-does-not-require-atlas
+    - id: "cli/setup_status_test.go::TestCoreSetupReportsCachedAtlasIsOK"
+      proves:
+        - cached-atlas-is-ok
     - id: cli/setup_status_test.go
       proves:
         - every-check-is-a-row-with-evidence
@@ -133,9 +142,9 @@ knowledge:
   prerequisite_knowledge:
     question: "What must the user already understand to use this feature?"
     answer: |
-      The setup report measures the binary it runs in. The Core CLI includes
-      registry commands and snapshots and no browser reader, so its ui row
-      reports that part as not applicable.
+      The Core CLI's ui row checks the version of Atlas pinned by that binary
+      and its local cache. An application with embedded reader assets reports
+      the state of those assets.
   discoverability:
     question: "Where does the user enter this flow in the product?"
     answer: |
@@ -145,9 +154,8 @@ knowledge:
   success_signal:
     question: "How does the user know it worked?"
     answer: |
-      Each check has a state, finding and evidence. A Core-only binary reports
-      the ui row as not-applicable rather than treating the absent reader as a
-      broken installation.
+      Each check has a state, finding and evidence. Core reports a cached
+      Atlas download as ok and names its version and path.
   not_for:
     question: "When is this the wrong tool for the job?"
     answer: |
@@ -163,8 +171,8 @@ knowledge:
       why. The git filter row does not run the add-and-diff round trip; it
       checks the install, the binary and the orphans.
 
-      Reading the not-applicable ui row as a fault. A Core-only binary has no
-      browser reader by design, and nothing needs to be installed for it.
+      In Core, a not-applicable ui row means the pinned Atlas download is
+      pending. Run facet ui to get the browser reader.
 
       Core checks the scaffold against its declared specification compatibility,
       independently of its product version. Use facet version --json to inspect
@@ -176,3 +184,4 @@ lineage:
   superseded_by: null
   depends_on:
     - delivery/distribution/binary-resolution
+    - delivery/distribution/atlas-launcher

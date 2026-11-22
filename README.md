@@ -29,7 +29,7 @@ connects it to the source that implements it with `@facet:` comments. The
 `facet` command checks both directions: every active record has code, and
 every comment has a record.
 
-Version **0.1.0-rc.2**, specification edition **0.1.0**.
+Version **0.1.0-rc.3**, specification edition **0.1.0**.
 This is a release candidate; commands, flags, Go APIs, MCP tools and schemas
 may still change before 0.1.0.
 
@@ -38,7 +38,7 @@ may still change before 0.1.0.
 In the root of your project:
 
 ```sh
-npx facet-framework@0.1.0-rc.2 init
+npx facet-framework@0.1.0-rc.3 init
 ```
 
 `init` writes the record layout, schemas, specification, lint tools and a CI
@@ -52,7 +52,7 @@ that implements it with a `@facet: <domain>/<capability>/<feature>` comment. The
 Then check it:
 
 ```sh
-npx facet-framework@0.1.0-rc.2 lint
+npx facet-framework@0.1.0-rc.3 lint
 ```
 
 ## Install
@@ -61,7 +61,7 @@ npx facet-framework@0.1.0-rc.2 lint
 candidates use the npm tag `next`, so name the version:
 
 ```sh
-npm install --save-dev facet-framework@0.1.0-rc.2
+npm install --save-dev facet-framework@0.1.0-rc.3
 npx facet lint
 ```
 
@@ -70,7 +70,7 @@ npx facet lint
 per platform (`facet_<version>_<os>_<arch>`) and a `checksums.txt`:
 
 ```sh
-version=0.1.0-rc.2
+version=0.1.0-rc.3
 archive="facet_${version}_linux_amd64.tar.gz"
 base="https://github.com/facet-framework/core/releases/download/v${version}"
 curl -fsSLO "$base/$archive"
@@ -94,6 +94,12 @@ tar -xzf "$archive" facet
 | `facet setup` | Report and complete a project's FACET setup. |
 
 `facet --help` lists every command.
+
+## Browser reader
+
+`facet ui` asks before downloading [FACET Atlas](https://github.com/facet-framework/atlas/releases)
+on its first run. Atlas is a separate product licensed under AGPL-3.0.
+Use `facet ui --yes` in scripts to authorize the download.
 
 ## Claude Code and Codex
 

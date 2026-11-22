@@ -40,6 +40,9 @@ func newProductPluginCmd() *cobra.Command {
 		}
 		for _, name := range manifest.Commands {
 			for _, existing := range cmd.Root().Commands() {
+				if existing.Annotations[atlasLauncherAnnotation] == "true" {
+					continue // An installed product takes precedence over the launcher.
+				}
 				matches := existing.Name() == name
 				for _, alias := range existing.Aliases {
 					matches = matches || alias == name

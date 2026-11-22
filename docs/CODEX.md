@@ -145,8 +145,8 @@ export FACET_BINARY="$base/dist/core/selected/facet"
 export PATH="$(dirname "$FACET_BINARY"):$PATH"
 ```
 
-Core release archives carry no `ui` command and no sidecar; Atlas belongs to
-its separate distribution.
+Run `facet ui` to start the browser reader. Core asks before downloading the
+separate FACET Atlas distribution on first use.
 
 Start Codex from the target project with this environment. `PATH` provides
 the native CLI to MCP, while `FACET_BINARY` selects it for the hooks. Preserve

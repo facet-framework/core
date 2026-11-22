@@ -17,6 +17,7 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/facet-framework/core/internal/atlaslauncher"
 	"github.com/facet-framework/core/registry"
 	"github.com/facet-framework/core/release"
 	"github.com/goccy/go-yaml"
@@ -990,7 +991,16 @@ func checkGitPrecommit(e *statusEnv) statusRow {
 func checkUI(e *statusEnv) statusRow {
 	const id = "ui"
 	if e.readerAssets == nil {
-		return row(id, stateNotApplicable, "a browser application is not included in this binary", "no front-end assets were selected by the application")
+		launcher := atlaslauncher.New(e.version)
+		dir, installed, err := launcher.Status()
+		if err != nil {
+			return row(id, stateUnmeasured, err.Error(), "resolve the pinned FACET Atlas cache")
+		}
+		evidence := "check the pinned archive digest in " + filepath.Join(dir, ".complete")
+		if installed {
+			return row(id, stateOK, fmt.Sprintf("FACET Atlas %s downloaded at %s", launcher.Version(), dir), evidence)
+		}
+		return row(id, stateNotApplicable, fmt.Sprintf("FACET Atlas %s is downloaded on the first `facet ui`", launcher.Version()), evidence)
 	}
 	if _, err := fs.Stat(e.readerAssets, "index.html"); err != nil {
 		return row(id, stateRed, "the browser application's bundle is not embedded in this binary", "fs.Stat(index.html) on the embedded assets: "+err.Error())

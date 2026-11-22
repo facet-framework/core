@@ -5555,7 +5555,7 @@ set -e
 _facet_version_explicit=
 [ -z "${FACET_VERSION:-}" ] || _facet_version_explicit=1
 
-FACET_VERSION="${FACET_VERSION:-0.1.0-rc.2}"
+FACET_VERSION="${FACET_VERSION:-0.1.0-rc.3}"
 FACET_UPSTREAM_REPO="facet-framework/core"
 
 # A fork extends the source list rather than replacing it, because the common

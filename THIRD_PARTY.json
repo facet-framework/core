@@ -556,6 +556,11 @@
             "src/net/sockoptip6_posix.go",
             "src/os/path_unix.go",
             "src/os/path_windows.go",
+            "src/os/user/cgo_lookup_syscall.go",
+            "src/os/user/cgo_lookup_unix.go",
+            "src/os/user/lookup.go",
+            "src/os/user/lookup_stubs.go",
+            "src/os/user/user.go",
             "src/regexp/exec.go",
             "src/regexp/syntax/compile.go",
             "src/regexp/syntax/parse.go",
@@ -614,6 +619,9 @@
         },
         {
           "origins": [
+            "src/archive/tar/stat_actime1.go",
+            "src/archive/tar/stat_actime2.go",
+            "src/archive/tar/stat_unix.go",
             "src/bytes/reader.go",
             "src/crypto/internal/fips140/aes/aes_asm.go",
             "src/crypto/tls/ticket.go",
@@ -652,6 +660,9 @@
         },
         {
           "origins": [
+            "src/archive/tar/common.go",
+            "src/archive/tar/reader.go",
+            "src/archive/tar/writer.go",
             "src/bufio/bufio.go",
             "src/bytes/buffer.go",
             "src/bytes/bytes.go",
@@ -931,6 +942,8 @@
         },
         {
           "origins": [
+            "src/archive/tar/format.go",
+            "src/archive/tar/strconv.go",
             "src/compress/flate/deflatefast.go",
             "src/compress/flate/dict_decoder.go",
             "src/crypto/ed25519/ed25519.go",
@@ -964,6 +977,9 @@
             "src/os/executable_procfs.go",
             "src/os/executable_windows.go",
             "src/os/stat_unix.go",
+            "src/os/user/cgo_listgroups_unix.go",
+            "src/os/user/getgrouplist_syscall.go",
+            "src/os/user/lookup_unix.go",
             "src/os/wait_unimp.go",
             "src/os/wait_waitid.go",
             "src/reflect/swapper.go",
@@ -1447,6 +1463,7 @@
             "src/net/unixsock_readmsg_cloexec.go",
             "src/net/unixsock_readmsg_cmsg_cloexec.go",
             "src/net/unixsock_readmsg_other.go",
+            "src/os/user/listgroups_unix.go",
             "src/reflect/abi.go",
             "src/reflect/float32reg_generic.go",
             "src/reflect/visiblefields.go",

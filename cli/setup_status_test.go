@@ -13,6 +13,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/facet-framework/core/internal/atlaslauncher"
 )
 
 const statusRecord = `schema_version: "0.1"
@@ -535,9 +537,19 @@ func TestGitPrecommitIgnoresACommentedFacetLint(t *testing.T) {
 	runStatus(t, bin, husky, nil).want(t, "git.precommit", stateRed, "never checked")
 }
 
-// Mutation: report red for an embedded bundle (invert the Stat error test).
-func TestCoreSetupDoesNotRequireAnUnselectedBrowserApplication(t *testing.T) {
-	runStatus(t, facetBinary(t), statusRepo(t, withRecord(nil)), nil).want(t, "ui", stateNotApplicable, "not included")
+func TestCoreSetupReportsAtlasIsDownloadedOnFirstUse(t *testing.T) {
+	version := atlaslauncher.New("test").Version()
+	env := []string{"FACET_ATLAS_CACHE=" + filepath.Join(t.TempDir(), "cache")}
+	status := runStatus(t, facetBinary(t), statusRepo(t, withRecord(nil)), env)
+	status.want(t, "ui", stateNotApplicable, "FACET Atlas "+version+" is downloaded on the first `facet ui`")
+}
+
+func TestCoreSetupReportsCachedAtlasIsOK(t *testing.T) {
+	target := seedAtlasCache(t, "atlas fixture")
+	version := atlaslauncher.New("test").Version()
+	env := []string{"FACET_ATLAS_CACHE=" + filepath.Dir(target)}
+	status := runStatus(t, facetBinary(t), statusRepo(t, withRecord(nil)), env)
+	status.want(t, "ui", stateOK, "FACET Atlas "+version+" downloaded at "+target)
 }
 
 // Mutation: report not-applicable when an embedding provider is configured.

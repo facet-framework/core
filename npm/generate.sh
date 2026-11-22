@@ -50,6 +50,14 @@ core) LAUNCHER=@facet-tools/core PRODUCT_NAME="FACET Core" ;;
 atlas) LAUNCHER=@facet-tools/atlas PRODUCT_NAME="FACET Atlas" ;;
 *) die "$MANIFEST names product '$PRODUCT', not core or atlas" ;;
 esac
+# README templates hold a @@CORE@@ … @@/CORE@@ block (usage of the Core command
+# line) and an @@OTHER@@ … @@/OTHER@@ block for any other product; only the
+# block for this product remains, without its marker lines.
+readme_blocks() {
+  if [ "$PRODUCT" = core ]; then keep=CORE drop=OTHER; else keep=OTHER drop=CORE; fi
+  sed -e "/^@@$drop@@\$/,/^@@\/$drop@@\$/d" -e "/^@@\/\{0,1\}$keep@@\$/d" "$1"
+}
+
 # The npm version is the release version itself: semver, never build metadata.
 printf '%s\n' "$VERSION" | grep -Eq '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?$' ||
   die "$MANIFEST version '$VERSION' is not a semver version without build metadata"
@@ -231,8 +239,9 @@ while [ "$i" -lt "$count" ]; do
     '{name: $name, version: $version, description: .description, license: $license} + $public
       + {os: [$os], cpu: [$cpu], files: (.files + $extra_files), preferUnplugged: .preferUnplugged} + $scoped' \
     "$WORK/template.json" >"$dir/package.json"
-  sed -e "s|@@PACKAGE@@|$name|g" -e "s|@@PRODUCT@@|$PRODUCT_NAME|g" -e "s|@@PLATFORM@@|$npm_key|g" \
-    -e "s|@@LAUNCHER@@|$LAUNCHER|g" "$TEMPLATES/platform/README.md" >"$dir/README.md"
+  readme_blocks "$TEMPLATES/platform/README.md" |
+    sed -e "s|@@PACKAGE@@|$name|g" -e "s|@@PRODUCT@@|$PRODUCT_NAME|g" -e "s|@@PLATFORM@@|$npm_key|g" \
+      -e "s|@@LAUNCHER@@|$LAUNCHER|g" -e "s|@@VERSION@@|$VERSION|g" >"$dir/README.md"
   jq -n -c --arg name "$name" --arg dir "$(package_dir "$name")" --arg platform "$platform" \
     '{name: $name, dir: $dir, role: "platform", platform: $platform}' >>"$WORK/platforms.jsonl"
 done
@@ -248,7 +257,8 @@ write_package() { # <name> <template> <extra jq object> [<js file>]
     '{name: $name, version: $version, description: .description, license: $license} + $public + (del(.description))
       + {files: (.files + $extra_files)} + $extra' \
     "$WORK/template.json" >"$dir/package.json"
-  sed -e "s|@@PACKAGE@@|$1|g" -e "s|@@PRODUCT@@|$PRODUCT_NAME|g" "$TEMPLATES/$2/README.md" >"$dir/README.md"
+  readme_blocks "$TEMPLATES/$2/README.md" |
+    sed -e "s|@@PACKAGE@@|$1|g" -e "s|@@PRODUCT@@|$PRODUCT_NAME|g" -e "s|@@VERSION@@|$VERSION|g" >"$dir/README.md"
   copy_notices "$dir"
   chmod 0644 "$dir/README.md" "$dir/package.json"
   if [ "$#" -ge 4 ]; then
