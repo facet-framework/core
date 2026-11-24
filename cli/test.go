@@ -1,5 +1,6 @@
 // @facet: registry/integrity/runner-test-discovery
 // @facet-role: related
+
 package cli
 
 import (
@@ -19,7 +20,7 @@ import (
 func newTestCmd() *cobra.Command {
 	var list, check, update, asJSON, failUnmeasured bool
 	var runner, registry, only, featurePrefix string
-	cmd := &cobra.Command{Use: "test", Short: "Run declared test commands and report per-file verification results", Args: cobra.NoArgs,
+	cmd := &cobra.Command{Use: "test", Short: "Run declared tests and report file and specification scenario evidence", Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
 			defer stop()
@@ -90,6 +91,12 @@ func newTestCmd() *cobra.Command {
 							for _, feature := range execution.Features {
 								counts[feature.State]++
 								fmt.Fprintf(cmd.OutOrStdout(), "%s %s\n", feature.State, feature.ID)
+								for _, scenario := range feature.Scenarios {
+									fmt.Fprintf(cmd.OutOrStdout(), "  %s %s (%s) [%s]\n", scenario.State, scenario.ID, scenario.SpecifiedBy, scenario.Binding)
+									if scenario.Message != "" {
+										fmt.Fprintf(cmd.OutOrStdout(), "    %s\n", scenario.Message)
+									}
+								}
 								if feature.State != facet.TestPassed {
 									paths := make([]string, 0, len(feature.Files))
 									for path := range feature.Files {
@@ -99,7 +106,7 @@ func newTestCmd() *cobra.Command {
 									for _, path := range paths {
 										fmt.Fprintf(cmd.OutOrStdout(), "  %s %s\n", feature.Files[path], path)
 									}
-									if len(paths) == 0 {
+									if len(paths) == 0 && len(feature.Scenarios) == 0 {
 										fmt.Fprintln(cmd.OutOrStdout(), "  no verification file references")
 									}
 								}
@@ -107,7 +114,11 @@ func newTestCmd() *cobra.Command {
 							for _, f := range execution.Discovery.Findings {
 								fmt.Fprintf(cmd.OutOrStdout(), "%s %s %s: %s\n", f.Severity, f.Code, f.Path, f.Message)
 							}
-							fmt.Fprintf(cmd.OutOrStdout(), "Features: %d passed, %d failed, %d unmeasured (%d total)\n", counts[facet.TestPassed], counts[facet.TestFailed], counts[facet.TestUnmeasured], len(execution.Features))
+							fmt.Fprintf(cmd.OutOrStdout(), "Features: %d passed, %d failed, %d unmeasured", counts[facet.TestPassed], counts[facet.TestFailed], counts[facet.TestUnmeasured])
+							if count := counts[facet.TestProvenance]; count > 0 {
+								fmt.Fprintf(cmd.OutOrStdout(), ", %d provenance", count)
+							}
+							fmt.Fprintf(cmd.OutOrStdout(), " (%d total)\n", len(execution.Features))
 						}
 					}
 				}
@@ -188,11 +199,9 @@ func testExecutionsExitCode(executions []facet.TestExecution, failUnmeasured boo
 			return code
 		}
 	}
-	if failUnmeasured {
-		for _, execution := range executions {
-			if execution.HasUnmeasured() {
-				return 1
-			}
+	for _, execution := range executions {
+		if failUnmeasured && execution.HasUnmeasured() || os.Getenv("FACET_STRICT_DEPS") == "1" && execution.HasUnmeasuredSpec() {
+			return 1
 		}
 	}
 	return 0

@@ -1,0 +1,104 @@
+# @facet: delivery/distribution/npm-packages
+# @facet-role: config
+name: npm
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Published Core version tag (v*)
+        type: string
+        required: true
+
+permissions: {}
+
+jobs:
+  npm:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+      attestations: read
+    concurrency:
+      group: npm-${{ inputs.tag }}
+      cancel-in-progress: false
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Run npm staging from main only
+        env:
+          REF: ${{ github.ref }}
+        run: |
+          if [ "$REF" != refs/heads/main ]; then
+            echo "::error::npm staging must run from refs/heads/main"
+            exit 1
+          fi
+      - name: Resolve the Core release tag
+        id: tag
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          number='(0|[1-9][0-9]{0,8})'
+          if [[ ! "$TAG" =~ ^v$number\.$number\.$number(-rc\.[1-9][0-9]{0,8})?$ ]]; then
+            echo "::error::Expected a Core version tag vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-rc.N"
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+      # Use the current release scripts with the tagged templates and generator.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+      - name: Check the npm environment
+        env:
+          GH_TOKEN: ${{ secrets['RELEASE_SETTINGS_TOKEN'] || github.token }}
+        run: sh scripts/release-environment-check.sh npm "$GITHUB_REPOSITORY"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/${{ steps.tag.outputs.tag }}
+          path: release-source
+          persist-credentials: false
+      - name: Download and verify the published release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        working-directory: release-source
+        run: |
+          version=${TAG#v}
+          commit=$(git rev-parse HEAD)
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,tagName |
+            jq -e --arg tag "$TAG" '.isDraft == false and .tagName == $tag' >/dev/null
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir dist \
+            --pattern "facet_${version}_*.tar.gz" --pattern "facet_${version}_*.zip" \
+            --pattern checksums.txt --pattern release-manifest.json
+          cd dist
+          jq -e --arg version "$version" --arg commit "$commit" '
+            .product == "core" and .version == $version and .source_commit == $commit
+            and ([.platforms[].platform] | sort) ==
+              ["darwin_amd64", "darwin_arm64", "linux_amd64", "linux_arm64", "windows_amd64", "windows_arm64"]
+            and all(.platforms[];
+              .archive == ("facet_" + $version + "_" + .platform +
+                (if (.platform | startswith("windows_")) then ".zip" else ".tar.gz" end)))
+          ' release-manifest.json >/dev/null
+          jq -r '.platforms[].archive' release-manifest.json > "$RUNNER_TEMP/core-archives"
+          diff -u <(sort "$RUNNER_TEMP/core-archives") <(cut -c67- checksums.txt | sort)
+          sha256sum --check --strict checksums.txt
+          while IFS= read -r archive; do
+            gh attestation verify "./$archive" --repo "$GITHUB_REPOSITORY" \
+              --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yml" \
+              --source-digest "$commit" --source-ref refs/heads/main
+          done < "$RUNNER_TEMP/core-archives"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - name: Install npm with staged publishing
+        run: |
+          npm install -g npm@11.19.0
+          npm --version
+      - name: Pack the npm packages from the release archives
+        run: sh scripts/release-npm-pack.sh --source release-source release-source/dist
+      - name: Stage packages for npm approval in plan order
+        run: sh scripts/release-npm-publish.sh release-source/dist

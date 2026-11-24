@@ -342,7 +342,7 @@ knowledge:
       explicitly, nothing guesses it.
 
       Expecting an installed FACET 1.x binary to keep working through the
-      dispatcher. FACET Core versions restart at 0.1.0; a 1.x binary on PATH
+      dispatcher. A 1.x binary is a previous product line; on PATH it
       is passed over and the old bin/<version> cache is never read.
 
       Expecting FACET_REPO to be exclusive. It is additive on purpose; use

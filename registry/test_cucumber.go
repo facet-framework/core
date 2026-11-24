@@ -1,27 +1,34 @@
 // @facet: registry/integrity/runner-test-execution
 // @facet-role: related
+
 package facet
 
 import (
 	"encoding/json"
 	"fmt"
-	gherkin "github.com/cucumber/gherkin/go/v41"
-	messages "github.com/cucumber/messages/go/v33"
+	"io"
 	"os"
 	"path/filepath"
 	"strconv"
+
+	gherkin "github.com/cucumber/gherkin/go/v41"
+	messages "github.com/cucumber/messages/go/v33"
 )
 
 // Cucumber's legacy JSON format, emitted by Badeball in run mode. Explicit
 // feature URIs bind evidence; names, tags and process exits never imply paths.
 type cucumberStep struct {
 	Line   int64 `json:"line"`
+	Hidden bool  `json:"hidden"`
 	Result struct {
 		Status string `json:"status"`
 	} `json:"result"`
 }
 type cucumberElement struct {
-	Line   int64          `json:"line"`
+	Line int64 `json:"line"`
+	Tags []struct {
+		Name string `json:"name"`
+	} `json:"tags"`
 	Type   string         `json:"type"`
 	Steps  []cucumberStep `json:"steps"`
 	Before []cucumberStep `json:"before"`
@@ -32,7 +39,7 @@ type cucumberFeature struct {
 	Elements []cucumberElement `json:"elements"`
 }
 
-func parseCucumberResults(root, cwd string, data []byte, files []string) (map[string]string, error) {
+func parseCucumberResults(root, cwd string, data []byte, files []string, specFiles ...*specTestFile) (map[string]string, error) {
 	var features []cucumberFeature
 	if err := json.Unmarshal(data, &features); err != nil {
 		return nil, err
@@ -40,6 +47,14 @@ func parseCucumberResults(root, cwd string, data []byte, files []string) (map[st
 	if features == nil {
 		return nil, fmt.Errorf("expected Cucumber JSON feature array")
 	}
+	results, err := cucumberFileResults(root, cwd, features, files)
+	if err == nil && len(specFiles) > 0 {
+		measureSpecCases(cwd, features, specFiles)
+	}
+	return results, err
+}
+
+func cucumberFileResults(root, cwd string, features []cucumberFeature, files []string) (map[string]string, error) {
 	allowed := map[string]bool{}
 	for _, file := range files {
 		allowed[file] = true
@@ -131,20 +146,45 @@ func expectedCucumberCases(root, file string) (map[int64]map[int64]bool, error) 
 		return nil, err
 	}
 	defer source.Close()
+	cases, err := compileCucumberCases(source, file)
+	if err != nil {
+		return nil, err
+	}
+	expected := make(map[int64]map[int64]bool, len(cases))
+	for _, c := range cases {
+		expected[c.line] = c.steps
+	}
+	return expected, nil
+}
+
+type compiledCucumberCase struct {
+	line  int64
+	steps map[int64]bool
+	tags  []string
+}
+
+func compileCucumberCases(source io.Reader, file string) ([]compiledCucumberCase, error) {
 	next := 0
 	newID := func() string { next++; return strconv.Itoa(next) }
 	document, err := gherkin.ParseGherkinDocument(source, newID)
 	if err != nil {
 		return nil, err
 	}
-	expected := map[int64]map[int64]bool{}
+	var expected []compiledCucumberCase
 	if document.Feature == nil {
 		return expected, nil
 	}
 	stepLines := map[string]int64{}
+	scenarioTags := map[string][]string{}
 	collect := func(steps []*messages.Step) {
 		for _, step := range steps {
 			stepLines[step.Id] = int64(step.Location.Line)
+		}
+	}
+	collectScenario := func(scenario *messages.Scenario) {
+		collect(scenario.Steps)
+		for _, tag := range scenario.Tags {
+			scenarioTags[scenario.Id] = append(scenarioTags[scenario.Id], tag.Name)
 		}
 	}
 	for _, child := range document.Feature.Children {
@@ -152,7 +192,7 @@ func expectedCucumberCases(root, file string) (map[int64]map[int64]bool, error) 
 			collect(child.Background.Steps)
 		}
 		if child.Scenario != nil {
-			collect(child.Scenario.Steps)
+			collectScenario(child.Scenario)
 		}
 		if child.Rule != nil {
 			for _, ruleChild := range child.Rule.Children {
@@ -160,7 +200,7 @@ func expectedCucumberCases(root, file string) (map[int64]map[int64]bool, error) 
 					collect(ruleChild.Background.Steps)
 				}
 				if ruleChild.Scenario != nil {
-					collect(ruleChild.Scenario.Steps)
+					collectScenario(ruleChild.Scenario)
 				}
 			}
 		}
@@ -174,7 +214,7 @@ func expectedCucumberCases(root, file string) (map[int64]map[int64]bool, error) 
 				}
 			}
 		}
-		expected[int64(pickle.Location.Line)] = steps
+		expected = append(expected, compiledCucumberCase{int64(pickle.Location.Line), steps, scenarioTags[pickle.AstNodeIds[0]]})
 	}
 	return expected, nil
 }

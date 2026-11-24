@@ -2,10 +2,8 @@
 # @facet: delivery/distribution/public-core-release
 # @facet-role: related
 #
-# Refuses to go on unless a deployment environment and the repository's own
-# protections really gate a release: a reviewed environment, a reviewed main,
-# and v* tags that only the actors on one short bypass list can create, move
-# or delete.
+# Checks deployment environments, a reviewed main, protected v* tags and
+# immutable releases before publishing.
 
 set -eu
 
@@ -21,33 +19,39 @@ REPO=$2
 command -v gh >/dev/null 2>&1 || die "gh is required"
 command -v jq >/dev/null 2>&1 || die "jq is required"
 NO_ADMIN_READ="the token cannot read it; give this step a token with read access to the repository administration (fine-grained: Administration read)"
-case "${FACET_RELEASE_REQUIRE_SECOND_REVIEWER:-}" in
-true) SECOND_REVIEWER=1 ;;
-'' | false) SECOND_REVIEWER= ;;
-*) die "FACET_RELEASE_REQUIRE_SECOND_REVIEWER is '$FACET_RELEASE_REQUIRE_SECOND_REVIEWER'; set it to true, false or nothing" ;;
-esac
-
 env_json=$(gh api "repos/$REPO/environments/$ENV_NAME" 2>&1) ||
-  die "environment '$ENV_NAME' cannot be read in $REPO ($env_json); create it with required reviewers and a main-only branch policy"
-printf '%s' "$env_json" | jq -e '[.protection_rules[]? | select(.type == "required_reviewers") | (.reviewers // []) | length] | any(. > 0)' >/dev/null ||
-  die "environment '$ENV_NAME' has no required reviewers; nothing it gates would wait for an approval"
-if [ -n "$SECOND_REVIEWER" ]; then
-  printf '%s' "$env_json" | jq -e '[.protection_rules[]? | select(.type == "required_reviewers" and ((.reviewers // []) | length) > 0) | .prevent_self_review == true] | any' >/dev/null ||
-    die "environment '$ENV_NAME' lets a reviewer approve a run they triggered themselves, and FACET_RELEASE_REQUIRE_SECOND_REVIEWER is true; enable 'Prevent self-review' on its required reviewers"
-  REVIEW_TEXT="requires a reviewer other than the one who triggered it"
+  die "environment '$ENV_NAME' cannot be read in $REPO ($env_json); create it with its required deployment rules"
+if [ "$ENV_NAME" = npm ]; then
+  printf '%s' "$env_json" | jq -e 'all(.protection_rules[]?; .type != "required_reviewers")' >/dev/null ||
+    die "environment 'npm' must have no required reviewers; approval happens on npmjs.com"
+  REVIEW_TEXT="has no required reviewers"
 else
-  echo "release-environment-check: notice: FACET_RELEASE_REQUIRE_SECOND_REVIEWER is not true, so the releaser may approve their own run in environment '$ENV_NAME'"
-  REVIEW_TEXT="requires a reviewer (who may be the one who triggered it)"
+  case "${FACET_RELEASE_REQUIRE_SECOND_REVIEWER:-}" in
+  true) SECOND_REVIEWER=1 ;;
+  '' | false) SECOND_REVIEWER= ;;
+  *) die "FACET_RELEASE_REQUIRE_SECOND_REVIEWER is '$FACET_RELEASE_REQUIRE_SECOND_REVIEWER'; set it to true, false or nothing" ;;
+  esac
+  printf '%s' "$env_json" | jq -e '[.protection_rules[]? | select(.type == "required_reviewers") | (.reviewers // []) | length] | any(. > 0)' >/dev/null ||
+    die "environment '$ENV_NAME' has no required reviewers; nothing it gates would wait for an approval"
+  if [ -n "$SECOND_REVIEWER" ]; then
+    printf '%s' "$env_json" | jq -e '[.protection_rules[]? | select(.type == "required_reviewers" and ((.reviewers // []) | length) > 0) | .prevent_self_review == true] | any' >/dev/null ||
+      die "environment '$ENV_NAME' lets a reviewer approve a run they triggered themselves, and FACET_RELEASE_REQUIRE_SECOND_REVIEWER is true; enable 'Prevent self-review' on its required reviewers"
+    REVIEW_TEXT="requires a reviewer other than the one who triggered it"
+  else
+    echo "release-environment-check: notice: FACET_RELEASE_REQUIRE_SECOND_REVIEWER is not true, so the releaser may approve their own run in environment '$ENV_NAME'"
+    REVIEW_TEXT="requires a reviewer (who may be the one who triggered it)"
+  fi
 fi
 printf '%s' "$env_json" | jq -e '.can_admins_bypass == false' >/dev/null ||
   die "environment '$ENV_NAME' can be bypassed by repository administrators (can_admins_bypass: $(printf '%s' "$env_json" | jq -c '.can_admins_bypass')); disable 'Allow administrators to bypass configured protection rules'"
 printf '%s' "$env_json" | jq -e '.deployment_branch_policy.custom_branch_policies == true and .deployment_branch_policy.protected_branches == false' >/dev/null ||
-  die "environment '$ENV_NAME' does not limit deployments to selected branches (deployment_branch_policy: $(printf '%s' "$env_json" | jq -c '.deployment_branch_policy'))"
+  die "environment '$ENV_NAME' does not limit deployments to selected branches and tags (deployment_branch_policy: $(printf '%s' "$env_json" | jq -c '.deployment_branch_policy'))"
 
-policies=$(gh api "repos/$REPO/environments/$ENV_NAME/deployment-branch-policies" 2>&1) ||
+policies=$(gh api "repos/$REPO/environments/$ENV_NAME/deployment-branch-policies?per_page=100" --paginate --slurp 2>&1) ||
   die "the branch policies of environment '$ENV_NAME' cannot be read ($policies)"
-printf '%s' "$policies" | jq -e '[.branch_policies[]? | {name, type: (.type // "branch")}] == [{"name": "main", "type": "branch"}]' >/dev/null ||
-  die "environment '$ENV_NAME' may deploy from $(printf '%s' "$policies" | jq -c '[.branch_policies[]? | .name]'), not from main only"
+printf '%s' "$policies" | jq -e '
+  [.[] | .branch_policies[] | {name, type}] == [{name: "main", type: "branch"}]' >/dev/null ||
+  die "environment '$ENV_NAME' must allow deployments from the main branch only"
 
 # --- main: a reviewed pull request, for administrators too -----------------
 main_ok=
@@ -96,7 +100,7 @@ if [ -z "$main_ok" ]; then
   die "main can change without a reviewed pull request: ${main_reasons#; }; require a pull request with at least one approving review on main that administrators cannot bypass (branch protection or a branch ruleset)"
 fi
 
-# --- v* tags: created, moved and deleted only by the allowed bypass actors --
+# --- v* tags: allow creation, restrict changes ----------------------------
 tag_ok=
 tag_unreadable=
 tag_reasons=
@@ -110,16 +114,21 @@ if tagsets=$(gh api "repos/$REPO/rulesets?targets=tag&includes_parents=true&per_
       continue
     fi
     name=$(printf '%s' "$ruleset" | jq -r '.name // ""')
-    if ! printf '%s' "$ruleset" | jq -e '([.conditions.ref_name.include[]?] | any(. == "refs/tags/v*" or . == "~ALL"))
-        and ((.conditions.ref_name.exclude // []) | length) == 0
-        and ((["creation", "update", "deletion"] - [.rules[]? | .type]) | length) == 0' >/dev/null 2>&1; then
-      tag_reasons="$tag_reasons; tag ruleset '$name' does not restrict creation, update and deletion of refs/tags/v*"
-    elif ! printf '%s' "$ruleset" | jq -e 'has("bypass_actors")' >/dev/null 2>&1; then
+    if ! printf '%s' "$ruleset" | jq -e '.enforcement == "active"
+        and ([.conditions.ref_name.include[]?] | any(. == "refs/tags/v*" or . == "~ALL"))
+        and ((.conditions.ref_name.exclude // []) | length) == 0' >/dev/null 2>&1; then
+      tag_reasons="$tag_reasons; tag ruleset '$name' does not cover all refs/tags/v*"
+    elif ! printf '%s' "$ruleset" | jq -e '(.bypass_actors | type) == "array"' >/dev/null 2>&1; then
       tag_unreadable="the bypass list of tag ruleset $id ('$name') is not in the answer"
+    elif printf '%s' "$ruleset" | jq -e 'any(.rules[]?; .type == "creation")
+        and (any(.bypass_actors[]; .actor_type == "Integration" and .actor_id == 15368 and .bypass_mode == "always") | not)' >/dev/null 2>&1; then
+      die "tag ruleset '$name' restricts creation of v* tags; allow the release workflow to create them"
+    elif ! printf '%s' "$ruleset" | jq -e '(["update", "deletion", "non_fast_forward"] - [.rules[]? | .type]) == []' >/dev/null 2>&1; then
+      tag_reasons="$tag_reasons; tag ruleset '$name' does not restrict update, deletion and non-fast-forward changes to refs/tags/v*"
     elif printf '%s' "$ruleset" | jq -e '[.bypass_actors[] | select((.actor_type == "Integration" and .actor_id == 15368) or .actor_type == "DeployKey" | not)] | length == 0' >/dev/null 2>&1; then
       tag_ok=1
     else
-      tag_reasons="$tag_reasons; tag ruleset '$name' lets $(printf '%s' "$ruleset" | jq -c '[.bypass_actors[] | select((.actor_type == "Integration" and .actor_id == 15368) or .actor_type == "DeployKey" | not) | "\(.actor_type) \(.actor_id // "")"]') create, move or delete v* tags"
+      tag_reasons="$tag_reasons; tag ruleset '$name' lets $(printf '%s' "$ruleset" | jq -c '[.bypass_actors[] | select((.actor_type == "Integration" and .actor_id == 15368) or .actor_type == "DeployKey" | not) | "\(.actor_type) \(.actor_id // "")"]') update or delete v* tags"
     fi
   done
 else
@@ -127,7 +136,16 @@ else
 fi
 if [ -z "$tag_ok" ]; then
   [ -z "$tag_unreadable" ] || die "$tag_unreadable; $NO_ADMIN_READ"
-  die "v* tags can be created, moved or deleted by more than the GitHub Actions app and deploy keys: ${tag_reasons#; }; add an active tag ruleset for refs/tags/v* with 'Restrict creations', 'Restrict updates' and 'Restrict deletions' whose bypass list holds only the GitHub Actions app"
+  die "v* tags lack the required protection: ${tag_reasons#; }; require update, deletion and non-fast-forward restrictions with an empty bypass list or only GitHub Actions and deploy keys"
 fi
 
-echo "release-environment-check: environment '$ENV_NAME' $REVIEW_TEXT, has no administrator bypass and deploys from main only; main needs a reviewed pull request, administrators included; only workflows of this repository (GitHub Actions) and deploy keys can create, move or delete v* tags"
+immutable=$(gh api "repos/$REPO/immutable-releases" 2>&1) || {
+  if printf '%s\n' "$immutable" | grep -Eq '\(HTTP 404\)$'; then
+    die "immutable releases are disabled in $REPO; enable them before publishing"
+  fi
+  die "immutable releases settings cannot be read in $REPO ($immutable); $NO_ADMIN_READ; verify immutable releases are enabled"
+}
+printf '%s' "$immutable" | jq -e '.enabled == true' >/dev/null 2>&1 ||
+  die "immutable releases are disabled in $REPO; enable them before publishing"
+
+echo "release-environment-check: environment '$ENV_NAME' $REVIEW_TEXT, has no administrator bypass and deploys from the main branch only; main needs a reviewed pull request; v* tags restrict changes; immutable releases are enabled"

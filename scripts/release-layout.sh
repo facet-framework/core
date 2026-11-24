@@ -23,8 +23,7 @@ release_layout() {
     ATLAS_TAG_PREFIX=internal/atlas/
     ;;
   public)
-    # The public layout is the exported Core tree, and nothing else: its
-    # receipt has to be there and name product core.
+    # The receipt has to be present and name product core.
     if ! [ -f "$1/PUBLIC-SOURCE-MANIFEST.json" ] ||
       [ "$(jq -r '.product // empty' "$1/PUBLIC-SOURCE-MANIFEST.json" 2>/dev/null)" != core ]; then
       echo "release-layout: the public layout needs PUBLIC-SOURCE-MANIFEST.json naming product core in $1" >&2

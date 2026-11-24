@@ -1,0 +1,101 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: registry/integrity/spec-lint
+lifecycle: active
+intent:
+  summary: |
+    Checks specification files using the corresponding format and reports
+    malformed units with their binding strength and source location.
+contract:
+  scenarios:
+    - id: valid-specs-pass
+      statement: |
+        Given a directory with a valid FACET Markdown spec, a valid Gherkin feature file, and an ordinary Markdown file
+        When I run facet spec lint in that directory
+        Then the command exits successfully
+        And it reports two checked spec files and one skipped Markdown file
+    - id: missing-case-tag-fails
+      statement: |
+        Given a Gherkin feature file containing a scenario without a case tag
+        When I run facet spec lint
+        Then the command exits with code 1
+        And it reports the missing case tag at the scenario's file and line
+    - id: empty-scan-reports-skips
+      statement: |
+        Given a directory containing only one ordinary Markdown file
+        When I run facet spec lint in that directory
+        Then the command exits successfully
+        And it reports zero checked spec files and one skipped Markdown file
+    - id: case-tag-kind-follows-frontmatter
+      statement: |
+        Given a FACET Markdown spec whose frontmatter sets case_tag to id
+        And a scenario tagged with both @case:other and @id:discount
+        When the spec is read
+        Then the scenario is addressed as <spec-id>#discount
+        And a scenario without an @id tag is reported even if it carries a @case tag
+    - id: invalid-spec-files-are-reported-with-a-line
+      statement: |
+        Given a FACET Markdown spec with an invalid frontmatter value, an unsupported facet-spec version, a duplicate case ID, two case tags on one scenario or an unparsable Gherkin block
+        When the spec is read
+        Then exactly one finding names the file and the line of the defect
+    - id: presentation-edits-keep-the-digest
+      statement: |
+        Given a Gherkin scenario with an explicit case tag
+        When only its comments, tags, scenario name, example title, indentation or inner whitespace change
+        Then its step digest and its context digest stay the same
+    - id: behaviour-edits-change-the-digest
+      statement: |
+        Given a spec scenario
+        When a step text, a keyword type, an example row or its order, a doc string or a data table changes
+        Then its step digest changes and its context digest stays the same
+        And when only a feature or rule background changes, only the context digest changes
+    - id: record-statement-normalises-like-the-spec
+      statement: |
+        Given a record statement written as Gherkin steps in the spec's language
+        When it is normalised
+        Then its digest equals the digest of the spec scenario with the same steps
+        And a statement containing prose, a scenario header or an examples block is rejected
+    - id: report-malformed-openspec
+      statement: |
+        Given an accepted OpenSpec file with a duplicate case slug and an unrecognised keyword
+        When I run facet spec lint in the spec repository
+        Then the command exits with code 1
+        And the findings name the file, their lines and the exact binding
+    - id: report-malformed-gherkin-markdown
+      statement: |
+        Given a Markdown with Gherkin file whose scenario has no backticked case tag
+        When I run facet spec lint
+        Then the finding names the scenario line and the exact binding
+verification:
+  integration_tests:
+    - id: "cli/spec_remaining_adapters_test.go::TestSpecGherkinMarkdownPinDriftAndExecution"
+      proves:
+        - report-malformed-gherkin-markdown
+    - id: "cli/spec_adapters_test.go::TestSpecOpenSpecPinLintAndCollision"
+      proves:
+        - report-malformed-openspec
+    - id: "cli/spec_cmd_test.go::TestSpecLintCommand"
+      proves:
+        - valid-specs-pass
+        - missing-case-tag-fails
+        - empty-scan-reports-skips
+  unit_tests:
+    - id: "internal/spec/spec_test.go::TestSpecCaseTagAndDialect"
+      proves:
+        - case-tag-kind-follows-frontmatter
+        - record-statement-normalises-like-the-spec
+    - id: "internal/spec/spec_test.go::TestSpecFindings"
+      proves:
+        - invalid-spec-files-are-reported-with-a-line
+    - id: "internal/spec/spec_test.go::TestSpecNormalise"
+      proves:
+        - presentation-edits-keep-the-digest
+        - behaviour-edits-change-the-digest
+    - id: "internal/spec/spec_test.go::TestSpecPlainFeatureAndStatement"
+      proves:
+        - record-statement-normalises-like-the-spec
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-11-23"

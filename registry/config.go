@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/facet-framework/core/internal/sourceview"
+	"github.com/facet-framework/core/internal/spec"
 	"github.com/goccy/go-yaml"
 )
 
@@ -38,6 +39,7 @@ type registryEntry struct {
 
 // Config is the parsed .facetrc.yaml.
 type Config struct {
+	SpecSources []spec.Source      `yaml:"spec_sources,omitempty"`
 	SourceViews *sourceview.Config `yaml:"source_views,omitempty"`
 	sourceView  *sourceview.ResolvedView
 
@@ -119,6 +121,8 @@ func (c *Config) BPMNDirectory() string {
 //
 // @facet: authoring/guardrails/commit-gate
 // @facet-role: config
+// @facet: authoring/guardrails/drift-notice
+// @facet-role: config
 type HooksConfig struct {
 	// CommitGate is "on" (the default when empty) or "off". Off stops the
 	// plugin's commit gate from judging this project's commits. The environment
@@ -126,6 +130,18 @@ type HooksConfig struct {
 	// wins over this. Only "on" and "off" are accepted: a typo such as "of"
 	// must not read as either.
 	CommitGate string `yaml:"commit_gate"`
+
+	// DriftNotice is "on" (the default when empty) or "off". Off stops the
+	// Stop hook from reporting drift at the end of a turn. The environment
+	// variable FACET_SKIP_DRIFT_NOTICE=1 is the per-session switch and wins over
+	// this. Only "on" and "off" are accepted, for the same reason as above.
+	DriftNotice string `yaml:"drift_notice"`
+}
+
+// DriftNoticeOff reports whether the configuration switches the Stop hook's
+// drift notice off. It answers false for a nil Config.
+func (c *Config) DriftNoticeOff() bool {
+	return c != nil && c.Hooks.DriftNotice == "off"
 }
 
 // CommitGateOff reports whether the configuration switches the commit gate
@@ -262,6 +278,9 @@ func loadConfig(root, selected string, frozen *sourceview.ResolvedView, unresolv
 	if err := yaml.Unmarshal(data, cfg); err != nil {
 		return nil, fmt.Errorf("%s: %w", ConfigName, err)
 	}
+	if err := spec.ConfigureSources(cfg.SpecSources); err != nil {
+		return nil, fmt.Errorf("%s: %w", ConfigName, err)
+	}
 	if err := validateRunnerFields(data); err != nil {
 		return nil, fmt.Errorf("%s: %w", ConfigName, err)
 	}
@@ -307,6 +326,11 @@ func loadConfig(root, selected string, frozen *sourceview.ResolvedView, unresolv
 	default:
 		return nil, fmt.Errorf("%s: hooks.commit_gate %q must be on or off", ConfigName, cfg.Hooks.CommitGate)
 	}
+	switch cfg.Hooks.DriftNotice {
+	case "", "on", "off":
+	default:
+		return nil, fmt.Errorf("%s: hooks.drift_notice %q must be on or off", ConfigName, cfg.Hooks.DriftNotice)
+	}
 	for host, forge := range cfg.ForgeHosts {
 		if !validForgeHost(host) {
 			return nil, fmt.Errorf(
@@ -333,6 +357,36 @@ func loadConfig(root, selected string, frozen *sourceview.ResolvedView, unresolv
 	for _, entry := range cfg.Registries {
 		if err := validateRunners(entry.Runners); err != nil {
 			return nil, err
+		}
+	}
+	for _, source := range cfg.SpecSources {
+		if source.Runner == "" {
+			continue
+		}
+		check := func(registry string, runners map[string]Runner) error {
+			if runners[source.Runner].Report != "cucumber-json" {
+				return fmt.Errorf("%s: spec source %q runner %q must name a declared cucumber-json runner in registry %q", ConfigName, source.ID, source.Runner, registry)
+			}
+			return nil
+		}
+		if !cfg.MultiRegistry() {
+			if err := check("", cfg.Runners); err != nil {
+				return nil, err
+			}
+			continue
+		}
+		if source.Registries == nil {
+			for name, entry := range cfg.Registries {
+				if err := check(name, entry.Runners); err != nil {
+					return nil, err
+				}
+			}
+		} else {
+			for _, name := range source.Registries {
+				if err := check(name, cfg.Registries[name].Runners); err != nil {
+					return nil, err
+				}
+			}
 		}
 	}
 	if unresolved {
@@ -544,12 +598,13 @@ func (c *Config) build(name, records, schema string, sources []string) Registry 
 	}
 	recordsAbs := absUnder(root, records)
 	return Registry{
-		Name:       name,
-		Root:       root,
-		RecordsDir: recordsAbs,
-		SchemaDir:  resolveSchemaDir(root, recordsAbs, schema),
-		Sources:    append([]string(nil), sources...),
-		SourceView: c.sourceView,
+		Name:        name,
+		Root:        root,
+		RecordsDir:  recordsAbs,
+		SchemaDir:   resolveSchemaDir(root, recordsAbs, schema),
+		Sources:     append([]string(nil), sources...),
+		SourceView:  c.sourceView,
+		specSources: c.SpecSources,
 	}
 }
 

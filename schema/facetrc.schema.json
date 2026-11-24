@@ -5,6 +5,85 @@
   "description": "Committed project layout for FACET, read from .facetrc.yaml at the repository root. Optional: a project that omits the file keeps the defaults. Declare either the single-registry fields or a registries block, never both.",
   "type": "object",
   "properties": {
+    "spec_sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "repo"
+        ],
+        "if": {
+          "required": [
+            "format"
+          ],
+          "properties": {
+            "format": {
+              "enum": [
+                "speckit",
+                "kiro",
+                "bmad",
+                "gauge"
+              ]
+            }
+          }
+        },
+        "then": {
+          "not": {
+            "required": [
+              "runner"
+            ]
+          }
+        },
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
+          },
+          "repo": {
+            "type": "string",
+            "minLength": 1
+          },
+          "path": {
+            "type": "string",
+            "description": "Defaults to openspec/specs for openspec, specs for speckit and gauge, .kiro/specs for kiro, _bmad-output/implementation-artifacts for bmad, and the repository root for the other formats."
+          },
+          "follow": {
+            "type": "string",
+            "minLength": 1,
+            "default": "main"
+          },
+          "format": {
+            "enum": [
+              "facet-spec",
+              "gherkin",
+              "openspec",
+              "speckit",
+              "gherkin-markdown",
+              "kiro",
+              "bmad",
+              "gauge"
+            ],
+            "default": "facet-spec"
+          },
+          "runner": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$",
+            "description": "Declared cucumber-json runner used to execute pinned scenarios."
+          },
+          "registries": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9-]*$"
+            },
+            "uniqueItems": true
+          }
+        }
+      },
+      "uniqueItems": true
+    },
     "test_feature_prefixes": {
       "type": "array",
       "items": {
@@ -176,7 +255,7 @@
     },
     "hooks": {
       "type": "object",
-      "description": "Project-wide switches for the guards that run around an agent's commits. Absent means every guard is on. Read from the committed file at HEAD, never from the working tree, so turning a guard off is itself a reviewed commit; the environment variable FACET_SKIP_COMMIT_GATE=1 remains the per-session escape hatch and wins over this.",
+      "description": "Project-wide switches for the guards that run around an agent's commits and turns. Absent means every guard is on. Read from the committed file at HEAD, never from the working tree, so turning a guard off is itself a reviewed commit; the environment variable FACET_SKIP_COMMIT_GATE=1 remains the per-session escape hatch and wins over this.",
       "properties": {
         "commit_gate": {
           "enum": [
@@ -184,6 +263,13 @@
             "off"
           ],
           "description": "'off' stops the plugin's commit gate from judging this project's commits. Default: on."
+        },
+        "drift_notice": {
+          "enum": [
+            "on",
+            "off"
+          ],
+          "description": "'off' stops the Stop hook from reporting drift at the end of a turn. The environment variable FACET_SKIP_DRIFT_NOTICE=1 does the same for one session and wins over this. Default: on."
         }
       },
       "additionalProperties": false
@@ -200,6 +286,23 @@
           "id"
         ],
         "additionalProperties": false,
+        "if": {
+          "required": [
+            "format"
+          ],
+          "properties": {
+            "format": {
+              "const": "speckit"
+            }
+          }
+        },
+        "then": {
+          "not": {
+            "required": [
+              "runner"
+            ]
+          }
+        },
         "properties": {
           "id": {
             "type": "string",

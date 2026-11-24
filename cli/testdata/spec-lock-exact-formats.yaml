@@ -1,0 +1,96 @@
+facet-source:
+  commit: COMMIT
+  files:
+    pricing/discounts:
+      language: en
+      status: approved
+  follow: main
+  format: facet-spec
+  repo: REPO
+  scenarios:
+    pricing/discounts#cap:
+      commit: COMMIT
+      context: sha256:95cb9b4f84ceff132cc7a875d8c192bf4997016a939ee64141c1fd628c0e8738
+      sequence:
+        steps:
+          - text: a cart
+            type: Context
+          - text: the discount is capped
+            type: Outcome
+      steps: sha256:94061e55964e68bbe19c9e5b0a81e03f6c9b0c85cc9d5a2ce6ec13b16bbee657
+gherkin-source:
+  commit: COMMIT
+  files:
+    checkout:
+      language: en
+      status: approved
+  follow: main
+  format: gherkin
+  repo: REPO
+  scenarios:
+    checkout#submit:
+      commit: COMMIT
+      context: sha256:95cb9b4f84ceff132cc7a875d8c192bf4997016a939ee64141c1fd628c0e8738
+      sequence:
+        steps:
+          - text: a cart is submitted
+            type: Action
+          - text: checkout confirms the order
+            type: Outcome
+      steps: sha256:7a38c19b6395c1958aa4615cc598bfbdb4135a376cf72500e7c00ac26ef5cedb
+openspec-source:
+  commit: COMMIT
+  files:
+    checkout:
+      language: en
+      status: approved
+  follow: main
+  format: openspec
+  repo: REPO
+  scenarios:
+    checkout#submit-cart-add-items:
+      commit: COMMIT
+      context: sha256:95cb9b4f84ceff132cc7a875d8c192bf4997016a939ee64141c1fd628c0e8738
+      sequence:
+        steps:
+          - text: a cart
+            type: Context
+          - text: inventory is available
+            type: Context
+          - text: the customer submits the cart
+            type: Action
+          - text: the order is created
+            type: Outcome
+          - text: the cart is cleared
+            type: Outcome
+      steps: sha256:a2cd4c69810c1af5f561cc9cd7f175f66c011c195eb9d8da5170dacf252fd6b6
+    checkout#submit-cart-empty-cart:
+      commit: COMMIT
+      context: sha256:95cb9b4f84ceff132cc7a875d8c192bf4997016a939ee64141c1fd628c0e8738
+      sequence:
+        steps:
+          - text: the customer submits an empty cart
+            type: Action
+          - text: checkout rejects the empty cart
+            type: Outcome
+      steps: sha256:dd3751df1dcd3c36cb07abe25b498e3ab97eb7b450d5fc14fed2bbd8bc65d28e
+speckit-source:
+  commit: COMMIT
+  files:
+    003-checkout:
+      language: en
+      status: approved
+  follow: main
+  format: speckit
+  repo: REPO
+  scenarios:
+    003-checkout#fr-001:
+      binding: provenance
+      commit: COMMIT
+      steps: sha256:34ebf8ad4d0e99d8c76688f5b4c9b15c9b410a41156c024d06ccb0ad8fdece50
+      text: The system MUST create an order for a submitted cart.
+    003-checkout#sc-001:
+      binding: provenance
+      commit: COMMIT
+      steps: sha256:fa582ce36bd50bd19808f6d73b36b6bb3f93001fe62e9f71e0852fbab85e10e9
+      text: Checkout completes within two seconds.

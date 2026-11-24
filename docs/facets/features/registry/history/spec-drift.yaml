@@ -1,0 +1,121 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: registry/history/spec-drift
+lifecycle: active
+intent:
+  summary: |
+    Compare pinned specification scenarios with their configured branches to
+    report changed requirements, missing cases, and approved pins without
+    record coverage.
+contract:
+  scenarios:
+    - id: report-step-changes
+      statement: |
+        Given a pinned scenario whose normalised steps changed on follow
+        When I run facet spec drift with the diff flag
+        Then it reports spec-moved, the scenario address, its records and the step diff
+        And it recommends reporting the requirement for an existing or new work item
+        And the lock is unchanged
+    - id: report-context-and-removals
+      statement: |
+        Given a pinned scenario whose background changed and another that was removed
+        When I run facet spec drift
+        Then it reports spec-moved for the changed context and orphaned for the removed address
+        And both findings recommend reporting the requirement for an existing or new work item
+    - id: attribute-unclaimed-approved-pins
+      statement: |
+        Given a pinned scenario without a record scenario reference
+        When the file is approved at follow
+        Then drift reports the pin as unclaimed and lists every record naming the file in lineage.specified_by
+        And it says when no record claims the file
+    - id: skip-draft-coverage-and-warn-on-deprecation
+      statement: |
+        Given pinned draft cases and a record referencing the file
+        When I compare the pins with the source
+        Then draft cases do not produce unclaimed findings
+        And a change to deprecated status at follow warns and names the records referencing the file
+    - id: an-absent-scenario-is-only-orphaned
+      statement: |
+        Given an approved specification file that no longer contains a pinned scenario
+        When I compare the pins with the follow branch
+        Then the scenario is reported as orphaned
+        And it is not also reported as unclaimed
+    - id: compare-from-cache-offline
+      statement: |
+        Given a successfully fetched specification branch and a pinned scenario
+        When I run facet spec drift with the cached flag after the source branch becomes unavailable
+        Then the command still compares the pin with the last fetched branch state
+    - id: report-unmeasured-sources
+      statement: |
+        Given an unavailable branch, unreadable specification, or missing cache
+        When I run facet spec drift
+        Then it reports unmeasured with the source and the reason
+        And the exit status is zero by default and nonzero with FACET_STRICT_DEPS set to 1
+    - id: machine-readable-findings-and-strict-exit
+      statement: |
+        Given a comparison with or without findings
+        When I request JSON and strict mode
+        Then the findings array carries state, source, address, records and detail for each finding
+        And the exit status is nonzero if there is a finding
+    - id: reject-invalid-invocations
+      statement: |
+        Given an undeclared source argument or an invalid lock
+        When I run facet spec drift
+        Then the comparison fails and names the configuration or usage error
+    - id: report-provenance-text
+      statement: |
+        Given a record referencing a pinned provenance unit whose text changed on the follow branch
+        When I run facet spec drift with --diff
+        Then the changed unit is reported as spec-moved with its record and provenance binding
+        And the finding includes the pinned and current normalised text
+verification:
+  integration_tests:
+    - id: "cli/spec_remaining_adapters_test.go::TestSpecProvenanceAdapters"
+      proves:
+        - report-provenance-text
+    - id: "cli/spec_adapters_test.go::TestSpecKitPinLintAndTextDrift"
+      proves:
+        - report-provenance-text
+    - id: "cli/spec_drift_cmd_test.go::TestSpecDriftStepsAndCachedStrict"
+      proves:
+        - report-step-changes
+        - compare-from-cache-offline
+        - machine-readable-findings-and-strict-exit
+    - id: "cli/spec_drift_cmd_test.go::TestSpecDriftContextAndOrphan"
+      proves:
+        - report-context-and-removals
+    - id: "cli/spec_drift_cmd_test.go::TestSpecDriftClaimsAndDeprecation"
+      proves:
+        - attribute-unclaimed-approved-pins
+        - skip-draft-coverage-and-warn-on-deprecation
+        - machine-readable-findings-and-strict-exit
+    - id: "cli/spec_drift_cmd_test.go::TestSpecDriftUnmeasuredAndUsage"
+      proves:
+        - report-unmeasured-sources
+        - reject-invalid-invocations
+    - id: "cli/spec_drift_cmd_test.go::TestSpecDriftAnApprovedRemovalIsOnlyOrphaned"
+      proves:
+        - an-absent-scenario-is-only-orphaned
+knowledge:
+  prerequisite_knowledge:
+    question: "What configuration and snapshot does the comparison use?"
+    answer: Declare specification sources in .facetrc.yaml and pin scenarios in docs/facets/spec-lock.yaml.
+  not_for:
+    question: "When should I use another workflow?"
+    answer: Apply an agreed requirement through its work item. Use lint to compare a record with its pin.
+  discoverability:
+    question: "How do I run the comparison?"
+    answer: Run facet spec drift from the project root. Pass source IDs to limit the comparison.
+  common_pitfalls:
+    question: "When can the branch snapshot be stale?"
+    answer: Cached mode reads the last successful fetch and can lag behind follow.
+  success_signal:
+    question: "What does a completed comparison report?"
+    answer: "Each finding names its state, source or address, and any affected records. An unmeasured source has no comparison result."
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-11-23"
+  depends_on:
+    - registry/integrity/spec-pin

@@ -1,5 +1,6 @@
 // @facet: registry/integrity/runner-test-discovery
 // @facet-role: related
+
 package facet
 
 import (
@@ -64,8 +65,12 @@ func writeTestBaseline(path string, data []byte) error {
 	return os.Rename(temp, path)
 }
 
-func testListCommand(ctx context.Context, command string) *exec.Cmd {
-	cmd := exec.CommandContext(ctx, "sh", "-c", command)
+func testListCommand(ctx context.Context, command string, files ...string) *exec.Cmd {
+	args := []string{"-c", command}
+	if len(files) > 0 {
+		args = append(append(args, "sh"), files...)
+	}
+	cmd := exec.CommandContext(ctx, "sh", args...)
 	// Bound the pipe drain too; a detached child must not delay cancellation.
 	cmd.WaitDelay = 100 * time.Millisecond
 	configureTestProcess(cmd)

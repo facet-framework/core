@@ -86,7 +86,7 @@ contract:
         observed_ms_four_idle_cores: 12
 observation:
   slos:
-    - name: "10× the documents costs between 4× and 12× the query time"
+    - name: "2× the documents costs between 1.2× and 3× the query time"
       target: 100
       window: per release
       query: go test ./rag -run TestSearchScalesLinearlyAndAddsNoOverheadPerDocument

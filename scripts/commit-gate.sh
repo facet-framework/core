@@ -46,6 +46,26 @@ fi
 
 facet_is_adopted "$ROOT" || exit 0
 
+# The drift notice's switch follows the same rule as the gate's own: a commit
+# that sets it while HEAD does not is refused, before the gate's switch below
+# can let it through.
+if facet_drift_notice_switch "$ROOT" ":" && ! facet_drift_notice_switch "$ROOT" "HEAD:"; then
+  REASON="FACET: this commit sets hooks.drift_notice: off in .facetrc.yaml. Switching the
+drift notice off is a decision for the person running the session, not for the agent.
+It can be committed with FACET_SKIP_COMMIT_GATE=1 set in the environment Claude
+Code was started with, or from a terminal."
+  if command -v jq >/dev/null 2>&1; then
+    jq -n --arg r "$REASON" \
+      '{hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: $r}}'
+  else
+    ESC=$(printf '%s' "$REASON" |
+      sed 's/\\/\\\\/g; s/"/\\"/g' |
+      awk 'NR>1{printf "\\n"} {printf "%s", $0}')
+    printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"%s"}}\n' "$ESC"
+  fi
+  exit 0
+fi
+
 if ! printf '%s' "$COMMAND" | grep -qE '(GIT_DIR=|GIT_WORK_TREE=|--git-dir|--work-tree|pushd|(^|[[:space:]])(sh|bash)[[:space:]]+-c|(^|[^[:alnum:]_])eval([[:space:]]|$))'; then
   facet_commit_gate_off "$ROOT" && exit 0
 fi

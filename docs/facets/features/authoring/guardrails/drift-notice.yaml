@@ -13,6 +13,13 @@ intent:
     Notices already delivered do not block again in the same session. New
     affected records stay visible during a Stop continuation too. The check
     covers the working tree, not a confirmed historical freshness.
+
+    The person running the session can switch the notice off:
+    FACET_SKIP_DRIFT_NOTICE=1 in the environment, or 'hooks: {drift_notice:
+    off}' in .facetrc.yaml, read only from HEAD. The environment wins. Only on
+    and off are accepted. An agent cannot commit the config switch; the commit
+    gate refuses it. The switch stops the whole Stop hook for the project,
+    including spec-drift notices.
 contract:
   scenarios:
     - id: a-file-in-a-new-directory-is-seen
@@ -61,6 +68,25 @@ contract:
         because a rename leaves it wrong without changing a line of it
       post_state:
         stop_review_emitted: true
+    - id: the-notice-can-be-switched-off-in-the-configuration
+      statement: |
+        Given an anchored source file that changed without its record
+        And .facetrc.yaml at HEAD sets hooks.drift_notice to off
+        When the turn ends
+        Then the Stop hook prints nothing, in the binary and in the shell fallback
+    - id: the-notice-can-be-switched-off-by-the-environment
+      statement: |
+        Given an anchored source file that changed without its record
+        And FACET_SKIP_DRIFT_NOTICE is 1 in the environment, with the
+        configuration saying on or nothing
+        When the turn ends
+        Then the Stop hook prints nothing, so the environment wins over the
+        configuration
+    - id: a-misspelled-drift-notice-switch-is-refused
+      statement: |
+        Given .facetrc.yaml sets hooks.drift_notice to a value other than on or off
+        When the configuration is loaded
+        Then it is rejected with "must be on or off", and the notice stays on
     - id: a-new-review-blocks-stop-once
       statement: |
         Given an active record and a changed anchored source without a change to the record
@@ -94,7 +120,18 @@ contract:
         And the clone has an accepted baseline before an incoming commit
         When the turn ends with the outer workspace repository clean
         Then the notice names the affected record and its workspace-relative source path
+    - id: report-specification-drift-from-cache
+      statement: |
+        Given a project with a cached specification branch and a divergent pin
+        When the native Stop hook runs
+        Then it reports the changed address from the cache once per session
+        And it tells the agent to report the requirement and recommend a work item
+        And it emits no specification findings when no sources are declared
 verification:
+  integration_tests:
+    - id: "cli/spec_drift_cmd_test.go::TestSpecDriftStopHookReportsCachedMoveOnce"
+      proves:
+        - report-specification-drift-from-cache
   unit_tests:
     - id: "cli/hook_bounds_dedup_test.go::TestConcurrentNoticesClaimDeliveryOnce"
       proves:

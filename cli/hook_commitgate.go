@@ -31,6 +31,9 @@ func commitLintWithSourceView(root, command, selected string) (facet.Report, err
 		return facet.Report{}, err
 	}
 
+	if configAt(selectedRoot, ":").DriftNoticeOff() && !configAt(selectedRoot, "HEAD:").DriftNoticeOff() {
+		return facet.Report{}, fmt.Errorf("this commit sets hooks.drift_notice: off in %s; switching the drift notice off is a decision for the person running the session, not for the agent. It can be committed with FACET_SKIP_COMMIT_GATE=1 set in the environment Claude Code was started with, or from a terminal", facet.ConfigName)
+	}
 	if commitGateOffAt(selectedRoot, "HEAD:") {
 		return facet.Report{}, nil
 	}
@@ -45,20 +48,38 @@ func commitLintWithSourceView(root, command, selected string) (facet.Report, err
 // 'hooks: {commit_gate: off}'. prefix is "HEAD:" for the committed file or ":"
 // for the staged one.
 func commitGateOffAt(root, prefix string) bool {
+	return configAt(root, prefix).CommitGateOff()
+}
+
+// driftNoticeOff reports whether the Stop hook's drift notice is switched off
+// for root: by FACET_SKIP_DRIFT_NOTICE=1 in the environment, which wins, or by
+// 'hooks: {drift_notice: off}' in the configuration committed at HEAD. The
+// working tree is never consulted, for the reason given on commitGateOffAt.
+func driftNoticeOff(root string) bool {
+	return os.Getenv("FACET_SKIP_DRIFT_NOTICE") == "1" || configAt(root, "HEAD:").DriftNoticeOff()
+}
+
+// configAt loads the .facetrc.yaml of one revision (prefix "HEAD:" or ":").
+// It answers nil when the revision has no readable configuration; the Config
+// methods used on the result treat nil as "switch not set".
+func configAt(root, prefix string) *facet.Config {
 	data, err := exec.Command("git", "-C", root, "show", prefix+facet.ConfigName).Output()
 	if err != nil {
-		return false
+		return nil
 	}
 	scratch, err := os.MkdirTemp("", "facet-gate-switch-")
 	if err != nil {
-		return false
+		return nil
 	}
 	defer os.RemoveAll(scratch)
 	if err = os.WriteFile(facet.ConfigPath(scratch), data, 0600); err != nil {
-		return false
+		return nil
 	}
 	cfg, err := facet.LoadConfigUnresolved(scratch)
-	return err == nil && cfg.CommitGateOff()
+	if err != nil {
+		return nil
+	}
+	return cfg
 }
 
 // stagedLint compares the index with HEAD and returns the errors the index

@@ -529,6 +529,27 @@ func TestAForgeNobodyCanDriveIsRefused(t *testing.T) {
 	}
 }
 
+// Mutation: drop the DriftNotice case in LoadConfig. A typo such as "of" is
+// then accepted and reads as neither on nor off.
+func TestTheDriftNoticeSwitchAcceptsOnlyOnAndOff(t *testing.T) {
+	for value, wantOff := range map[string]bool{"off": true, "on": false} {
+		cfg, err := LoadConfig(project(t, "hooks:\n  drift_notice: "+value+"\n"))
+		if err != nil {
+			t.Fatalf("%s: %v", value, err)
+		}
+		if cfg.DriftNoticeOff() != wantOff {
+			t.Fatalf("%s: DriftNoticeOff = %v", value, cfg.DriftNoticeOff())
+		}
+	}
+	if _, err := LoadConfig(project(t, "hooks:\n  drift_notice: of\n")); err == nil || !strings.Contains(err.Error(), "on or off") {
+		t.Fatalf("a misspelled switch must be refused, got %v", err)
+	}
+	cfg, err := LoadConfig(project(t, ""))
+	if err != nil || cfg.DriftNoticeOff() {
+		t.Fatalf("no configuration must leave the notice on: %v", err)
+	}
+}
+
 // Mutation: drop the switch case in LoadConfig. A typo such as "of" is then
 // accepted and reads as neither on nor off.
 func TestTheCommitGateSwitchAcceptsOnlyOnAndOff(t *testing.T) {
