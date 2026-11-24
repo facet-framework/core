@@ -17,6 +17,8 @@ STOP_ACTIVE=$(printf '%s' "$INPUT" | sed -n 's/.*"stop_hook_active"[[:space:]]*:
 SESSION=$(facet_json_field '.session_id' "$INPUT")
 
 facet_is_adopted "$ROOT" || exit 0
+# Switched off by the person running the session (see facet_drift_notice_off).
+facet_drift_notice_off "$ROOT" && exit 0
 git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1 || exit 0
 
 RECORDS_DIR=$(facet_records_dir "$ROOT")

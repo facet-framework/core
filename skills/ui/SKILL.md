@@ -91,4 +91,4 @@ build instructions in the [FACET Atlas repository](https://github.com/facet-fram
 ## Do not
 
 Do not run `pnpm`, `npm` or `next` to start it. FACET Atlas includes the reader,
-and Core downloads Atlas on first use. Both run without Node.
+and Core downloads Atlas on first use. Neither needs Node.

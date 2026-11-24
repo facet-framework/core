@@ -1,0 +1,86 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: registry/integrity/spec-conformance
+lifecycle: active
+intent:
+  summary: |
+    Checks record scenarios and file references against the committed specification
+    lock. The check reads the pin and works offline.
+contract:
+  scenarios:
+    - id: matching-draft-is-silent
+      statement: |
+        Given a record matching a pinned draft specification
+        When I run facet lint
+        Then the command succeeds without a conformance finding
+    - id: changed-step-fails-with-a-diff
+      statement: |
+        Given a pinned specification scenario and a record with a different step
+        When I run facet lint
+        Then the command fails with a diverged finding
+        And the finding shows the pinned step and the record step
+    - id: changed-examples-fail-with-a-diff
+      statement: |
+        Given a record statement matching a pinned scenario outline
+        And the record has a different Examples header or row order
+        When lint checks the reference
+        Then it reports a diverged error with the Examples difference
+    - id: unresolved-reference-is-an-error
+      statement: |
+        Given a record referring to a missing pin, an undeclared source, or a source restricted to other registries
+        When lint checks the scenario or lineage reference
+        Then it reports an unresolved error
+    - id: deprecated-reference-is-a-warning
+      statement: |
+        Given a matching scenario reference and a lineage reference to a deprecated specification file
+        When lint checks both references
+        Then it reports a warning for each
+    - id: invalid-lock-is-an-error
+      statement: |
+        Given a specification lock that fails its schema
+        When lint checks the registry
+        Then it reports an unresolved error naming the lock
+    - id: example-cells-keep-the-pinned-spelling
+      statement: |
+        Given a spec example cell written as 0.50 and a record example cell that YAML reads as the number 0.5
+        When lint compares the record with the pin
+        Then the cells count as equal
+        And a record cell with a different value still counts as a divergence
+    - id: resolve-prose-provenance
+      statement: |
+        Given a record whose scenario points to a pinned provenance unit and uses a statement with different text
+        When I check the specification lock
+        Then the reference resolves without a divergence finding
+        And a reference to an absent requirement produces an unresolved finding naming the provenance binding
+verification:
+  unit_tests:
+    - id: "registry/lint_spec_test.go::TestSpecExampleCellsKeepThePinnedSpelling"
+      proves:
+        - example-cells-keep-the-pinned-spelling
+  integration_tests:
+    - id: "cli/spec_remaining_adapters_test.go::TestSpecGherkinMarkdownPinDriftAndExecution"
+      proves:
+        - changed-step-fails-with-a-diff
+    - id: "cli/spec_remaining_adapters_test.go::TestSpecProvenanceAdapters"
+      proves:
+        - resolve-prose-provenance
+    - id: "cli/spec_adapters_test.go::TestSpecKitPinLintAndTextDrift"
+      proves:
+        - resolve-prose-provenance
+    - id: "cli/spec_update_cmd_test.go::TestSpecUpdateAndLintRootCommands"
+      proves:
+        - matching-draft-is-silent
+        - changed-step-fails-with-a-diff
+    - id: "registry/lint_spec_test.go::TestSpecConformance"
+      proves:
+        - changed-examples-fail-with-a-diff
+        - unresolved-reference-is-an-error
+        - deprecated-reference-is-a-warning
+        - invalid-lock-is-an-error
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-11-23"
+  depends_on:
+    - registry/integrity/spec-pin

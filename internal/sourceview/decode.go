@@ -47,7 +47,7 @@ func (c *LocalConfig) UnmarshalYAML(unmarshal func(any) error) error {
 	if err := unmarshal(&raw); err != nil {
 		return errorf("invalid local source bindings: %v", err)
 	}
-	if err := closed(raw, "local source configuration", "bindings"); err != nil {
+	if err := closed(raw, "local source configuration", "bindings", "spec_sources"); err != nil {
 		return err
 	}
 	for name, item := range mapping(raw["bindings"]) {

@@ -145,7 +145,7 @@ func TestCommandVersionsRemainLocalToEachTree(t *testing.T) {
 var coreCommandModulePackages = map[string]bool{
 	"atlaslauncher": true, "cli": true, "corpus": true, "docsite": true, "facet": true, "filelock": true,
 	"integrations": true, "productplugin": true, "rag": true, "registry": true,
-	"release": true, "remote": true, "scaffold": true, "sourceview": true,
+	"release": true, "remote": true, "scaffold": true, "schema": true, "sourceview": true, "spec": true,
 }
 
 func TestCoreExecutableLinksOnlyReviewedPackages(t *testing.T) {

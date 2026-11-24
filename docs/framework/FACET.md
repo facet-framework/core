@@ -472,6 +472,64 @@ contract:
 
 **Authorship:** The feature's owner. An agent MAY draft `states` from the model and MAY propose `scenarios` from cases it read in tests, and MUST NOT write `completeness: claimed` on a table it has not checked — a claim written by whoever did not look is the kind of promise §3.2.3's authorship note warns about.
 
+#### 3.2.5 Specification sources
+
+A feature scenario MAY declare one `specified_by` reference of the form
+`<source>:<spec-id>#<case>`. The spec ID is a slash-separated path of ID
+segments, and the source and case are single ID segments. A spec ID segment
+MAY have a three-digit prefix followed by a hyphen, as in `003-checkout`,
+or a BMAD epic and story prefix, as in `1-2-checkout`.
+The scenario retains its `statement` and any `examples`. With an `exact` pin,
+the statement MUST contain only Gherkin steps and their arguments in the
+pinned file's language.
+
+Lint MUST validate `docs/facets/spec-lock.yaml` and resolve references offline,
+using the declared sources and the lock. An undeclared or restricted source, a
+missing pin, or an invalid lock is an `unresolved` error. For `exact` pins,
+lint MUST compare normalised step types, text and arguments, plus Examples
+headers and rows as strings in order. It MUST report `diverged` for a
+difference or an unparsable statement. A difference includes a step or
+Examples diff. A match produces no conformance finding. Background steps
+are pinned in the context digest and are excluded from statement comparison.
+For `provenance` pins, lint checks reference resolution and file status.
+The statement and Examples are outside that check, and the reference cannot
+produce `diverged`. Spec Kit, Kiro, BMAD and Gauge use `provenance`. Exact Gauge
+binding would require a statement form for untyped Gauge steps that this
+specification does not define.
+
+For each scoped scenario with `specified_by`, `facet test` reports the spec
+address, binding strength and one state in the feature's `scenarios` results:
+
+| State | Meaning |
+| --- | --- |
+| `passed` | The fresh report covers the pinned case, every example row and every step, with passing steps and hooks. |
+| `failed` | A reported step or hook failed or was ambiguous. |
+| `unproven` | The case was reported with undefined, pending, skipped, duplicate or incomplete evidence. |
+| `not-run` | The case or an expected example row is absent from the fresh report. |
+| `unmeasured` | The pin, configured runner or usable fresh report is unavailable. |
+| `diverged` | The record's scenario differs from the pin, and the run supplies no evidence for it. |
+| `provenance` | The reference resolves to a prose unit. It contributes neither execution evidence nor an execution failure. |
+
+Only `passed` supplies executed scenario evidence. The case tag provides the
+binding without a separate `proves` entry. The run establishes that the record
+matches the pin and that the pinned case completed against the runner's step
+definitions. An empty step definition can pass. Review must establish whether
+the definitions check what their steps promise.
+
+
+A feature MAY declare `lineage.specified_by` as a list of
+`<source>:<spec-id>` file references. These references establish provenance.
+Lint MUST resolve them under the same source restrictions and report a missing
+file as `unresolved`. Scenario and lineage references to deprecated files
+produce warnings. Draft and approved files can both be referenced.
+
+Specification drift compares pins with the configured branches (§5.4.9).
+Agents that see a changed or removed specification MUST report it and
+recommend implementing it in an existing or new work item. Changes to the lock,
+records or code require authorisation through that work item. The specification
+repository is the source of the scenario. Report deviations or resolve them
+there.
+
 ### 3.3 Anchor
 
 **Captures:** Where in the codebase the feature is implemented.
@@ -1179,6 +1237,134 @@ A project MAY declare `forges` in `.facetrc.yaml`, keyed by remote host, to name
 #### 5.4.8 Project wiki
 
 A deployment MAY keep Markdown wiki pages beside its records. Wiki write routes MUST require an `Origin` header.
+
+#### 5.4.9 Specification sources
+
+A project MAY declare a project-wide `spec_sources` list. Each entry MUST
+declare a unique segment `id` and a Git `repo` URL or `github:<owner>/<repo>`.
+`follow` defaults to `main` and `format` to `facet-spec`. If an entry
+declares `registries`, only the named registries may reference it.
+
+| Format | Default `path` | Files and spec IDs | Binding |
+| --- | --- | --- | --- |
+| `facet-spec` | Repository root | Markdown with FACET frontmatter and Gherkin, using the declared spec ID | `exact` |
+| `gherkin` | Repository root | Plain `.feature` files, using their relative paths without extensions | `exact` |
+| `gherkin-markdown` | Repository root | `.feature.md` files, using their relative paths without the full suffix | `exact` |
+| `openspec` | `openspec/specs` | `<capability>/spec.md`, using the capability directory as the spec ID | `exact` |
+| `speckit` | `specs` | `<NNN-name>/spec.md`, using the numbered directory as the spec ID | `provenance` |
+| `kiro` | `.kiro/specs` | `<feature>/requirements.md`, using the feature directory as the spec ID | `provenance` |
+| `bmad` | `_bmad-output/implementation-artifacts` | BMAD v6 story Markdown, using the file stem as the spec ID | `provenance` |
+| `gauge` | `specs` | `.spec` and `.md` files, using their relative paths without extensions | `provenance` |
+
+Plain Gherkin takes its language from the file dialect and is `approved`.
+Markdown with Gherkin is `approved` and uses the English dialect. It reads
+Gherkin headings, step bullets, indented tables, backtick fences for doc
+strings, and backticked `@case:<slug>` tags. Its units have the same step and
+context digests as equivalent plain Gherkin.
+OpenSpec reads accepted specifications in English with status `approved`.
+The `openspec/changes` tree is excluded. Each `#### Scenario:` under a
+`### Requirement:` is a unit. Its case slug lowercases the requirement and
+scenario names joined with a space, replaces runs outside ASCII letters and
+digits with one hyphen, and trims edge hyphens. A slug that would start with a
+digit gets a `case-` prefix. A slug with no ASCII letters or digits becomes
+`case`. Collisions are errors. This name-derived address is weaker than an
+explicit case tag because a rename can move it. Bold `GIVEN`, `WHEN`,
+`THEN` and `AND` bullets map to Gherkin steps. `AND` inherits its
+predecessor's type. A scenario requires `WHEN` and `THEN` steps.
+
+Spec Kit units are `FR-…` requirements and `SC-…` success criteria, with
+the printed ID lowercased for the case address. Numbered acceptance scenarios
+are excluded. `**Status**:` values `Accepted` and `Approved` map to
+`approved`, ignoring case. `Draft`, missing status and any other value map
+to `draft`. The digest covers the item text, with runs of whitespace
+collapsed to one space.
+
+Kiro pins numbered EARS acceptance criteria under a `Requirement N` heading as
+`<feature>#requirement-<n>-<m>`, where `m` is the printed criterion number.
+Inserting and renumbering requirements or criteria can shift those addresses.
+Kiro defines no file status marker for this format. FACET treats the file as
+`approved`.
+
+BMAD reads the story's `Acceptance Criteria` section. Explicit labels such as
+`AC1:` take precedence over ordered-list numbers for `<story>#ac-<n>` addresses.
+Renumbering a list can shift addresses derived from its positions. Sections
+without numbered criteria pin one
+`<story>#story` unit for the whole section. `Status:` uses the Spec Kit mapping.
+
+Gauge pins each scenario's own ordered steps with whitespace normalised. A
+scenario-level `Tags: id:<slug>` supplies an explicit address. Otherwise the
+scenario heading supplies a slug using the OpenSpec slug rules. Gauge files
+are treated as `approved`.
+Without a configured source, `facet spec lint` reads a `.spec` file as Gauge
+only inside a `specs` directory, and a `.md` file there only when a Gauge
+`manifest.json` sits beside that directory.
+
+`facet spec lint` recognises these Markdown formats in their default layouts
+and recognises `.feature`, `.feature.md` and `.spec` by extension.
+
+Only `facet spec update` writes the lock. It reads the configured branches at
+resolved commits and pins file metadata, unit commits, binding and digests.
+An `exact` pin stores the normalised `sequence` and context digest. A
+`provenance` pin stores the normalised `text` and writes `binding: provenance`;
+an `exact` pin omits `binding`. A missing `binding` in an
+existing pin means `exact`, and repeating an update against the same commit
+preserves that pin's representation. An update with no source arguments selects every declared source.
+A full update replaces each selected source and records its commit. The
+source-level commit is absent until its first full update.
+Repeatable `--only <spec-id>#<case>` arguments advance the named scenarios
+where they exist in the selected sources. A requested address must exist in
+at least one selected source. Selective updates retain existing source and
+file metadata and add file metadata for newly pinned files. A changed file
+language, source repository, follow branch or format requires a full update. An ignored
+`.facet/sources.local.yaml` MAY map source IDs to local checkouts under
+`spec_sources`. Updates using that override read the local `follow` branch
+at its committed revision.
+
+An optional `runner` names a declared `cucumber-json` runner in each registry
+allowed to use that source. Provenance formats reject `runner`. An omitted setting
+leaves exact scenarios `unmeasured`. Execution reads each exact case's commit
+from `.facet/spec-cache/`, fetching a missing commit from the source. It writes
+one temporary feature per referenced Markdown Gherkin block, preserving its
+Background and Rules, or copies the pinned plain `.feature` file. For
+Markdown with Gherkin it renders the pinned file as plain Gherkin. For OpenSpec
+it writes one Feature per spec file at the pinned commit, with one Scenario
+and one `@case:` tag per unit. It removes the temporary directory after the
+run. Provenance units are excluded from materialisation and execution.
+
+The declared command receives these absolute paths as extra shell positional
+arguments. Include `"$@"` where the runner accepts feature paths, for example
+`command: 'cucumber-js --require steps --format json:report.json "$@"'`.
+The runner runs in its declared working directory. These files participate in
+scenario evidence only. Regular file discovery and file evidence continue to
+use the runner's declared list command. The fresh report binds each scenario
+element by feature URI and the selected `@case:` or `@id:` tag. With
+`FACET_STRICT_DEPS=1`, unavailable spec dependencies make the command fail.
+
+`facet spec drift [<source>...]` fetches each selected `follow` branch and
+compares its committed specifications with the lock. With `--cached` it MUST
+use only the last fetched snapshot. The command MUST report:
+
+- `spec-moved` when an exact pin's steps or context digest differs or a
+  provenance pin's text digest differs. The finding identifies what changed.
+- `orphaned` when a pinned address is absent from the fetched specification.
+- `unclaimed` when a pinned case has no scenario reference and its file is
+  approved at `follow`. Attribute the finding to every record whose
+  `lineage.specified_by` names that file.
+- `unmeasured` when the source cannot be fetched or read, including when no
+  cached snapshot is available.
+- `deprecated` when a referenced pinned file becomes deprecated at `follow`.
+
+Each specification finding names its binding strength. When the source
+cannot be identified, the strength is `unknown`. Drift's `--json` emits
+state, source, address, binding, records and detail. `--diff` shows changes or
+removals in the normalised scenario sequence or provenance text. Findings are warnings by default. `--strict` fails on
+any finding, and `FACET_STRICT_DEPS=1` fails on `unmeasured`. Usage and
+configuration errors fail independently of strict mode.
+
+For projects with specification sources, the native SessionStart hook refreshes
+the cache within a shared ten-second budget. Stop compares the cached snapshots
+offline and reports new `spec-moved`, `orphaned` and `unclaimed` addresses
+once per session. The reporting rule in §3.2.5 applies.
 
 ## 6. The Agent Interface
 

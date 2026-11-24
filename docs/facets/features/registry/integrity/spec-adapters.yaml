@@ -1,0 +1,101 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: registry/integrity/spec-adapters
+lifecycle: active
+intent:
+  summary: |
+    Import addressable units from Git specification sources. Compare exact
+    scenarios with record steps and track changes to provenance units.
+contract:
+  scenarios:
+    - id: pin-accepted-openspec
+      statement: |
+        Given accepted OpenSpec scenarios and a proposed change under openspec/changes
+        When I lint the spec repository and update an openspec source using its default path
+        Then lint checks only the accepted specification
+        And the lock pins its scenarios as approved exact units at the committed revision
+        And the translated step sequence matches an equivalent Gherkin statement
+    - id: reject-invalid-openspec
+      statement: |
+        Given an OpenSpec scenario with a colliding name-derived case ID, an unknown keyword and no WHEN step
+        When I lint the spec repository and try to update its pins
+        Then lint reports the collision, the unknown keyword and the missing step with their file and line
+        And update exits with an error and preserves the previous lock
+    - id: pin-spec-kit-provenance
+      statement: |
+        Given a numbered Spec Kit specification with functional requirements, success criteria and acceptance scenarios
+        When I lint the spec repository and update a speckit source using its default path
+        Then lint accepts the specification
+        And the lock stores lower-case requirement and success criterion IDs with normalised provenance text
+        And acceptance scenarios are excluded
+    - id: reject-spec-kit-runner
+      statement: |
+        Given a speckit source configured with a runner
+        When I try to update its pins
+        Then the configuration is rejected
+    - id: match-markdown-gherkin
+      statement: |
+        Given equivalent Markdown with Gherkin and plain Gherkin files with explicit case tags
+        When FACET reads both files
+        Then their units have identical addresses, normalised sequences and digests
+    - id: pin-other-provenance-formats
+      statement: |
+        Given Kiro requirements, BMAD stories and Gauge scenarios in their default source layouts
+        When I lint their files and update their pins
+        Then the lock stores their native unit addresses, status, normalised text and provenance binding
+    - id: reject-duplicate-provenance-units
+      statement: |
+        Given a Kiro, BMAD or Gauge source with duplicate unit IDs in a file
+        When I lint the file and try to update its pins
+        Then the diagnostics identify the duplicate and its location with the provenance binding
+        And the failed update preserves the previous lock
+    - id: reject-other-provenance-runners
+      statement: |
+        Given a Kiro, BMAD or Gauge source declares a runner
+        When I try to update its pins
+        Then configuration validation rejects the runner with the provenance binding
+    - id: markdown-tables-keep-dash-cells
+      statement: |
+        Given a Cucumber Markdown table whose data rows contain cells of dashes
+        When the specification is read
+        Then only the separator after the header row is dropped
+        And the units equal those of the classic Gherkin twin
+    - id: unrelated-spec-files-are-not-gauge
+      statement: |
+        Given a .spec file outside a specs directory and a plain Markdown file under specs
+        When facet spec lint reads them without a configured source
+        Then both are skipped
+        And a .spec file under specs is read as a Gauge provenance unit
+        And Markdown under specs is read as Gauge once a Gauge manifest.json sits beside specs
+verification:
+  unit_tests:
+    - id: "internal/spec/gherkin_markdown_test.go::TestSpecGherkinMarkdownKeepsDashCellsAsData"
+      proves:
+        - markdown-tables-keep-dash-cells
+    - id: "internal/spec/gherkin_markdown_test.go::TestSpecGaugeNeedsItsSpecsTree"
+      proves:
+        - unrelated-spec-files-are-not-gauge
+    - id: "internal/spec/gherkin_markdown_test.go::TestSpecGherkinMarkdownMatchesClassic"
+      proves:
+        - match-markdown-gherkin
+  integration_tests:
+    - id: "cli/spec_remaining_adapters_test.go::TestSpecProvenanceAdapters"
+      proves:
+        - pin-other-provenance-formats
+        - reject-other-provenance-runners
+    - id: "cli/spec_remaining_adapters_test.go::TestSpecProvenanceAdaptersRejectDuplicateUnits"
+      proves:
+        - reject-duplicate-provenance-units
+    - id: "cli/spec_adapters_test.go::TestSpecOpenSpecPinLintAndCollision"
+      proves:
+        - pin-accepted-openspec
+        - reject-invalid-openspec
+    - id: "cli/spec_adapters_test.go::TestSpecKitPinLintAndTextDrift"
+      proves:
+        - pin-spec-kit-provenance
+        - reject-spec-kit-runner
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-11-23"

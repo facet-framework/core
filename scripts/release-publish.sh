@@ -125,6 +125,9 @@ check-tag)
 prepare-tag)
   [ "$#" -eq 3 ] || die "prepare-tag needs a tag, a title and a repository"
   valid_tag "$1"
+  if [ "$LAYOUT" = public ]; then
+    sh "$SCRIPT_DIR/release-pr-check.sh" "${1#v}" "$3" || exit 2
+  fi
   decision=$(tag_decision "$1" "$3") || exit 2
   if [ "$decision" = resume ]; then
     echo "release-publish: $1 already points at HEAD on origin; not creating it again"

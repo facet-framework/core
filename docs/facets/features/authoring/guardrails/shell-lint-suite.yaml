@@ -19,6 +19,19 @@ contract:
         When the suite runs
         Then it passes
         And at least one record is named as checked
+    - id: specification-conformance-fails-the-suite
+      statement: |
+        Given a record that references a specification scenario
+        When the suite checks a divergent or missing pin
+        Then it reports the conformance error
+        And the suite fails
+    - id: a-pinned-specification-without-the-binary-fails
+      statement: |
+        Given a repository with a specification lock or a specified_by reference
+        And no facet binary on PATH, without FACET_STRICT_DEPS
+        When the suite runs
+        Then it reports that the pin cannot be checked
+        And the suite fails instead of skipping
     - id: a-missing-tool-checks-nothing-and-still-reports-success
       statement: |
         Given a repository without ajv on PATH
@@ -81,6 +94,10 @@ contract:
         And a broken record or an unknown anchor in either registry still
         fails the suite
 verification:
+  integration_tests:
+    - id: "cli/spec_update_cmd_test.go::TestSpecConformanceShellSuite"
+      proves:
+        - specification-conformance-fails-the-suite
   unit_tests:
     - id: tools/facet-lint/run-all.test.sh
       proves:

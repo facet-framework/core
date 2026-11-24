@@ -1,20 +1,6 @@
-# Releases the version named in PUBLIC-SOURCE-MANIFEST.json when that commit
-# reaches main. A release branch is merged into main only after CI succeeded
-# on it, and this workflow checks that again before it builds anything.
-#
-# Publishing waits for the environment `release`, whose required reviewers
-# approve the concrete build: until then nothing is tagged, attested or
-# released. npm publishing is a separate job that is skipped unless the
-# repository variable FACET_NPM_PUBLISH is 'true', and that then waits for the
-# environment `npm`. GitHub creates a missing environment on the fly, without
-# reviewers, so the plan refuses to go on unless each environment a run will
-# use exists, requires a reviewer and deploys from main only, main needs a
-# reviewed pull request that administrators cannot bypass, and an active tag
-# ruleset restricts creating, moving and deleting v* tags to the GitHub
-# Actions app and deploy keys. The GitHub Actions app is every workflow of
-# this repository, not this one alone. The releaser may approve their own run
-# unless the repository variable FACET_RELEASE_REQUIRE_SECOND_REVIEWER is
-# 'true'; then the environment must prevent self-review.
+# Releases the version in PUBLIC-SOURCE-MANIFEST.json after a reviewed release
+# pull request is squashed into main and CI succeeds on the squash commit.
+# The release environment approves the build before tagging and publishing.
 #
 # The binaries are built with the Go pinned in FACET_GO_VERSION below, not
 # with the latest stable Go. THIRD_PARTY.json lists that toolchain's notices
@@ -56,10 +42,11 @@ jobs:
   plan:
     name: plan
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 45
     permissions:
       contents: read
       actions: read
+      pull-requests: read
     outputs:
       version: ${{ steps.plan.outputs.version }}
       kind: ${{ steps.plan.outputs.kind }}
@@ -97,28 +84,20 @@ jobs:
             echo "dry_run=${DRY_RUN:-false}"
             echo "distribution=$(sh scripts/release-stamp.sh distribution "$GITHUB_REPOSITORY")"
           } | tee -a "$GITHUB_OUTPUT"
-      - name: CI succeeded on this commit
+      - name: Verify the approved release pull request
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          green=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$GITHUB_SHA&event=push&status=success&per_page=1" --jq .total_count)
-          [ "$green" -ge 1 ] || { echo "::error::no successful CI run (ci.yml, push) for $GITHUB_SHA; nothing is released"; exit 1; }
-          echo "ci.yml succeeded on $GITHUB_SHA ($green run(s))"
-      # The check also reads the protection of main and the v* tag ruleset,
-      # which only a token with Administration read can see. Without the
+          VERSION: ${{ steps.plan.outputs.version }}
+        run: sh scripts/release-pr-check.sh "$VERSION" "$GITHUB_REPOSITORY"
+      # The check also reads the protection of main, the v* tag ruleset and immutable releases,
+      # which require Administration read. Without the
       # secret RELEASE_SETTINGS_TOKEN the job token is used, and the check
       # refuses for the missing permission rather than passing.
       - name: The release environment requires a reviewer and deploys from main only
         env:
-          GH_TOKEN: ${{ secrets.RELEASE_SETTINGS_TOKEN || github.token }}
+          GH_TOKEN: ${{ secrets['RELEASE_SETTINGS_TOKEN'] || github.token }}
           FACET_RELEASE_REQUIRE_SECOND_REVIEWER: ${{ vars.FACET_RELEASE_REQUIRE_SECOND_REVIEWER }}
         run: sh scripts/release-environment-check.sh release "$GITHUB_REPOSITORY"
-      - name: The npm environment requires a reviewer and deploys from main only
-        if: vars.FACET_NPM_PUBLISH == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.RELEASE_SETTINGS_TOKEN || github.token }}
-          FACET_RELEASE_REQUIRE_SECOND_REVIEWER: ${{ vars.FACET_RELEASE_REQUIRE_SECOND_REVIEWER }}
-        run: sh scripts/release-environment-check.sh npm "$GITHUB_REPOSITORY"
       - name: The changelog holds the release notes
         env:
           VERSION: ${{ steps.plan.outputs.version }}
@@ -128,6 +107,21 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.plan.outputs.tag }}
         run: sh scripts/release-publish.sh check-tag "$TAG" "$GITHUB_REPOSITORY"
+      - name: Wait for CI on the squash commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          endpoint="repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$GITHUB_SHA&branch=main&event=push&per_page=1"
+          for attempt in {1..120}; do
+            conclusion=$(gh api "$endpoint" --jq '.workflow_runs[0].conclusion // ""')
+            case "$conclusion" in
+              success) echo "ci.yml succeeded on $GITHUB_SHA"; exit 0 ;;
+              '') sleep 20 ;;
+              *) echo "::error::ci.yml on $GITHUB_SHA concluded $conclusion"; exit 1 ;;
+            esac
+          done
+          echo "::error::Timed out waiting for ci.yml on $GITHUB_SHA"
+          exit 1
 
   build:
     name: build
@@ -236,8 +230,11 @@ jobs:
     environment: release
     permissions:
       contents: write
+      pull-requests: read
       id-token: write
       attestations: write
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
     env:
       VERSION: ${{ needs.plan.outputs.version }}
       KIND: ${{ needs.plan.outputs.kind }}
@@ -263,53 +260,28 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           sh scripts/release-publish.sh prepare-tag "$TAG" "FACET Core $VERSION" "$GITHUB_REPOSITORY"
       - name: Create the GitHub release
-        run: sh scripts/release-publish.sh release core "$KIND" "$VERSION" "$TAG" dist "$GITHUB_REPOSITORY"
+        id: release
+        run: |
+          sh scripts/release-publish.sh release core "$KIND" "$VERSION" "$TAG" dist "$GITHUB_REPOSITORY"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
-  npm:
-    name: npm
-    needs: [plan, publish]
-    # Off unless the repository variable is set, and then still behind the
-    # environment's required reviewers.
-    if: needs.plan.outputs.dry_run != 'true' && vars.FACET_NPM_PUBLISH == 'true'
+  npm-dispatch:
+    needs: publish
+    if: vars.FACET_NPM_PUBLISH == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    environment: npm
+    timeout-minutes: 5
+    continue-on-error: true
     permissions:
+      actions: write
       contents: read
-      id-token: write
+    env:
+      TAG: ${{ needs.publish.outputs.tag }}
+      GH_TOKEN: ${{ github.token }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: release-dist
-          path: dist
-      - name: The downloaded files are the ones checksums.txt names
-        run: (cd dist && sha256sum --check --strict checksums.txt)
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: 24
-          registry-url: https://registry.npmjs.org
-      - name: An npm that publishes through trusted publishing (11.5.1 or later)
+      - name: Dispatch npm staging for the published tag
         run: |
-          npm install -g npm@11.19.0
-          npm --version
-      - name: Pack the npm packages from the release archives
-        run: sh scripts/release-npm-pack.sh dist
-      - name: The plan is publishable
-        run: |
-          jq '{publishable, blocked_by, dist_tag, complete}' dist/npm/publish-plan.json
-          jq -e '.publishable == true and .complete == true' dist/npm/publish-plan.json > /dev/null
-      # npm authenticates with this job's OIDC token against the trusted
-      # publisher configured for each package on npmjs.com. A trusted publisher
-      # exists only for a package the registry already knows, so the first
-      # publication of a package name uses the secret NPM_TOKEN of the npm
-      # environment instead; without it the script stops before publishing
-      # anything and names the packages. Remove the secret once every package
-      # has its trusted publisher. A version an earlier run already published
-      # with the same tarball is skipped.
-      - name: Publish in the plan's order
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: sh scripts/release-npm-publish.sh dist
+          if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,tagName |
+            jq -e --arg tag "$TAG" '.isDraft == false and .tagName == $tag' >/dev/null ||
+            ! gh workflow run npm.yml --repo "$GITHUB_REPOSITORY" --ref main -f tag="$TAG"; then
+            printf '::warning::Could not start npm staging. Run manually with: gh workflow run npm.yml --repo %s --ref main -f tag=%s\n' "$GITHUB_REPOSITORY" "$TAG"
+          fi

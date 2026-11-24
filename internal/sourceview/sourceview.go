@@ -141,6 +141,21 @@ func Resolve(root string, cfg Config, selected string) (*ResolvedView, error) {
 	return ResolveWithBindings(root, cfg, local, selected)
 }
 
+// LoadLocalSpecSources reads the checkout overrides used by spec update.
+func LoadLocalSpecSources(root string) (map[string]string, error) {
+	var local struct {
+		SpecSources map[string]string `yaml:"spec_sources"`
+	}
+	data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(LocalName)))
+	if err != nil {
+		return nil, err
+	}
+	if err := yaml.Unmarshal(data, &local); err != nil {
+		return nil, errorf("invalid %s: %v", LocalName, err)
+	}
+	return local.SpecSources, nil
+}
+
 // @facet: registry/layout/source-views
 // @facet-role: primary
 func ResolveWithBindings(root string, cfg Config, local LocalConfig, selected string) (*ResolvedView, error) {

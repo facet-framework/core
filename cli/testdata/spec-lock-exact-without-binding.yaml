@@ -1,0 +1,22 @@
+product:
+  commit: COMMIT
+  files:
+    pricing:
+      language: en
+      status: approved
+  follow: main
+  format: gherkin
+  repo: REPO
+  scenarios:
+    pricing#cap:
+      commit: COMMIT
+      context: sha256:95cb9b4f84ceff132cc7a875d8c192bf4997016a939ee64141c1fd628c0e8738
+      sequence:
+        steps:
+          - text: a cart
+            type: Context
+          - text: the code is applied
+            type: Action
+          - text: the discount is 50%
+            type: Outcome
+      steps: sha256:c68e5ef359cefb72c9a0dc9c291eb3fa217a1decaebb129e238af4bc21b441d7

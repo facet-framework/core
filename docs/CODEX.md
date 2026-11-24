@@ -1,20 +1,20 @@
 # FACET in Codex
 
-FACET's Codex plugin uses the same authoring skill, guide, schemas, role
-profiles and registry implementation as its Claude Code plugin. Records have
-the same format and verification rules on both hosts.
+FACET ships one plugin for two agent hosts, Codex and Claude Code. Both hosts
+load the same skills, guides, schemas, role profiles, hooks and registry
+implementation, and records have the same format and verification rules on
+either host. This page covers installation and use in Codex. The
+[README](../README.md#claude-code-and-codex) covers Claude Code.
 
 The plugin shares the FACET release version, starting at 0.1.0-rc.2. Use a
-Codex CLI with native plugin and hook support. Host compatibility for this
-Core-versioned plugin has not yet been qualified.
+Codex CLI with native plugin and hook support.
 
 ## Install
 
-Use a Codex CLI with native plugin and hook support. First put a native FACET
-Core 0.x CLI on `PATH`, then set `FACET_BINARY` to that native executable as
-described in [Binary and fallback setup](#binary-and-fallback-setup). Codex
-uses this CLI for the registry MCP server; installing the plugin alone does not
-supply it.
+First put a native FACET Core 0.x CLI on `PATH`, then set `FACET_BINARY` to
+that native executable as described in
+[Binary and fallback setup](#binary-and-fallback-setup). Codex uses this CLI
+for the registry MCP server; installing the plugin alone does not supply it.
 
 From a terminal, add the FACET marketplace and install its plugin:
 
@@ -30,10 +30,10 @@ codex plugin marketplace add /absolute/path/to/core
 codex plugin add facet@facet-local
 ```
 
-The Codex marketplace name is `facet-local`, including when fetched from
-GitHub. Claude's marketplace is `facet-framework`. To fetch a specific Git
-ref, use `codex plugin marketplace add facet-framework/core --ref <ref>`.
-Use a ref containing the Codex manifests.
+The Codex marketplace is named `facet-local`, including when fetched from
+GitHub. To fetch a specific Git ref, use
+`codex plugin marketplace add facet-framework/core --ref <ref>`. Use a ref
+containing the Codex manifests.
 
 Start a new Codex session in the project you want to document. Open `/hooks`
 and review and trust FACET's hook definitions. Codex skips untrusted plugin
@@ -59,15 +59,15 @@ $facet:lint Check the records and resolve the reported findings.
 $facet:record-writer Write the record for this feature.
 ```
 
-Codex exposes these actions as skills. `/skills` is the native slash picker;
-FACET does not register separate `/facet:...` slash commands in Codex. Claude
-Code continues to use its `/facet:...` commands. When shared instructions name
-a Claude command, invoke the corresponding Codex skill from the table below.
-See [OpenAI's skill documentation](https://learn.chatgpt.com/docs/build-skills)
+Codex exposes every FACET action as a skill, and `/skills` is its native
+picker. Each host uses its own invocation syntax for the same skill. Shared
+instructions, such as a project's agent guidance, may name either form; use
+the one for your host from this table. See
+[OpenAI's skill documentation](https://learn.chatgpt.com/docs/build-skills)
 for skill discovery and distribution.
 
-| Action | Codex invocation | Claude invocation |
-|--------|------------------|-------------------|
+| Action | Codex | Claude Code |
+|--------|-------|-------------|
 | Adopt FACET | `$facet:init` | `/facet:init` |
 | Write records | `$facet:authoring` | `/facet:authoring` |
 | Place source anchors | `$facet:anchoring` | `/facet:anchoring` |
@@ -77,22 +77,20 @@ for skill discovery and distribution.
 | Configure variants | `$facet:variants` | `/facet:variants` |
 | Maintain taxonomy | `$facet:taxonomy` | `/facet:taxonomy` |
 | Generate user documentation | `$facet:knowledge` | `/facet:knowledge` |
+| Open Atlas | `$facet:ui` | `/facet:ui` |
+| Write a record from a change | `$facet:record-writer` | `/facet:record-writer` |
+| Audit drift | `$facet:drift-auditor` | `/facet:drift-auditor` |
 
-Two additional Codex skills load the canonical profiles from `agents/`:
-`$facet:record-writer` and `$facet:drift-auditor`. Loading one gives the
-current agent the role's instructions. It does not register or start a
-subagent, choose a model or apply Claude's `tools` declarations. Codex's own
-sandbox and tool policy remain in force. Delegate only when the user or
-project instructions allow it.
-
-`$facet:statusline` is also discoverable, but its setup configures Claude's
-status line. FACET does not install a Codex status-line integration.
+`$facet:record-writer` and `$facet:drift-auditor` load the role profiles from
+`agents/`. Loading one gives the current agent the role's instructions. It
+does not register or start a subagent or choose a model, and Codex's own
+sandbox and tool policy apply. Delegate only when the user or project
+instructions allow it.
 
 ## Hooks and registry access
 
 The `.codex-plugin/plugin.json` manifest points at the shared skills, hooks
-and MCP configuration. The native Codex manifest is required for the checked
-CLI; the package keeps the Claude manifest as well.
+and MCP configuration.
 
 | Event | FACET behavior in Codex |
 |-------|-------------------------|
@@ -102,30 +100,23 @@ CLI; the package keeps the Claude manifest as well.
 | PreCompact | Carries FACET working rules forward |
 | Stop | Reports outstanding drift review |
 
-Codex shell operations are normalized to Bash hook input. `apply_patch`
-changes are normalized to edit input. Before a patch, FACET supplies the
-relevant record context for anchored source files. This does not apply the
-record-size gate to patch operations or arbitrary shell reads. That gate
-remains attached to explicit Read events, as used by Claude. These hooks use
-the same scripts and binary as Claude, with host input adapted before checks.
-Their availability still depends on Codex enabling hooks and trusting the
-current definitions.
+The hooks run the same scripts and binary on both hosts. Codex shell
+operations are normalized to Bash hook input, and `apply_patch` changes to
+edit input, before the checks run. The shared hook matchers name
+`exec_command` and `apply_patch` explicitly. Before a patch, FACET supplies
+the relevant record context for anchored source files. The record-size gate
+applies to explicit Read events only, not to patch operations or shell reads.
+Hook availability depends on Codex enabling hooks and trusting the current
+definitions.
 
-The shared hook matchers explicitly include `exec_command` and `apply_patch`
-alongside Claude tool names. Shared skills resolve bundled guides relative to
-their installed skill directory, independently of host environment variables.
+Shared skills resolve bundled guides relative to their installed skill
+directory, independently of host environment variables.
 
 Codex's `.mcp-codex.json` starts the native `facet` executable from `PATH`
 with `mcp --root .`, preserving the session working directory, including a
-Git worktree. The checked Codex runtime does not expand plugin-root macros
-in MCP commands, so its server uses this separate configuration. Claude
-retains `.mcp.json` and `scripts/mcp-launch.sh`, which resolve the plugin
-resources and supplied project directory automatically.
-
-The registry server supports record lookup and validation. FACET's LSP
-registration in `.lsp.json` is for Claude Code; this package does not register
-a native Codex LSP. Use the lint skill, registry MCP tools or FACET CLI for
-record and anchor checks in Codex.
+Git worktree. Codex does not expand plugin-root macros in MCP commands, so
+its MCP server has its own configuration file. The registry server supports
+record lookup and validation.
 
 ## Binary and fallback setup
 
@@ -151,29 +142,42 @@ separate FACET Atlas distribution on first use.
 Start Codex from the target project with this environment. `PATH` provides
 the native CLI to MCP, while `FACET_BINARY` selects it for the hooks. Preserve
 those settings in your normal shell setup if you want them in later sessions.
-
-The Claude plugin retains its versioned `bin/facet` dispatcher, which resolves
-a cached binary or downloads and verifies a release. Codex's native MCP
-configuration does not use that dispatcher or bootstrap a binary
-automatically.
+Codex's MCP configuration does not call the dispatcher, so it never downloads
+a binary by itself.
 
 Hooks do not download or build binaries. Without `FACET_BINARY` or an existing
 plugin-cache binary, they use the shell fallback where supported. The patch
 fallback requires `jq` for lossless patch decoding, alongside the lint suite's
 `yq` and `ajv-cli` dependencies. Missing checks are reported as unavailable;
 they are not successful validation. The fallback does not replace the native
-CLI required by the Codex MCP configuration.
+CLI required by the MCP configuration.
 
 After installation, confirm the FACET entries appear in `/skills`, review
 FACET's entries in `/hooks`, and invoke `$facet:lint` in the target project.
 A discovered skill or installed plugin alone does not establish that trusted
 hooks and registry MCP access are running in that project.
 
+## Host differences
+
+Records, skills, hooks, role profiles and the registry MCP server behave the
+same on both hosts. These parts differ:
+
+| | Codex | Claude Code |
+|-|-------|-------------|
+| Plugin manifest | `.codex-plugin/plugin.json` | `.claude-plugin/plugin.json` |
+| Marketplace name | `facet-local` | `facet-framework` |
+| Skill invocation | `$facet:<skill>` | `/facet:<skill>` |
+| MCP configuration | `.mcp-codex.json`, `facet` from `PATH` | `.mcp.json` through `scripts/mcp-launch.sh` and the `bin/facet` dispatcher, which can fetch the binary |
+| Role profiles | Loaded into the current agent as a skill | Registered as subagents |
+| Anchor language server | Not registered; use `$facet:lint`, the MCP tools or the CLI | `.lsp.json` |
+| Status line | Not available | `/facet:statusline` |
+
 ## Host acceptance
 
-Use a fresh Codex session against a disposable adopted project: confirm
-skills, a registry MCP lookup, trusted SessionStart context, feedback after an
-invalid record patch, context before changing anchored source, denial of a
-commit with a new staged unresolved anchor, and restored working rules after
-compaction. Record the CLI and plugin versions and each observable result.
-LSP and the Claude status line remain host differences.
+Host compatibility for this Core-versioned plugin has not yet been qualified.
+To check it, use a fresh Codex session against a disposable adopted project:
+confirm skills, a registry MCP lookup, trusted SessionStart context, feedback
+after an invalid record patch, context before changing anchored source,
+denial of a commit with a new staged unresolved anchor, and restored working
+rules after compaction. Record the CLI and plugin versions and each
+observable result.

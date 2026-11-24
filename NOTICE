@@ -11,6 +11,13 @@ That upstream work is licensed under the Apache License, Version 2.0.
 The adapter changes its type/function names and integrates error handling with
 FACET's schema compiler. The applicable Apache license is supplied in LICENSE.
 
+The Gherkin Markdown fixtures in internal/spec/testdata/cucumber-markdown/ are
+unmodified copies of the testdata/good files of github.com/cucumber/gherkin at
+commit a461e39d0e6c05a5757ebad1e759e2a87116679e:
+https://github.com/cucumber/gherkin/tree/a461e39d0e6c05a5757ebad1e759e2a87116679e/testdata/good
+That upstream work is licensed under the MIT License; its license text is the
+LICENSE file in that directory.
+
 Additional dependency notices and license texts are listed in THIRD_PARTY.json
 and supplied verbatim under THIRD_PARTY_LICENSES/. This NOTICE is informational;
 it does not replace or modify those licenses.

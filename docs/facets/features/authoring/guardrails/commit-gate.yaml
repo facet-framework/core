@@ -23,7 +23,8 @@ intent:
     read only from HEAD and only after the commit's repository was verified,
     so neither the working tree, the index nor a redirected command can
     supply it. A commit that itself turns the switch on is refused: it is the
-    session owner's decision.
+    session owner's decision. The same holds for 'hooks: {drift_notice: off}',
+    the switch of the Stop hook's drift notice.
 
     The index-versus-HEAD comparison is shared with 'facet lint --staged'.
 contract:
@@ -142,6 +143,15 @@ contract:
         Then the gate denies it, saying the decision belongs to the person
         running the session and naming FACET_SKIP_COMMIT_GATE=1
         And this holds in the binary and in the shell fallback
+    - id: a-commit-that-turns-the-drift-notice-off-is-refused
+      statement: |
+        Given a clean index that adds hooks.drift_notice: off while HEAD does
+        not have it
+        When the agent attempts the commit
+        Then the gate denies it, saying the decision belongs to the person
+        running the session and naming FACET_SKIP_COMMIT_GATE=1
+        And this holds in the binary and in the shell fallback, also in a
+        project whose commit gate is already off
     - id: a-switch-is-never-borrowed-by-another-repository
       statement: |
         Given a repository A switched off at HEAD and a repository B with the gate

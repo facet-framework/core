@@ -35,7 +35,7 @@ together.
 Use the Go version declared in `go.mod`:
 
 ```sh
-CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags="-X main.version=0.1.0-rc.3" -o dist/facet ./cmd/facet
+CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags="-X main.version=0.1.0-rc.4" -o dist/facet ./cmd/facet
 ./dist/facet --root examples/minimal lint
 ```
 

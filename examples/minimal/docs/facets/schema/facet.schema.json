@@ -243,6 +243,14 @@
       ],
       "additionalProperties": false,
       "properties": {
+        "specified_by": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*:([0-9]{3}-|[0-9]+-[0-9]+-)?[a-z][a-z0-9-]*(/([0-9]{3}-|[0-9]+-[0-9]+-)?[a-z][a-z0-9-]*)*$"
+          },
+          "uniqueItems": true
+        },
         "owner": {
           "$ref": "#/definitions/owner"
         },
@@ -385,6 +393,10 @@
           "type": "string",
           "pattern": "^[a-z][a-z0-9-]*$",
           "description": "Stable kebab-case identifier for this scenario, unique within the feature."
+        },
+        "specified_by": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*:([0-9]{3}-|[0-9]+-[0-9]+-)?[a-z][a-z0-9-]*(/([0-9]{3}-|[0-9]+-[0-9]+-)?[a-z][a-z0-9-]*)*#[a-z][a-z0-9-]*$"
         },
         "statement": {
           "type": "string",

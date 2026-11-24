@@ -244,6 +244,11 @@ Rules of thumb:
 
 ### 5. Write the Contract
 
+A scenario may use `specified_by: <source>:<spec-id>#<case>` to refer to a
+pinned specification scenario. Keep the Gherkin steps and any example tables
+in the record. Lint compares them offline against the pin. Use
+`lineage.specified_by` for file-level provenance. See FACET §3.2.5.
+
 Add at least two scenarios: the happy path and one failure/edge case.
 
 ```yaml
