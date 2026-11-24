@@ -8,6 +8,7 @@
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+. "$SCRIPT_DIR/../scripts/release-npm-tag.sh"
 TEMPLATES="$SCRIPT_DIR/templates"
 ALL_PLATFORMS="darwin_amd64 darwin_arm64 linux_amd64 linux_arm64 windows_amd64 windows_arm64"
 
@@ -63,11 +64,10 @@ printf '%s\n' "$VERSION" | grep -Eq '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9]
   die "$MANIFEST version '$VERSION' is not a semver version without build metadata"
 case "$FULL" in "$VERSION+"*) ;; *) die "$MANIFEST full_version '$FULL' does not extend version '$VERSION'" ;; esac
 case "$CHANNEL" in
-dev) DIST_TAG=dev ;;
-rc) DIST_TAG=next ;;
-stable) DIST_TAG=latest ;;
+dev | rc | stable) ;;
 *) die "$MANIFEST channel '$CHANNEL' is not dev, rc or stable" ;;
 esac
+DIST_TAG=$(npm_dist_tag "$VERSION" "$CHANNEL" "$PRODUCT")
 # Only Core has a decided npm access; for any other product the plan says so
 # instead of naming a value nobody chose.
 if [ "$PRODUCT" = core ]; then ACCESS='"public"'; else ACCESS=null; fi

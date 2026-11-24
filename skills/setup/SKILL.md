@@ -151,7 +151,9 @@ if records were checked as you wrote them during this run, say so; if not,
 the hooks row stays *unverified*.
 
 - **Turning a gate off** is a committed change to `.facetrc.yaml`
-  (`hooks: { commit_gate: off }`), read from HEAD. The gate refuses a commit
+  (`hooks: { commit_gate: off }`), read from HEAD. The Stop hook's drift
+  notice has its own switch, `hooks: { drift_notice: off }`, with the same
+  rules, and `FACET_SKIP_DRIFT_NOTICE=1` for a single session. The gate refuses a commit
   that switches itself off, so this is a decision for the person running
   the session, committed from their terminal or with
   `FACET_SKIP_COMMIT_GATE=1` in the environment Claude was started with —

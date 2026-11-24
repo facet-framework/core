@@ -19,7 +19,7 @@ contract:
         additional_context_emitted: true
     - id: inert-without-adoption
       statement: |
-        Given a project with no FACET records directory
+        Given a project with no FACET records directory or specification sources
         When any of the plugin's hooks fire
         Then the hook exits zero and emits no output, except for the one-time
         setup hint of a git repository (see setup-hint-in-unadopted-repo)
@@ -148,7 +148,17 @@ contract:
             | at session start            |
             | before context compaction   |
             | when a compacted session resumes |
+    - id: refresh-specification-cache-with-a-deadline
+      statement: |
+        Given a project declaring specification sources
+        When the native SessionStart hook runs
+        Then it fetches the configured follow branches within a shared time budget
+        And it continues without reporting a refresh failure when a source is unreachable
 verification:
+  integration_tests:
+    - id: "cli/spec_drift_cmd_test.go::TestSpecDriftSessionStartHookBoundsUnreachableSource"
+      proves:
+        - refresh-specification-cache-with-a-deadline
   unit_tests:
     - id: cli/hook_test.go
       proves:

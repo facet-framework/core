@@ -1,5 +1,6 @@
 // @facet: registry/integrity/runner-test-discovery
 // @facet-role: primary
+
 package facet
 
 import (
@@ -185,9 +186,9 @@ func normalizedTestPath(root, base, path string) (string, error) {
 // CheckTests executes list only. Missing discovery makes absence unmeasured;
 // known new unclaimed files still fail, even in a partially measured registry.
 func CheckTests(ctx context.Context, cfg *Config, reg Registry, selected string, update bool) (TestDiscovery, error) {
-	return checkTests(ctx, cfg, reg, selected, update, false)
+	return checkTests(ctx, cfg, reg, selected, update, false, false)
 }
-func checkTests(ctx context.Context, cfg *Config, reg Registry, selected string, update, deferBaseline bool) (TestDiscovery, error) {
+func checkTests(ctx context.Context, cfg *Config, reg Registry, selected string, update, deferBaseline, allowNoRunners bool) (TestDiscovery, error) {
 	result := TestDiscovery{FeaturePrefixes: cfg.TestFeaturePrefixes, FeaturePrefix: cfg.TestFeaturePrefix, Registry: reg.Name, Runners: []DiscoveredRunner{}, Findings: []TestFinding{}}
 	runners := cfg.Runners
 	if cfg.MultiRegistry() {
@@ -200,7 +201,7 @@ func checkTests(ctx context.Context, cfg *Config, reg Registry, selected string,
 		}
 		runners = map[string]Runner{selected: r}
 	}
-	if len(runners) == 0 {
+	if len(runners) == 0 && !allowNoRunners {
 		return result, fmt.Errorf("registry %q declares no runners", reg.Name)
 	}
 	records, err := testScopeFeatures(cfg, reg)

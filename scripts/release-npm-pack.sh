@@ -4,12 +4,13 @@
 #
 # The release step after release-manifest.sh: generates the npm packages of a
 # packaged release (npm/generate.sh) and packs each into a tarball. Publishes
-# nothing; the release workflow keeps the tarballs and the plan as artifacts.
+# nothing; release workflows can keep the tarballs and plan as artifacts.
 
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 ROOT=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)
+. "$SCRIPT_DIR/release-npm-tag.sh"
 
 die() {
   echo "release-npm-pack: $*" >&2
@@ -21,7 +22,11 @@ if [ "${1:-}" = --allow-partial ]; then
   PARTIAL=--allow-partial
   shift
 fi
-[ "$#" -eq 1 ] || die "usage: release-npm-pack.sh [--allow-partial] <dist>"
+if [ "${1:-}" = --source ] && [ "$#" -eq 3 ]; then
+  ROOT=$2
+  shift 2
+fi
+[ "$#" -eq 1 ] || die "usage: release-npm-pack.sh [--allow-partial] [--source <root>] <dist>"
 DIST=$1
 OUT="$DIST/npm"
 command -v npm >/dev/null 2>&1 || die "npm is required"
@@ -30,7 +35,8 @@ command -v jq >/dev/null 2>&1 || die "jq is required"
 owner=$(sed -n 's|^module[[:space:]]*github\.com/\([^/]*\)/.*|\1|p' "$ROOT/go.mod" | head -n 1)
 [ -n "$owner" ] || die "cannot read the owner of the module path in $ROOT/go.mod"
 
-sh "$ROOT/npm/generate.sh" $PARTIAL "$DIST" "$OUT" || exit 2
+# The pack summary below reports the current tag even for an older generator.
+sh "$ROOT/npm/generate.sh" $PARTIAL "$DIST" "$OUT" >/dev/null || exit 2
 OUT=$(CDPATH= cd -- "$OUT" && pwd)
 
 # Every text file that will be packed is refused if it names the private owner
@@ -79,8 +85,12 @@ fi
 [ "$(jq -r .access "$OUT/packages.json")" != null ] || echo "npm access not decided" >>"$OUT/blocked.txt"
 [ "$(jq '.notice_missing | length' "$OUT/packages.json")" = 0 ] || echo "third-party notices not included" >>"$OUT/blocked.txt"
 
-jq --slurpfile packed "$OUT/packed.jsonl" --rawfile blocked "$OUT/blocked.txt" --rawfile private "$OUT/private.txt" \
-  '. as $plan
+version=$(jq -r .version "$OUT/packages.json")
+channel=$(jq -r .channel "$OUT/packages.json")
+product=$(jq -r .product "$OUT/packages.json")
+tag=$(npm_dist_tag "$version" "$channel" "$product")
+jq --arg tag "$tag" --slurpfile packed "$OUT/packed.jsonl" --rawfile blocked "$OUT/blocked.txt" --rawfile private "$OUT/private.txt" \
+  '.dist_tag = $tag | . as $plan
    | ($blocked | split("\n") | map(select(length > 0))) as $reasons
    | {publishable: ($reasons | length == 0), blocked_by: $reasons,
       private_binaries: ($private | split("\n") | map(select(length > 0)))} + .

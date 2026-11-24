@@ -1,5 +1,6 @@
 // @facet: registry/integrity/runner-test-execution
 // @facet-role: primary
+
 package facet
 
 import (
@@ -12,8 +13,11 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"sort"
 	"strings"
+
+	"github.com/facet-framework/core/internal/spec"
 )
 
 // TestPassed identifies positive execution evidence for a file or feature.
@@ -35,11 +39,12 @@ type RunnerExecution struct {
 }
 
 // FeatureTestResult combines the execution states of a record's referenced test
-// files. These associations do not establish scenario-level proof.
+// files and the directly bound specification scenarios.
 type FeatureTestResult struct {
-	ID    string            `json:"id"`
-	State string            `json:"state"`
-	Files map[string]string `json:"files"`
+	ID        string               `json:"id"`
+	State     string               `json:"state"`
+	Files     map[string]string    `json:"files"`
+	Scenarios []ScenarioTestResult `json:"scenarios,omitempty"`
 }
 
 // TestSourceSnapshot is the state a repository was in when a test run started:
@@ -155,8 +160,19 @@ func GitTreeState(root string) (head string, dirty bool, err error) {
 	return head, len(strings.TrimSpace(string(status))) > 0, nil
 }
 
+// HasUnmeasuredSpec reports unavailable specification execution dependencies.
+func (r TestExecution) HasUnmeasuredSpec() bool {
+	for _, feature := range r.Features {
+		for _, scenario := range feature.Scenarios {
+			if scenario.State == TestUnmeasured {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // HasUnmeasured reports gaps in both feature claims and runner file evidence.
-// This is opt-in CLI policy, separate from the runner's actual process exit.
 func (r TestExecution) HasUnmeasured() bool {
 	for _, feature := range r.Features {
 		if feature.State == TestUnmeasured {
@@ -210,6 +226,11 @@ func (r TestExecution) ExitCode() int {
 	for _, f := range r.Features {
 		if f.State == TestFailed {
 			return 1
+		}
+		for _, scenario := range f.Scenarios {
+			if scenario.State == TestDiverged {
+				return 1
+			}
 		}
 	}
 	return 0
@@ -332,7 +353,7 @@ func prepareReport(path string) (func() error, error) {
 	}, nil
 }
 
-func executeRunner(ctx context.Context, root, name string, r Runner, files, protectedFiles []string, stdout, stderr io.Writer) (execution RunnerExecution, err error) {
+func executeRunner(ctx context.Context, root, name string, r Runner, files, protectedFiles []string, specFiles []*specTestFile, stdout, stderr io.Writer) (execution RunnerExecution, err error) {
 	execution = RunnerExecution{Name: name, Results: map[string]string{}}
 	cwd := filepath.Join(root, r.Cwd)
 	// Recheck cwd immediately before executing; discovery may have been absent.
@@ -387,7 +408,7 @@ func executeRunner(ctx context.Context, root, name string, r Runner, files, prot
 			}
 		}()
 	}
-	command := testListCommand(ctx, r.Command)
+	command := testListCommand(ctx, r.Command, specTestPaths(specFiles)...)
 	command.Dir = cwd
 	command.Stdout = stdout
 	command.Stderr = stderr
@@ -419,7 +440,7 @@ func executeRunner(ctx context.Context, root, name string, r Runner, files, prot
 	} else if r.Report == "go-json" {
 		execution.Results, e = parseGoJSONResults(root, data, files)
 	} else if r.Report == "cucumber-json" {
-		execution.Results, e = parseCucumberResults(root, cwd, data, files)
+		execution.Results, e = parseCucumberResults(root, cwd, data, files, specFiles...)
 	}
 	if e != nil {
 		execution.Results = map[string]string{}
@@ -444,7 +465,7 @@ func executeRunner(ctx context.Context, root, name string, r Runner, files, prot
 		if len(incomplete) > 0 {
 			problems = append(problems, "skipped or incomplete file evidence for: "+strings.Join(incomplete, ", "))
 		}
-		if len(files) == 0 {
+		if len(files) == 0 && len(specFiles) == 0 {
 			problems = append(problems, "file results not measured: discovery supplied no files; configure a successful list command")
 		}
 		execution.ReportProblem = strings.Join(problems, "; ")
@@ -517,7 +538,28 @@ func ExecuteTests(ctx context.Context, cfg *Config, reg Registry, selected strin
 	}()
 	// A successful report is valid only for the exact inputs measured above.
 	configBefore, _ := os.ReadFile(filepath.Join(reg.Root, ConfigName))
+	records, err := testScopeFeatures(cfg, reg)
+	if err != nil {
+		return result, err
+	}
+	hasSpec := false
+	for _, rec := range records {
+		if len(specifiedScenarios(rec)) > 0 {
+			hasSpec = true
+			break
+		}
+	}
+	var lockBefore []byte
+	if hasSpec {
+		lockBefore, _ = os.ReadFile(filepath.Join(reg.Root, spec.LockName))
+	}
 	validateInputs := func() error {
+		if hasSpec {
+			lockAfter, _ := os.ReadFile(filepath.Join(reg.Root, spec.LockName))
+			if !bytes.Equal(lockBefore, lockAfter) {
+				return fmt.Errorf("specification lock changed during execution")
+			}
+		}
 		if reg.SourceView == nil {
 			return nil
 		}
@@ -554,7 +596,7 @@ func ExecuteTests(ctx context.Context, cfg *Config, reg Registry, selected strin
 		result.Features = nil
 		return e
 	}
-	discovery, err := checkTests(ctx, cfg, reg, selected, update, true)
+	discovery, err := checkTests(ctx, cfg, reg, selected, update, true, hasSpec)
 	result.Discovery = discovery
 	if e := validateInputs(); e != nil {
 		return result, rejectChanged(e)
@@ -570,11 +612,17 @@ func ExecuteTests(ctx context.Context, cfg *Config, reg Registry, selected strin
 	if cfg.MultiRegistry() {
 		runners = cfg.Registries[reg.Name].Runners
 	}
-	records, err := testScopeFeatures(cfg, reg)
-	if err != nil {
-		return result, err
+	var specPlan specTestPlan
+	var specResults map[string][]*ScenarioTestResult
+	if hasSpec {
+		var cleanup func()
+		specPlan, specResults, cleanup = prepareSpecTests(ctx, reg, records, selected)
+		defer cleanup()
 	}
 	protected := map[string]bool{ConfigName: true, "go.mod": true}
+	if hasSpec {
+		protected[spec.LockName] = true
+	}
 	for _, d := range discovery.Runners {
 		for _, p := range d.Files {
 			protected[p] = true
@@ -641,7 +689,8 @@ func ExecuteTests(ctx context.Context, cfg *Config, reg Registry, selected strin
 				}
 			}
 		}
-		execution, e := executeRunner(ctx, runnerRoot, d.Name, r, runnerFiles, runnerProtected, stdout, stderr)
+		execution, e := executeRunner(ctx, runnerRoot, d.Name, r, runnerFiles, runnerProtected, specPlan[d.Name], stdout, stderr)
+		markSpecReportUnavailable(specPlan[d.Name], execution.ReportProblem)
 		if repository != "" {
 			portable := map[string]string{}
 			for path, state := range execution.Results {
@@ -701,7 +750,13 @@ func ExecuteTests(ctx context.Context, cfg *Config, reg Registry, selected strin
 				}
 			}
 		}
-		if len(feature.Files) > 0 {
+		for _, scenario := range specResults[rec.ID] {
+			feature.Scenarios = append(feature.Scenarios, *scenario)
+		}
+		hasScenarioEvidence := slices.ContainsFunc(feature.Scenarios, func(s ScenarioTestResult) bool {
+			return s.State != TestProvenance
+		})
+		if len(feature.Files) > 0 || hasScenarioEvidence {
 			feature.State = TestPassed
 			for _, state := range feature.Files {
 				if state == TestFailed {
@@ -709,6 +764,20 @@ func ExecuteTests(ctx context.Context, cfg *Config, reg Registry, selected strin
 					break
 				}
 				if state == TestUnmeasured {
+					feature.State = TestUnmeasured
+				}
+			}
+		}
+		if len(feature.Scenarios) > 0 && len(feature.Files) == 0 && !hasScenarioEvidence {
+			feature.State = TestProvenance
+		}
+		for _, scenario := range feature.Scenarios {
+			switch scenario.State {
+			case TestFailed:
+				feature.State = TestFailed
+			case TestPassed, TestProvenance:
+			default:
+				if feature.State != TestFailed {
 					feature.State = TestUnmeasured
 				}
 			}

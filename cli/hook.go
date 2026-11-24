@@ -86,7 +86,7 @@ func newHookCmd() *cobra.Command {
 				return nil
 			}
 
-			ctx, ok := resolveHookContext(cmd, in)
+			ctx, ok := resolveHookContextForEvent(cmd, in, args[0])
 			if !ok {
 				// Inert outside FACET projects, with one exception: a git
 				// repository that has not met FACET is told once that
@@ -113,6 +113,7 @@ func newHookCmd() *cobra.Command {
 			}
 			switch args[0] {
 			case "session-start":
+				refreshHookSpecCache(cmd.Context(), ctx.root)
 				clearNotices(in.SessionID, "read-context:")
 				if in.Source == "compact" {
 					hookCompactSessionStart(ctx, in.SessionID)
@@ -149,8 +150,16 @@ func newHookCmd() *cobra.Command {
 
 // resolveHookContext finds the repository the work is actually happening in.
 func resolveHookContext(cmd *cobra.Command, in hookInput) (hookContext, bool) {
+	return resolveHookContextForEvent(cmd, in, "")
+}
+
+func resolveHookContextForEvent(cmd *cobra.Command, in hookInput, event string) (hookContext, bool) {
 	for _, root := range hookRootCandidates(cmd, in) {
-		if ctx := newHookContextForCommand(cmd, root); len(ctx.registries) > 0 {
+		ctx := newHookContextForCommand(cmd, root)
+		if len(ctx.registries) > 0 {
+			return ctx, true
+		}
+		if (event == "session-start" || event == "stop") && hookSpecConfig(root) != nil {
 			return ctx, true
 		}
 		if looksLikeCommit(in.ToolInput.Command) && commitRevisionAdopted(root) {
@@ -1225,9 +1234,16 @@ func (ctx hookContext) emitStopReview(reason string) {
 // Deterministic on purpose: it runs at every turn end, so it must be free and
 // must not loop. Each record is reported once per session.
 func hookStop(ctx hookContext, in hookInput) {
-	var findings, stale, removed, unknown, reviewRoots, productNotices []string
+	var findings, stale, removed, unknown, reviewRoots, productNotices, specNotices []string
 	for _, c := range sessionContexts(ctx, in.SessionID) {
+		if driftNoticeOff(c.root) {
+			continue
+		}
 		reviewRoots = append(reviewRoots, c.root)
+		specNotices = append(specNotices, hookSpecDrift(c, in.SessionID)...)
+		if len(c.registries) == 0 {
+			continue
+		}
 		report, err := facet.ComputeDrift(c.root, c.registries, "")
 		if err != nil {
 			unknown = append(unknown, fmt.Sprintf("- %s: the anchor scan failed (%v)", c.root, err))
@@ -1240,6 +1256,9 @@ func hookStop(ctx hookContext, in hookInput) {
 		productNotices = append(productNotices, productStopNotices(c, in.SessionID, report.Baseline)...)
 	}
 	if len(findings) == 0 && len(stale) == 0 && len(removed) == 0 && len(unknown) == 0 && len(productNotices) == 0 {
+		if len(specNotices) > 0 {
+			ctx.emitStopReview(formatHookSpecNotices(specNotices))
+		}
 		return
 	}
 
@@ -1311,6 +1330,9 @@ that reads fine either way.`, strings.Join(dedupe(stale), "\n"))
 	}
 	fmt.Fprintf(&b, "\n\nFACET review locations:\n- %s", strings.Join(dedupe(reviewRoots), "\n- "))
 	b.WriteString("\n\nAfter reviewing, check the current FACET status with 'facet drift --json' in the affected repository or worktree. If the facet binary is unavailable, report that the status check could not run and base the scoped review on the listed files and records; do not claim a clean status. A deduplicated notice is not evidence that drift is resolved. Then send a complete, self-contained final response to the user's original task again: lead with the task result and retain relevant deliverables, links, verification results and remaining limitations. Update any earlier claims invalidated by the review or subsequent edits; do not claim checks passed unless they ran. Include the FACET review outcome briefly after the task result, including unresolved or unrelated changes and any failed status check. Do not finish with only a drift acknowledgement or refer the user to an earlier response. Review unrelated changes without modifying them or accepting a baseline outside the authorized scope.")
+	if len(specNotices) > 0 {
+		b.WriteString("\n\n" + formatHookSpecNotices(specNotices))
+	}
 	ctx.emitStopReview(b.String())
 }
 

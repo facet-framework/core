@@ -12,6 +12,7 @@ RECORDS_DIRS=$(facet_records_dirs "$REPO_ROOT")
 SCHEMA_DIR=$(facet_schema_dir "$REPO_ROOT")
 
 FAILED=0
+CHECK_SPEC_LOCK=0
 TMP_JSON="${TMPDIR:-/tmp}/facet-validate-$$.json"
 trap 'rm -f "$TMP_JSON"' EXIT
 
@@ -45,6 +46,13 @@ validate_one() {
     FAILED=1
     return 0
   fi
+  case "$f" in
+  "$RECORDS_DIR"/features/*)
+    if grep -q '"specified_by"[[:space:]]*:' "$TMP_JSON"; then
+      CHECK_SPEC_LOCK=1
+    fi
+    ;;
+  esac
   if ! ajv validate -s "$schema" -d "$TMP_JSON" 2>&1; then
     FAILED=1
   fi
@@ -144,9 +152,23 @@ done <<DIRS
 $RECORDS_DIRS
 DIRS
 
+if [ "$CHECK_SPEC_LOCK" -eq 1 ] || [ -e "$REPO_ROOT/docs/facets/spec-lock.yaml" ]; then
+  echo "  Checking pinned specification conformance..."
+  facet_require_tool facet
+  case $? in
+  0) facet spec check-lock --root "$REPO_ROOT" || FAILED=1 ;;
+  *)
+    # A pinned specification is a promise the project opted into; without
+    # the binary nothing can check it, so this is never a silent skip.
+    echo "  ERROR: a specification lock or specified_by reference needs the 'facet' binary to be checked."
+    FAILED=1
+    ;;
+  esac
+fi
+
 if [ "$FAILED" -eq 1 ]; then
   echo ""
-  echo "FAIL: One or more records failed schema validation."
+  echo "FAIL: One or more records failed schema validation or specification conformance."
   exit 1
 fi
 

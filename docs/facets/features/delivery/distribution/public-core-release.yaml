@@ -5,12 +5,8 @@ id: delivery/distribution/public-core-release
 lifecycle: active
 intent:
   summary: |
-    Builds and releases FACET Core inside the public Core repository from the
-    exported tree: CI checks the tree against its export receipt and gates
-    everything behind one ci-green job, and the release workflow publishes the
-    receipt's version only after CI succeeded on that commit and the release
-    environment approved. npm publishing stays off unless separately enabled
-    and approved.
+    Builds FACET Core from the verified export in the public Core repository
+    and publishes the archives as a GitHub release.
 contract:
   scenarios:
     - id: the-tree-matches-its-export-receipt
@@ -56,16 +52,42 @@ contract:
       statement: |
         Given a push to main or a manual run
         When release.yml plans the release
-        Then it refuses a ref other than main, a tree that differs from its receipt, a development version, a commit without a successful ci.yml push run, missing release notes and a tag that names another commit or a published release
-        And attestation, tag and GitHub release run only in the job behind the release environment, after every platform binary ran natively
-        And npm publishing runs only when the repository variable FACET_NPM_PUBLISH is true, behind the npm environment, and only a plan that is publishable and complete
+        Then the plan refuses a ref other than main and waits for a successful ci.yml push run on that commit
+        And the plan requires the receipt, a candidate or stable version, release notes and a usable tag
+        And the publish job runs after the build and native checks, behind the release environment
+        And the publish job attests the archives, then pushes the tag, then creates the GitHub release
         And dry runs and publishing runs queue in separate concurrency groups, none cancelling another
+    - id: github-release-workflow-ends-at-publication
+      statement: |
+        Given the Core release.yml workflow
+        When it plans and publishes a release
+        Then the plan checks only the release environment
+        And the publish job creates the GitHub release with the job token
+        And the workflow has no npm staging job
+    - id: npm-dispatch-follows-github-publication
+      statement: |
+        Given the Core release.yml workflow
+        When a publishing run verifies a published release and FACET_NPM_PUBLISH is true
+        Then the npm-dispatch job dispatches npm.yml on main with the release tag as input
+        And only npm-dispatch grants actions write
+        And a failed dispatch exits successfully with a warning containing the manual dispatch command
+        And dry runs and runs without FACET_NPM_PUBLISH set to true skip dispatch
+    - id: tag-requires-the-approved-release-pull-request
+      statement: |
+        Given a Core candidate with a receipt version matching the Core version declaration
+        When release-publish.sh prepares the tag
+        Then the checked-out commit must have exactly one parent and exactly one associated pull request that merged it from release/<version> to main in the same repository
+        And an owner, member or collaborator other than the author must have an approval for that head as their latest review decision at merge time
+        And only approvals, changes requested and dismissals count as review decisions
+        And the sole parent of the approved head must be the squash commit's parent
+        And the checked-out commit must have the same tree as that approved head
+        And a tree, parent, review, branch, merge or version mismatch prevents tagging
     - id: an-unprotected-environment-stops-the-plan
       statement: |
-        Given the environment a release job waits for, release always and npm when FACET_NPM_PUBLISH is true
-        When the plan asks the GitHub API for it and its deployment branch policies
-        Then it goes on only if the environment exists, has a required-reviewers rule naming someone, has can_admins_bypass false, and deploys from selected branches that are exactly main
-        And a missing environment, one without reviewers, one administrators can bypass or that does not state can_admins_bypass, one without a branch policy or open to protected branches, one with another or a second branch, and an API failure each stop the plan
+        Given the release environment for GitHub publication
+        When the plan reads its protection rules and deployment policies through the GitHub API
+        Then the check requires at least one reviewer, can_admins_bypass false, and the main branch as the only custom deployment policy
+        And a missing environment, a different policy, a missing can_admins_bypass value or an API failure stops the plan
     - id: self-approval-needs-no-second-reviewer-unless-required
       statement: |
         Given the same environment check, and the repository variable FACET_RELEASE_REQUIRE_SECOND_REVIEWER passed into it
@@ -78,9 +100,15 @@ contract:
         Given the same environment check in the plan
         When it reads the rules of main, the branch protection of main and the repository's tag rulesets through the GitHub API
         Then it goes on only if main needs a pull request with at least one approving review that administrators cannot bypass, either as an active branch ruleset with an empty bypass list or as branch protection with enforce_admins and no bypass allowances
-        And only if an active tag ruleset covering refs/tags/v* without exclusions restricts creation, update and deletion, with at most the GitHub Actions app and deploy keys allowed to bypass it
-        And a main without such protection, protection administrators or named actors can bypass, a missing or evaluate-only tag ruleset, one without a creation, update or deletion rule, one for other tags and one others may bypass each stop the plan, naming the setting
-        And a ruleset bypass list or branch protection the token cannot read stops the plan with a message that the token lacks permission, never passing
+        And an active tag ruleset must cover refs/tags/v* without exclusions, restrict updates, deletions and non-fast-forward changes, and allow the job to create tags
+        And the tag bypass list must be empty or limited to GitHub Actions and deploy keys
+        And an unreadable bypass list or branch protection prevents publication and identifies the required permission
+    - id: immutable-releases-must-be-enabled
+      statement: |
+        Given the release environment and repository rules pass their checks
+        When the plan checks immutable releases
+        Then a disabled setting or HTTP 404 stops the plan and reports that immutable releases are disabled
+        And HTTP 403 stops the plan and reports the required Administration read permission
     - id: ci-and-release-build-with-one-pinned-go
       statement: |
         Given ci.yml and release.yml
@@ -94,28 +122,27 @@ contract:
         When the CI licenses job or the release plan runs release-notice-check.sh
         Then it fails unless every named file is present and non-empty and every named directory holds something
         And a missing or empty NOTICE fails as well
-    - id: npm-publishing-is-resumable
-      statement: |
-        Given an approved npm job with the release archives and its publish plan
-        When it publishes
-        Then it verifies the archives against checksums.txt, packs them, and publishes with an npm of 11.5.1 or later through trusted publishing for every package the registry already knows
-        And a package name the registry does not know yet is published with the token the npm environment supplies to the publish step alone; without that token the run stops before anything is published and names those packages
-        And each package whose version the registry holds with the plan's integrity is skipped, so a re-run finishes a run that stopped half way
-        And a version the registry holds with another integrity, a registry error other than not found, an older npm and a plan that is not publishable each stop it before that package is published
+verification:
+  unit_tests:
+    - id: scripts/public-core-workflows.test.sh
+      proves:
+        - ci-green-requires-every-job
+        - a-release-waits-for-ci-and-approval
+        - github-release-workflow-ends-at-publication
+        - npm-dispatch-follows-github-publication
+        - ci-and-release-build-with-one-pinned-go
 knowledge:
   prerequisite_knowledge:
     question: "What must a maintainer know first?"
     answer: |
-      The public tree is a curated export of the development sources, recorded
-      by PUBLIC-SOURCE-MANIFEST.json at its root; the archives come from
+      The public tree is recorded by PUBLIC-SOURCE-MANIFEST.json at its root,
+      which lists the path, SHA-256 and mode of every file; the archives come from
       delivery/distribution/core-release-packaging, run in the public layout.
   not_for:
     question: "What does this not do?"
     answer: |
-      It does not push the release branch or merge it into main; that happens
-      before this workflow runs, when the exported tree is published to the
-      public repository. Its workflows are only proven by wiring tests and a
-      local run of their commands; a public runner has not executed them yet.
+      A maintainer opens a pull request from release/<version> to main; the
+      owner approves and squash-merges it before this workflow runs.
   discoverability:
     question: "Where does a maintainer enter this?"
     answer: |
@@ -136,7 +163,8 @@ knowledge:
     answer: |
       ci-green is green on release/<version>, and after the merge a GitHub
       release v<version> carries six archives, checksums.txt and
-      release-manifest.json with an attestation.
+      release-manifest.json with an attestation. The tag points to the
+      squash commit whose tree matches the approved pull request head.
 lineage:
   owner:
     team: facet-framework

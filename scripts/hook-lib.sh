@@ -161,6 +161,24 @@ facet_commit_gate_off() {
   [ "$_gate_value" = "off" ]
 }
 
+facet_drift_notice_off() {
+  [ "$FACET_SKIP_DRIFT_NOTICE" = "1" ] && return 0
+  facet_drift_notice_switch "$1" "${2:-HEAD:}"
+}
+
+facet_drift_notice_switch() {
+  _drift_value=$(git -C "$1" show "${2}$FACET_CONFIG_NAME" 2>/dev/null | awk '
+    /^[^[:space:]#]/ { in_hooks = ($0 ~ /^hooks:[[:space:]]*(#.*)?$/); next }
+    in_hooks && /^  drift_notice:/ {
+      v = $0
+      sub(/^  drift_notice:[[:space:]]*/, "", v)
+      sub(/[[:space:]]*#.*$/, "", v)
+      print v
+      exit
+    }' | tr -d "\"'")
+  [ "$_drift_value" = "off" ]
+}
+
 # True only when the project actually adopted FACET. Every hook exits silently
 # when this is false, so installing the plugin is inert in unrelated projects.
 facet_is_adopted() {

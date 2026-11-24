@@ -5,6 +5,26 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions
 follow [Semantic Versioning](https://semver.org/). Release candidates may still
 change any public API, flag or schema.
 
+## 0.1.0-rc.4
+
+### Added
+- Specification sources: `facet spec lint`, `facet spec update` and
+  `facet spec drift` read specification files from
+  configured Git sources (FACET Markdown specs, Gherkin `.feature`, Cucumber
+  Markdown `.feature.md` and OpenSpec; Spec Kit, Kiro, BMAD and Gauge as
+  provenance), compare their scenarios
+  with record scenarios, pin them in `docs/facets/spec-lock.yaml` and report
+  drift against the followed branch.
+- `facet test` runs pinned specification scenarios and reports the execution
+  evidence for the record scenarios they specify.
+- The Stop hook's drift notice can be switched off with
+  `hooks: {drift_notice: off}` in `.facetrc.yaml` or
+  `FACET_SKIP_DRIFT_NOTICE=1`. The commit gate refuses an agent's commit that
+  sets the config switch.
+
+### Changed
+- The Stop hook recommends a work item when specification scenarios drifted.
+
 ## 0.1.0-rc.3
 
 ### Added

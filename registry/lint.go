@@ -55,9 +55,10 @@ func (r *Report) add(f Finding) { r.Findings = append(r.Findings, f) }
 
 // LintOptions selects which checks run.
 type LintOptions struct {
-	Scan   ScanOptions
-	Schema bool // validate records against JSON Schema
-	Skip   map[string]bool
+	specPin *specPin
+	Scan    ScanOptions
+	Schema  bool // validate records against JSON Schema
+	Skip    map[string]bool
 	// Today is an ISO date used for flag retirement checks. Injected rather
 	// than read from the clock so a run is reproducible (spec §6.3).
 	Today string
@@ -355,6 +356,14 @@ func lint(reg Registry, opts LintOptions) (Report, error) {
 	if !opts.Skip["deviation"] {
 		lintDeviation(reg, &rep, features)
 	}
+	if !opts.Skip["spec-conformance"] {
+		pin := opts.specPin
+		if pin == nil {
+			current := readSpecPin(reg.Root)
+			pin = &current
+		}
+		lintSpecConformance(reg, &rep, features, *pin)
+	}
 	if !opts.Skip["examples"] {
 		lintExamples(reg, &rep, features)
 	}
@@ -461,6 +470,10 @@ func LintAll(root string, opts LintOptions) (Report, error) {
 			return Report{}, err
 		}
 	}
+	if !opts.Skip["spec-conformance"] {
+		pin := readSpecPin(root)
+		opts.specPin = &pin
+	}
 	registries := cfg.All()
 	for i := range registries {
 		registries[i].categorySnapshot = make(map[string]categoryLoad)
@@ -551,19 +564,19 @@ func LintAll(root string, opts LintOptions) (Report, error) {
 		combined.Checked.Registries = append(combined.Checked.Registries, rep.Checked.Registries...)
 	}
 
-	combined.Findings = dedupeRegistryRefs(combined.Findings)
+	combined.Findings = dedupeProjectFindings(combined.Findings)
 	if combined.Findings == nil {
 		combined.Findings = []Finding{}
 	}
 	return combined, nil
 }
 
-func dedupeRegistryRefs(findings []Finding) []Finding {
+func dedupeProjectFindings(findings []Finding) []Finding {
 	seen := map[string]bool{}
 	out := findings[:0]
 	for _, f := range findings {
-		if f.Check == "registry-refs" {
-			key := f.ID + "\x00" + f.Path
+		if f.Check == "registry-refs" || (f.Check == "spec-conformance" && f.ID == "") {
+			key := f.Check + "\x00" + f.ID + "\x00" + f.Path
 			if seen[key] {
 				continue
 			}

@@ -10,7 +10,7 @@ set -e
 _facet_version_explicit=
 [ -z "${FACET_VERSION:-}" ] || _facet_version_explicit=1
 
-FACET_VERSION="${FACET_VERSION:-0.1.0-rc.3}"
+FACET_VERSION="${FACET_VERSION:-0.1.0-rc.4}"
 FACET_UPSTREAM_REPO="facet-framework/core"
 
 # A fork extends the source list rather than replacing it, because the common
@@ -627,7 +627,7 @@ _rejected=
 die "could not obtain facet core $FACET_VERSION for this platform.
      Looked for: facet_${FACET_VERSION}_${platform}.${ARCHIVE_EXT} (release tag $RELEASE_TAG)
      Tried: $REPOS${_rejected}
-     FACET Core versions restart at 0.1.0; if no release of $FACET_VERSION has
+     If no release of $FACET_VERSION has
      been published to those sources, there is nothing to download. Options:
        - FACET_VERSION=<version> to pin a version that has been released
        - FACET_BINARY=<path> to run a facet binary you already have

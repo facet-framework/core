@@ -19,14 +19,14 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": ".claude-plugin/plugin.json",
-      "sha256": "a713c7ce2e6885f3c5187281d79b6a25c0c5437bb357ea40e660074d06e34c6b"
+      "sha256": "fad6e34a4970a9b4f6806706f064c0c1328312003aa5dfd7550763dce78dbe45"
     },
     {
       "content_review": "approved",
       "license": "Apache-2.0",
       "mode": "0644",
       "path": ".codex-plugin/plugin.json",
-      "sha256": "8b7e78ccc0da6f2d13b1bf8a94ec6671b8deab2f42471d61c947d1e43f261ec3"
+      "sha256": "6bc34114fc09eb68bb32105afcb520061daff56ac49d84283fa0afbe31d89425"
     },
     {
       "content_review": "approved",
@@ -82,14 +82,28 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": ".github/workflows/facet-lint.yml",
-      "sha256": "e53c834512675b3a62c4d018590e5082ef97a070b7d3c4a249d9e4bde268b571"
+      "sha256": "70abece0c9d68fd35dd1ff750d0c0fe7d579dc0d323cf9700f4c3bb068fc9266"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": ".github/workflows/npm.yml",
+      "sha256": "100505e9ef105b861cd65a0fb6ddf80ab87ed8b7c842312042569b304e846a8f"
     },
     {
       "content_review": "approved",
       "license": "Apache-2.0",
       "mode": "0644",
       "path": ".github/workflows/release.yml",
-      "sha256": "ae625a0d99d7091c239b7d894f64bffd400d2b3ae39b98b41c3f353c08ab39e6"
+      "sha256": "841c9ce99515bedb0d6b7319752de65f015074995dcda59006de174fe2609df8"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": ".github/workflows/scorecard.yml",
+      "sha256": "36e91a7c1e3d5c1f65bae134766af060b392690be084db560288c7d0b7347fb8"
     },
     {
       "content_review": "approved",
@@ -124,7 +138,7 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "CHANGELOG.md",
-      "sha256": "9df989f9b4f568f054d9b04dede5cfbdd8b5b70a4da06c9515a84c1e343c1a57"
+      "sha256": "7109cb532c3ef334318d2efd34f78fc8180a5f6313d4b1ba5166f65c9df133da"
     },
     {
       "content_review": "approved",
@@ -145,7 +159,7 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "CONTRIBUTING.md",
-      "sha256": "ba39f5552e6aa5f1e7f539451f116947c0125b4b425af33143c2f2861b0afbef"
+      "sha256": "3986104a5a782ae4022815d8256a932bdf9e3ce33819a8112142088efb6742f1"
     },
     {
       "content_review": "approved",
@@ -159,14 +173,14 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "NOTICE",
-      "sha256": "916a6e5d9b7aaa7887d10f3f9df79c45ec8c66932af2f3d35dd74366aedc86bd"
+      "sha256": "b0ef2c6d06db3dfe0467aae571247b1c58a521fb387b68a119002916da6eb493"
     },
     {
       "content_review": "approved",
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "README.md",
-      "sha256": "8c726bc3209197a6bfdfa66e768c3ddeb16e9a0fb5b100549dae76a1ec369f54"
+      "sha256": "41686e26554a30116130ddf60a406a04afa37176de2c1ede9fbff18ca2c68947"
     },
     {
       "content_review": "approved",
@@ -187,7 +201,7 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "THIRD_PARTY.json",
-      "sha256": "9aba2c649a860ca69e1934f7eb93f1dcdfa657e620a0693e90b08ec4dda12372"
+      "sha256": "7d5a3a6cb55e477b00554300d0462c1c441bce07e319d10372e30cc827c89f33"
     },
     {
       "content_review": "approved",
@@ -377,6 +391,20 @@
       "mode": "0644",
       "path": "THIRD_PARTY_LICENSES/go/golang.org%2Fx%2Ftext@v0.41.0/PATENTS",
       "sha256": "96f408bfae65bf137fc2525d3ecb030271c50c1e90799f87abf8846d8dd505cc"
+    },
+    {
+      "content_review": "approved",
+      "license": "LicenseRef-Upstream",
+      "mode": "0644",
+      "path": "THIRD_PARTY_LICENSES/go/gopkg.in%2Fyaml.v3@v3.0.1/LICENSE",
+      "sha256": "d18f6323b71b0b768bb5e9616e36da390fbd39369a81807cca352de4e4e6aa0b"
+    },
+    {
+      "content_review": "approved",
+      "license": "LicenseRef-Upstream",
+      "mode": "0644",
+      "path": "THIRD_PARTY_LICENSES/go/gopkg.in%2Fyaml.v3@v3.0.1/NOTICE",
+      "sha256": "f6c2dd3a67b576eafb89b80200b8b1627230bf3821a0c14cb99a22ac19107d00"
     },
     {
       "content_review": "approved",
@@ -663,7 +691,7 @@
       "license": "Apache-2.0",
       "mode": "0755",
       "path": "bin/facet",
-      "sha256": "535edf210c776b2b13639d711b4eb1055d328995aacee73572f18216589bf58d"
+      "sha256": "0bcd5a0b5d981e495b351a1ac5e76e4144f323af8860ce250a66876bec0f7cb3"
     },
     {
       "content_review": "approved",
@@ -768,7 +796,7 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "cli/command_options_test.go",
-      "sha256": "68a6ae5a7ddd330bdb2694a086811a452255ac87bb78103512f4989d12ddc676"
+      "sha256": "4ed8f6962820b0738eb308ee41bb07661df48160bf1730e08f9be5a104fbf62a"
     },
     {
       "content_review": "approved",
@@ -964,7 +992,7 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "cli/hook.go",
-      "sha256": "b0dcdc758174149589fc623621fc72db66bceeec212a1a0d355437257a9365f1"
+      "sha256": "3e289a5a6e52845028c2ba886d24f0f85c369225ff13e18e8eec9e5c3b2a25e1"
     },
     {
       "content_review": "approved",
@@ -992,7 +1020,7 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "cli/hook_commitgate.go",
-      "sha256": "bd057b492fcbd02d75dc573e26924447dfa17bb115d8a716c2db26e2a963825a"
+      "sha256": "cb38edc57952938b8a491579c5adae26c7d7fd9f336f1449a1531e9e992effa5"
     },
     {
       "content_review": "approved",
@@ -1014,6 +1042,13 @@
       "mode": "0644",
       "path": "cli/hook_commitgate_test.go",
       "sha256": "a8761c6adc848f1ebb7ff4627d19c7405716554c8b6c1d245b0229d02c8c8695"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "cli/hook_driftnotice_test.go",
+      "sha256": "e60da62f5cd1317efcea6c6a5a20947b3f588ba104587f2fe99f6055d4521028"
     },
     {
       "content_review": "approved",
@@ -1075,6 +1110,13 @@
       "content_review": "approved",
       "license": "Apache-2.0",
       "mode": "0644",
+      "path": "cli/hook_spec_drift.go",
+      "sha256": "4c9260958b9705bc9d056034c4d9e320c7073c5c3fea31b28808929fb8efdb91"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
       "path": "cli/hook_test.go",
       "sha256": "d5e81a2e3e332c0cb78503a8bb149a7c9bbdb8cf467de7bae55e710b0b9bcbfb"
     },
@@ -1104,7 +1146,7 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "cli/lint_cmd.go",
-      "sha256": "9b0e4c47aef799be8da7ef6c63346c26e0925a8d7b0651f6aaa84f8b4efafaf4"
+      "sha256": "b1486602f661b916758a908b1c9417e0a022192441f0899cbdec5654c8b6901c"
     },
     {
       "content_review": "approved",
@@ -1335,7 +1377,7 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "cli/root.go",
-      "sha256": "9b2afe9e7e928b53bef5ceb18138528e87cf75c8afecd7e9bd9274cd247cfa70"
+      "sha256": "d0042a7b5a7a750acc7840f9b16431565dfe5ee74bbe167357795cbe2efc5f89"
     },
     {
       "content_review": "approved",
@@ -1349,7 +1391,7 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "cli/scaffold/payload.txtar",
-      "sha256": "d88a1bfd01ce56a863d0c0481dbec2655b05d507833e5d2c27fcf0da79c4174a"
+      "sha256": "da786039e60950b525b75d756e789c97c08b4af2128aa1a59df704f1f12aa247"
     },
     {
       "content_review": "approved",
@@ -1495,6 +1537,62 @@
       "content_review": "approved",
       "license": "Apache-2.0",
       "mode": "0644",
+      "path": "cli/spec_adapters_test.go",
+      "sha256": "980e04170070305fae33a7e03800b19e9c91a322388b2b00f0c98843c8e48ec4"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "cli/spec_cmd.go",
+      "sha256": "4c5d6c0f7237e9a46858a04453218903cc476cbbc3491924682802b6f55a2597"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "cli/spec_cmd_test.go",
+      "sha256": "62e55a0b5c4d5fea74698f424c88aebde82678c716185978d637242cb6e67f68"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "cli/spec_drift_cmd.go",
+      "sha256": "4757212f200a169ca234f7541cb185ab3953f78bf3c67e8d9fd285c7b5073aa0"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "cli/spec_drift_cmd_test.go",
+      "sha256": "d5d7fc8f7fd6ec0974d405af75164cf12e0138301bb003f3086e66130856b2c7"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "cli/spec_remaining_adapters_test.go",
+      "sha256": "4146d46dcc8cd676a299ab94610dd775a042c8afb0c5dc1f43a68b90013df9fd"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "cli/spec_update_cmd.go",
+      "sha256": "3470c4367967758d384055753e352b6133e98b3fd2445d796bf9edcf21b098ac"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "cli/spec_update_cmd_test.go",
+      "sha256": "8f3d9960789369331b07a685193be30e286a47565f740393391019e6eb7db1cc"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
       "path": "cli/split.go",
       "sha256": "530d765f4ab0e0c7047383f6b43e78aa47d2d33abeb7245bc075d78204653ced"
     },
@@ -1503,7 +1601,7 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "cli/test.go",
-      "sha256": "bf539076c6b78d8ece6e1a3952724c353f0278ab92e4a35235e5437761787387"
+      "sha256": "d4d13da8d64c5c715ac59dccdae42b974b923066bb8056de71289429330acf94"
     },
     {
       "content_review": "approved",
@@ -1525,6 +1623,27 @@
       "mode": "0644",
       "path": "cli/test_execution_unix_test.go",
       "sha256": "3f91a9485208dee340a8e0e7a21adbe3d075fb34d4f5cece7bea1d830f13cd06"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "cli/test_spec_execution_test.go",
+      "sha256": "8860ea354f37abe802c2748e795f6556684c74c88c70370793df545c0b82a4ee"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "cli/testdata/spec-lock-exact-formats.yaml",
+      "sha256": "ccf73ae5484324ae09b6609794b6e1ac1101d45300fef2ac1b7b6ee10452b6e6"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "cli/testdata/spec-lock-exact-without-binding.yaml",
+      "sha256": "4de09d33251c8fbd6fc1c661491dc82e7fe820ad76dd69055c3e157547732e42"
     },
     {
       "content_review": "approved",
@@ -1594,14 +1713,14 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "docs/AUTHORING.md",
-      "sha256": "9e0a8bcc6c5f4c1b9e73f52ce6220858f60130f6ac02db3e44f8928c7cf3025c"
+      "sha256": "286e56458c927073dca25b960c07c8b42657f1c93b0179c85d7fbe76963573e7"
     },
     {
       "content_review": "approved",
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "docs/CODEX.md",
-      "sha256": "76546e33903813418c640a7c8a4134dec5a3c384089d332a70abade4ae90bdbb"
+      "sha256": "06f55b1168446f040dc1a9292712811189773ed9a3bba8666cd85b20c989fa50"
     },
     {
       "content_review": "approved",
@@ -1664,14 +1783,14 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "docs/facets/features/authoring/guardrails/commit-gate.yaml",
-      "sha256": "e7c138fc4eb24e60e19b5accc1261470c7e8a77211f0c00ffd2f0f92bc2b5e47"
+      "sha256": "a719f4b20d2635cc938cebb6376a4980b0a0dcf4c29c167b785bfe7cf248644d"
     },
     {
       "content_review": "approved",
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "docs/facets/features/authoring/guardrails/drift-notice.yaml",
-      "sha256": "c1bad3749b4bfea84a26b1c78b0dbc0511eed09c30500668b753bf828bdd00de"
+      "sha256": "981d3b817cb43d96cc2f0773d84b361c0699412aa3ce1f94f778e5f11d93ef18"
     },
     {
       "content_review": "approved",
@@ -1692,7 +1811,7 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "docs/facets/features/authoring/guardrails/shell-lint-suite.yaml",
-      "sha256": "5d15e0b99c42f056a05bb238c56ecbdee43b5a46621fbc17998b67317deefdc7"
+      "sha256": "e8a2da507088f005e943f1251a6da0d64bd4f9506094d0e7e577caafb96c0efe"
     },
     {
       "content_review": "approved",
@@ -1720,7 +1839,7 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "docs/facets/features/authoring/session/registry-context.yaml",
-      "sha256": "041526bdff858c0441a956e0e1985e5572bb3ebfb58fe409a75441b836179ad2"
+      "sha256": "c19f307a7e9545f0d463b1c47113833047763e5000248aa218b5bccc515b5ae1"
     },
     {
       "content_review": "approved",
@@ -1748,7 +1867,7 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "docs/facets/features/delivery/distribution/binary-resolution.yaml",
-      "sha256": "5ece915513b0d4779a8c98aade4b732ac6a77f99d40767435c06cc3ef0474274"
+      "sha256": "d9d058534fc6e442931a661a7e34af5a122aaa5d4d9113248f216a5f35c8ca7c"
     },
     {
       "content_review": "approved",
@@ -1804,7 +1923,7 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "docs/facets/features/delivery/distribution/npm-packages.yaml",
-      "sha256": "1e491586ec9514b814cc4da05b959e39737f002b6877eebfdab8e5e36251440b"
+      "sha256": "3380c60e4d28235bda80fc5543256bc9a0adee4c991b34ea6949000ee2f7fc0d"
     },
     {
       "content_review": "approved",
@@ -1825,7 +1944,7 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "docs/facets/features/delivery/distribution/public-core-release.yaml",
-      "sha256": "174090e92a29b6909a7dc6e82ba261c97bfd65df56a9e473f4ba105bd720d17d"
+      "sha256": "62d6900932e5402089ac8db5d83d2292ceacc5ed222bce580f7d9ed2aa137195"
     },
     {
       "content_review": "approved",
@@ -1923,7 +2042,7 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "docs/facets/features/navigation/retrieval/semantic-search.yaml",
-      "sha256": "6d865e6e4d50c11cd7c5b5c0f979070f4341a4b4d42e48d3e385db2757c36340"
+      "sha256": "104c3c5396cafe43653206ecf5e78916053f36c0eff7c5c3bdbf225133431e7e"
     },
     {
       "content_review": "approved",
@@ -1959,6 +2078,13 @@
       "mode": "0644",
       "path": "docs/facets/features/registry/history/reference-changes.yaml",
       "sha256": "5c9fabe88be0aee12ae697667d483a829ff9fc522a8a108d5b3528f77302bd3c"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "docs/facets/features/registry/history/spec-drift.yaml",
+      "sha256": "649d6fcdf87e5ef41e1b217a8572f6414e3b06797f7d9f165c6960748a26daa4"
     },
     {
       "content_review": "approved",
@@ -2028,7 +2154,7 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "docs/facets/features/registry/integrity/record-validation.yaml",
-      "sha256": "a03dbf9f7a1d068425afc5d205ee4efeec70fbb56ad1145815a55a126f90b4d2"
+      "sha256": "2f0083a867dee7779bce8ed0528d50da9a308b868a271bbd59294257fa225558"
     },
     {
       "content_review": "approved",
@@ -2042,7 +2168,7 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "docs/facets/features/registry/integrity/runner-test-execution.yaml",
-      "sha256": "dfeb8254a3296ef81726981c9704053533013ed367c2b890aee65fc66d49201e"
+      "sha256": "16ce03aeed574ccdfe382ab35698e25a09f92dc7724628e92951d6ea24a997f3"
     },
     {
       "content_review": "approved",
@@ -2050,6 +2176,41 @@
       "mode": "0644",
       "path": "docs/facets/features/registry/integrity/scenario-outlines.yaml",
       "sha256": "609999410721db2fb7e0e7e365e5fcb4780b24e574e01ef9c365566cab09b341"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "docs/facets/features/registry/integrity/spec-adapters.yaml",
+      "sha256": "8922b406fa535e730a227e9cf525b37b95246fff35329d6d3279186bcc18e20d"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "docs/facets/features/registry/integrity/spec-conformance.yaml",
+      "sha256": "0d2f1fd4607b2335cba1df5651ea35f118b6fcd3b0e5774072a0a5326557251b"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "docs/facets/features/registry/integrity/spec-execution.yaml",
+      "sha256": "d7bfd6f1493be6ff6fd181db8b20c052b30866db475a0ad6c9c1ecc4c89531cf"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "docs/facets/features/registry/integrity/spec-lint.yaml",
+      "sha256": "7cfbd335738c62d4c51a7743714d32f4c69249504d5182cad54fbece37b4fab6"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "docs/facets/features/registry/integrity/spec-pin.yaml",
+      "sha256": "0a4e51538739667a724cb7665d3562c34d5668eacc6e8450c1a02953a27d1b49"
     },
     {
       "content_review": "approved",
@@ -2189,7 +2350,7 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "docs/framework/FACET.md",
-      "sha256": "6b7ede958dd4946a6d604978df4010ca921445e5e599e974066cee4323f07b21"
+      "sha256": "0783a68195c5233f55ae1ca0eb54432f2bd6265f282f57ca4a13113e3b17f830"
     },
     {
       "content_review": "approved",
@@ -2231,7 +2392,7 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "examples/minimal/docs/facets/schema/facet.schema.json",
-      "sha256": "a6dcf3f6104f0ae125f6d203576e8e1ef70dff80c4506f7edb296b4f492a7155"
+      "sha256": "e52a90953d9e4dd9b990635c2215b79d2fd9e6d29c2a4bf41d7f37a1bd0c5175"
     },
     {
       "content_review": "approved",
@@ -2497,14 +2658,14 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "go.mod",
-      "sha256": "4b2cb86426f7bee5021668a713f3950cf526d0cf74d309308b8822d42fe15e6f"
+      "sha256": "ae63ef558ff8a7b2ca26a63c450ccb7334bdaddd9ba06ed6772bd272442a2482"
     },
     {
       "content_review": "approved",
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "go.sum",
-      "sha256": "ed2b255995f9d74b3037bd2b2ea7060ff34875346dee2a3de8bb8351584cbd44"
+      "sha256": "bcddf720380bee65f82cd7096f6050d06b12c4f4baba6d01d8a4b2dce5484571"
     },
     {
       "content_review": "approved",
@@ -2784,14 +2945,14 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "internal/sourceview/decode.go",
-      "sha256": "431060a21d97bf13e200e87dd12ec8bb4a1424f325107219872cb69d146436b5"
+      "sha256": "38b5c1943473f70c6153009d8218c46bea16fe66737111b9785e10ce4e0c71cc"
     },
     {
       "content_review": "approved",
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "internal/sourceview/sourceview.go",
-      "sha256": "e354874bb338ddf61f404df5aac53326e3b5dee25d45bcb51aa4663ba9bce302"
+      "sha256": "aaccb234d123b16828ef5383f9eaa3ea2db77dc30bc5248db11764c509825ffc"
     },
     {
       "content_review": "approved",
@@ -2799,6 +2960,181 @@
       "mode": "0644",
       "path": "internal/sourceview/sourceview_test.go",
       "sha256": "738018acba217e941ee46f93267f516c0a5a3a9166fe8ce8462998c8b8c3803b"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "internal/spec/adapters.go",
+      "sha256": "5bdfecbb4191c7d61b1a4924a5554b04bc73d29dc0dd3c1e486fcdf4ad0f7100"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "internal/spec/diff.go",
+      "sha256": "eaf1fb81221d398ffb6333d955cb468eb653cddd38e3d05a49021e0afe991ec4"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "internal/spec/drift.go",
+      "sha256": "ec2bb6accc5961b063e9ee54bcab8a8946133862ab9c02067f3e662cd00a5ba7"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "internal/spec/execution.go",
+      "sha256": "be763778d481eb868ddf635c9780583d3313296b575dc83b81e84d0bb1b91e34"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "internal/spec/gherkin.go",
+      "sha256": "e54755ef8c9c683e572db5e38db7c8e04c2a1f6017663d0deeb3469641ef7906"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "internal/spec/gherkin_markdown.go",
+      "sha256": "1e3aad83ac60970d21385131caca758000135cad81843c65229e1344615b7450"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "internal/spec/gherkin_markdown_test.go",
+      "sha256": "21d112cb92f3dfa06129ab0163197df07b77236f1e949c6ab9df857f7d34f079"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "internal/spec/git_process_other.go",
+      "sha256": "bc3a52dfe6a2f17e1d2db3f720a8a2f97298a6756d7033423940bbd61ec4817d"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "internal/spec/git_process_unix.go",
+      "sha256": "35fa6f51be49cbab1104d256335bc7b2fc4d7a9ec7813d1e6e15638c68da5d89"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "internal/spec/lock.go",
+      "sha256": "d216598e163e333b8f24a35409a9ca81f4dda23f3bbf26347c8330d3e50a44bd"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "internal/spec/markdown.go",
+      "sha256": "f98040b49c1e57bf4eeb6bff6e9466d94acecf2cac4f438fd634b0c938049ea5"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "internal/spec/normalise.go",
+      "sha256": "73058c0b8622a89c8b2158d41814f0de03b9dc5415b7bcf8486d766be1f4040b"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "internal/spec/provenance_adapters.go",
+      "sha256": "4507b4eaec366bb4c9eac85798311416ec61ba9d64e9542440fe93203ee8c2b9"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "internal/spec/source.go",
+      "sha256": "73973c91495990d0d184690685e96cd650e5b2ba7aa679460ad64f9aa486edda"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "internal/spec/source_test.go",
+      "sha256": "18b69f068f1f501b750908c1017dbd08128e106ff46c0d7cc91aac5764bee714"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "internal/spec/spec.go",
+      "sha256": "9f62fb14313f781f67faf6c591a6389ffd38d16bc420cdaf4aea4329392d80c5"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "internal/spec/spec_test.go",
+      "sha256": "1f60fe0db0ba203dbbaec8d5aff256e087383343e3dc74a93455e9a1a331855a"
+    },
+    {
+      "content_review": "approved",
+      "license": "MIT",
+      "mode": "0644",
+      "path": "internal/spec/testdata/cucumber-markdown/LICENSE",
+      "sha256": "042bda2882d793c42fcd5f4d272579a432d1d52a0e5436202e5e823eae4771b6"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "internal/spec/testdata/cucumber-markdown/README.md",
+      "sha256": "d524318456df29261be2c05b3ff4df566b097ff1b01ecd3b11a5eec1c353a2bf"
+    },
+    {
+      "content_review": "approved",
+      "license": "MIT",
+      "mode": "0644",
+      "path": "internal/spec/testdata/cucumber-markdown/datatables.feature.md",
+      "sha256": "0a0278a450d90c84424ba0256ecac521cb94ff0e572c665e805cd20d108c423e"
+    },
+    {
+      "content_review": "approved",
+      "license": "MIT",
+      "mode": "0644",
+      "path": "internal/spec/testdata/cucumber-markdown/docstrings.feature.md",
+      "sha256": "7dcc397d81b7626de5f01d0340c340f6649ee51639391102e55d7ac291c3b9e0"
+    },
+    {
+      "content_review": "approved",
+      "license": "MIT",
+      "mode": "0644",
+      "path": "internal/spec/testdata/cucumber-markdown/minimal.feature.md",
+      "sha256": "03717d473a615fc29fafd8e8a05a6b1ee515983c20f6b2b0a2c9820378e7cc72"
+    },
+    {
+      "content_review": "approved",
+      "license": "MIT",
+      "mode": "0644",
+      "path": "internal/spec/testdata/cucumber-markdown/misc.feature.md",
+      "sha256": "dc5a47f332861f4b10ac355c34a9c8bcafe2fb2be892300356718a056baae0b2"
+    },
+    {
+      "content_review": "approved",
+      "license": "MIT",
+      "mode": "0644",
+      "path": "internal/spec/testdata/cucumber-markdown/tags.feature.md",
+      "sha256": "3e8d1911196c034ec571b81f5fb333e1271fd8ab0b23d332e79d6df07bc676ff"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "internal/spec/update.go",
+      "sha256": "9932b68d380c79bd2e438929625abe2f2f94bef4bf34d9881ac23a6120366c0c"
     },
     {
       "content_review": "approved",
@@ -2819,7 +3155,7 @@
       "license": "Apache-2.0",
       "mode": "0755",
       "path": "npm/generate.sh",
-      "sha256": "de6136c88d60560093cf1697ab4c53a4fb9b56728406af6ab4da1471e1bcc46c"
+      "sha256": "166529bc12c60f4dec1f7addaf86d6d97e70efa279bd842fd3e05bfa7eb18747"
     },
     {
       "content_review": "approved",
@@ -2945,7 +3281,7 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "rag/bench_test.go",
-      "sha256": "347d54bb0681568a5e13f4c5c2645f54eef6e490c98435b4c7839580658100a5"
+      "sha256": "e2f457cf922432c4cd5655bcc4460c13c5699044fcb04a73a4e5098fc9b1b978"
     },
     {
       "content_review": "approved",
@@ -3134,14 +3470,14 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "registry/config.go",
-      "sha256": "bda364fb3015bf7b6514505c244b93cadc0b95dfac485128e312b0ff6b788749"
+      "sha256": "39795ebd2fbd5920226458c7775b22ceb6937fbe46b1e462dd7b81cbb38812c2"
     },
     {
       "content_review": "approved",
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "registry/config_test.go",
-      "sha256": "40193ada9de4fa99fa8038d3879994eb7421bd435b904511671207fe5fbace36"
+      "sha256": "6928fcbee1472625c43d0ecf559c4ad4f70cccdd52628547196d1a612802ac92"
     },
     {
       "content_review": "approved",
@@ -3449,7 +3785,7 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "registry/lint.go",
-      "sha256": "68e01ff27f6679b22f78a5dcc8dc0b71b9a51362adba2f4dfb1bec1ae048f5c8"
+      "sha256": "dc7643ceea48857f4445c2e84ae6af02af6a54c52e24adf5a8d33f4a6a2c5c2f"
     },
     {
       "content_review": "approved",
@@ -3534,6 +3870,20 @@
       "mode": "0644",
       "path": "registry/lint_schema.go",
       "sha256": "54479c16be44cf4d842b123da92af184f76b3897cc7f1704a034143c1920ea9e"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "registry/lint_spec.go",
+      "sha256": "1d92330d6ab22ce9691be89a1cdf87376e1fede6fbc5aced4691c77e4743c782"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "registry/lint_spec_test.go",
+      "sha256": "1b6031855504dae4ab7005c783453fa18515af9b4fac22d80414cdef8c2eda79"
     },
     {
       "content_review": "approved",
@@ -3792,7 +4142,7 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "registry/registry.go",
-      "sha256": "b992cfbd510af23fef5d8419df6340ebbbd4cb22782be203540dad1cedc0842f"
+      "sha256": "36708711920f02c290a89878c46a5c24f7a4dba02889e1c75ebb27262ffc76fb"
     },
     {
       "content_review": "approved",
@@ -3924,6 +4274,13 @@
       "content_review": "approved",
       "license": "Apache-2.0",
       "mode": "0644",
+      "path": "registry/spec_drift.go",
+      "sha256": "5212c73d00618072c4db93a2db0b66ec9d206c06a4a69a9ed2a949b8793a5641"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
       "path": "registry/split.go",
       "sha256": "0fbeb8fdba8182fb283a0231dcf8640b5148b1ea00ad4a84e168d45aec8c2df1"
     },
@@ -3953,7 +4310,7 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "registry/test_cucumber.go",
-      "sha256": "ec6f8c0c742fe9bc77be194a63916d474697a2f8f6cef4f423fa740986199882"
+      "sha256": "d1dc34ec247dde9bbadb77c560000b44bca1a141d4177906bc6f8880123b0c54"
     },
     {
       "content_review": "approved",
@@ -3967,7 +4324,7 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "registry/test_discovery.go",
-      "sha256": "9c6d4848e4cec14fe41bf917c0b945cfd28f298103ab4dadf0320426ff886689"
+      "sha256": "619f986c7f6a8899a0108411b8cd9f06090f454b51c7317b521595e53e9c6b7f"
     },
     {
       "content_review": "approved",
@@ -3981,7 +4338,7 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "registry/test_execution.go",
-      "sha256": "d12ceb8acdbdd3b670553419d6d1a93b3a792a91097fac0c378410ed136cde4d"
+      "sha256": "aebb8d518a7689d0e38b1e51b842659034f4856418d202ed7b45a5c37fbf5fec"
     },
     {
       "content_review": "approved",
@@ -4016,7 +4373,7 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "registry/test_safety.go",
-      "sha256": "b08a3137a869f96f42589ef59995156b9c1e6b566d452ae416b60eb6014cebfa"
+      "sha256": "a565152a0e2c62a81044a56154e15099bd4ca0fe27781bf592dfac6fc6fd26a5"
     },
     {
       "content_review": "approved",
@@ -4045,6 +4402,20 @@
       "mode": "0644",
       "path": "registry/test_safety_windows.go",
       "sha256": "6bc159666ebd9eb36173526d46d3ad7ea3a5d687eed42d67e2cc88ccfc5be24f"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "registry/test_spec.go",
+      "sha256": "63f59d4b5d336f080621f30da7ef39df3d10496a83da75ea3210a6478cb285b5"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "registry/test_spec_cucumber.go",
+      "sha256": "9b176b6b720d34965c016ea2be001abaa88aff0cedc64af9002ee8359113baf6"
     },
     {
       "content_review": "approved",
@@ -4225,15 +4596,22 @@
       "content_review": "approved",
       "license": "Apache-2.0",
       "mode": "0644",
+      "path": "schema/embedded.go",
+      "sha256": "551e5d90f4627da01d1cc30fa1f2523ba2bdc7d19f6bc00f8ca52cb53ebd87c1"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
       "path": "schema/facet.schema.json",
-      "sha256": "a6dcf3f6104f0ae125f6d203576e8e1ef70dff80c4506f7edb296b4f492a7155"
+      "sha256": "e52a90953d9e4dd9b990635c2215b79d2fd9e6d29c2a4bf41d7f37a1bd0c5175"
     },
     {
       "content_review": "approved",
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "schema/facetrc.schema.json",
-      "sha256": "06698fdabb38b9d3b9b12b4f764f8d5d08ea26615bebca45d0e87674c6977f92"
+      "sha256": "bc9d6bac825de17e3f8f370743b50724c992e1914c2129b6f38a9b0b5d96e406"
     },
     {
       "content_review": "approved",
@@ -4262,6 +4640,20 @@
       "mode": "0644",
       "path": "schema/policy.schema.json",
       "sha256": "95fc5a4ba3a3849ad40fe2220520c04d1b5f48cd054e899054751092c7e55609"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "schema/spec-lock.schema.json",
+      "sha256": "3d78120b73b12fc844b3574c16795198782949dc99accfcb03ecf6bd94ff24d1"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "schema/spec.schema.json",
+      "sha256": "80c59afecb81c069424d7ea3a53e04f98e3b942272980e80757bc74778ac939d"
     },
     {
       "content_review": "approved",
@@ -4296,7 +4688,7 @@
       "license": "Apache-2.0",
       "mode": "0755",
       "path": "scripts/commit-gate.sh",
-      "sha256": "179e258d161734261b3091546e69e8aa8822252b0fc9337464c077443eea51ca"
+      "sha256": "1eb7601d845ba437b96aa91b3cfee4aa8723916111660063012517c3e9fec5ef"
     },
     {
       "content_review": "approved",
@@ -4310,7 +4702,7 @@
       "license": "Apache-2.0",
       "mode": "0755",
       "path": "scripts/hook-lib.sh",
-      "sha256": "4f9c8e5fef398d0bef503fe12675c61dd76853879d13ae42b82017ab44de0d8b"
+      "sha256": "5fe9742c4fca254d62df6c97bfa48ee629edd270e772072dd28ab94b6955ccfb"
     },
     {
       "content_review": "approved",
@@ -4325,6 +4717,13 @@
       "mode": "0755",
       "path": "scripts/pre-compact.sh",
       "sha256": "9bd0d99ba9fe30e4aa3ad68b320ac309be20c0ce262ee7bc4ffcf1c40d709b58"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0755",
+      "path": "scripts/public-core-workflows.test.sh",
+      "sha256": "e98431dee2a22a934a811bd02279acd1308b5bca5fb44036847f413402eb6f2c"
     },
     {
       "content_review": "approved",
@@ -4352,21 +4751,21 @@
       "license": "Apache-2.0",
       "mode": "0755",
       "path": "scripts/release-dispatcher-check.sh",
-      "sha256": "dc5daa2e84d702d4578b57d4ba6f1d74a496ffeec4e3f9ff6fe8451ba47d116b"
+      "sha256": "a8e3763cddc6f86bf73af5037f4807343d0132bf85703a02c340c5a1ff884aff"
     },
     {
       "content_review": "approved",
       "license": "Apache-2.0",
       "mode": "0755",
       "path": "scripts/release-environment-check.sh",
-      "sha256": "89e203a12d519f4923a5072786a490033bcf81519d48fafaa13db06c4ecf1f6f"
+      "sha256": "b80c4a38d4c93fbb1c51bd45ca59b57d6e85d521ee0c36d65b5b35defcd749e6"
     },
     {
       "content_review": "approved",
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "scripts/release-layout.sh",
-      "sha256": "2b7f9b60ac380367cf2daf6f43370bae56274c3875e300dbef06e5adadeaa4ca"
+      "sha256": "7414c7a209f4260bb71f3e73550e717087d02fdfcecc0c694dd2c686e7727b71"
     },
     {
       "content_review": "approved",
@@ -4394,14 +4793,21 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "scripts/release-npm-pack.sh",
-      "sha256": "90d2418a7730f6c0f1b73552a5b8b62e961f604011ab3a8b5c6e0a7ced27a872"
+      "sha256": "22c0cdb410cf75e758c40e92771033555d81a50bad6327823cf924367688b6ee"
     },
     {
       "content_review": "approved",
       "license": "Apache-2.0",
       "mode": "0755",
       "path": "scripts/release-npm-publish.sh",
-      "sha256": "a24464ab28c578ee42efac60fbe1f93b87aa1f5fa541dda2c819196aaf67f2d6"
+      "sha256": "789381e0f5a81746858124f729b82f5e1316da504e9c28f4e0c0f3af3f22b223"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0755",
+      "path": "scripts/release-npm-tag.sh",
+      "sha256": "69317fba05dfda8b0f3b0d75e4e3ee63d0eff84de4b946aa9b6c764245d4cc86"
     },
     {
       "content_review": "approved",
@@ -4414,8 +4820,15 @@
       "content_review": "approved",
       "license": "Apache-2.0",
       "mode": "0755",
+      "path": "scripts/release-pr-check.sh",
+      "sha256": "0a9c6ef7b2407a8f6ff2be6e06fcf0d3b2bfc9a0e427309697dc5822a0236b0e"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0755",
       "path": "scripts/release-publish.sh",
-      "sha256": "ead43aa090fdfcbf26d8d92a4250db8e4967bf7a795c16d9445cd30d4fc6c311"
+      "sha256": "d7f818ac107b58c457b183f4d5ef645308554a125d8dc488b884eb7c8147bef6"
     },
     {
       "content_review": "approved",
@@ -4450,7 +4863,7 @@
       "license": "Apache-2.0",
       "mode": "0755",
       "path": "scripts/session-drift.sh",
-      "sha256": "c1eee4db6b0800989d7a62236bc392794c3e1d6e18cae305303d21b1a7f6ff37"
+      "sha256": "2682cc7aff376a69487fe65bd02be4f9d45716020f339e99a913c0bb4f9dd228"
     },
     {
       "content_review": "approved",
@@ -4583,7 +4996,7 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "skills/setup/SKILL.md",
-      "sha256": "469ac730157ec120792b076ab398e49fd8e09c3dd1e4d60784367cc23772af7f"
+      "sha256": "f5fe9d240acb0bf8a7129f7f9b3f9249dc3fb2cd711556ddb20199684e6871d9"
     },
     {
       "content_review": "approved",
@@ -4604,7 +5017,7 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "skills/ui/SKILL.md",
-      "sha256": "c0f277d68637dc7324665b968a20e783ae1a0caa62cf0494072b2fb0dfbcdd6b"
+      "sha256": "f54a7146c0164b625069dca84353e7521f1ef1abd92b2cceff55219bb604544f"
     },
     {
       "content_review": "approved",
@@ -4653,7 +5066,7 @@
       "license": "Apache-2.0",
       "mode": "0755",
       "path": "tools/facet-lint/validate-schemas.sh",
-      "sha256": "c74c455c370850d44783a975b47453b0079544edde703bab0792ad338bd432b0"
+      "sha256": "7e23ce34171168600cd4d8f2dad8062725e9eead1173cf0ea52c807df9a25db1"
     },
     {
       "content_review": "approved",
@@ -4667,5 +5080,5 @@
   "publication_approved": false,
   "schema_version": 1,
   "status": "sealed-candidate",
-  "version": "0.1.0-rc.3"
+  "version": "0.1.0-rc.4"
 }

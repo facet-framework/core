@@ -60,7 +60,7 @@ const samples = 9
 
 // medianRatio measures comparable work blocks and takes the median paired ratio.
 // Repeats normalize the result back to one call. Scaling compares one large scan
-// with ten small scans, so both sides span similar scheduling windows instead of
+// with several small scans, so both sides span similar scheduling windows instead of
 // comparing one long window with a short one. Alternating AB/BA order balances
 // drift between adjacent blocks. Separate duration medians are diagnostic only;
 // dividing them would discard the pairing that controls shared-runner noise.
@@ -95,10 +95,10 @@ func medianRatio(a, b func(), repeatsA, repeatsB int) (ratioAB float64, medA, me
 // the package's brute-force choice rests on, without measuring the machine.
 func TestSearchScalesLinearlyAndAddsNoOverheadPerDocument(t *testing.T) {
 	if testing.Short() {
-		// 350 MB of flat vectors across the three stores, and synthetic builds
+		// 470 MB of flat vectors across the three stores, and synthetic builds
 		// each as a [][]float32 that NewStore then copies, so the peak is about
 		// twice that before the per-store garbage is collected.
-		t.Skip("allocates ~700 MB at peak")
+		t.Skip("allocates ~950 MB at peak")
 	}
 	const dim = 768
 
@@ -108,10 +108,10 @@ func TestSearchScalesLinearlyAndAddsNoOverheadPerDocument(t *testing.T) {
 	}
 
 	const (
-		small      = 10_000
+		small      = 50_000
 		large      = 100_000
-		minScaling = 4.0
-		maxScaling = 12.0
+		minScaling = 1.2
+		maxScaling = 3.0
 	)
 	if small < shardThreshold {
 		t.Fatalf("both scaling sizes must exercise the sharded path: small=%d is below "+
@@ -148,17 +148,17 @@ func TestSearchScalesLinearlyAndAddsNoOverheadPerDocument(t *testing.T) {
 		t.Fatalf("want 10 hits, got %d", len(hits))
 	}
 
-	t.Logf("scaling on %d core(s): %d docs %v, %d docs %v, paired median ratio %.2f× for 10× the documents",
-		runtime.GOMAXPROCS(0), small, smallTime, large, largeTime, scaling)
+	t.Logf("scaling on %d core(s): %d docs %v, %d docs %v, paired median ratio %.2f× for %d× the documents",
+		runtime.GOMAXPROCS(0), small, smallTime, large, largeTime, scaling, large/small)
 	switch {
 	case scaling > maxScaling:
-		t.Errorf("%d× the documents cost %.2f× the time, past the %.0f× ceiling — "+
+		t.Errorf("%d× the documents cost %.2f× the time, past the %.1f× ceiling — "+
 			"the cost per document grew with the size of the index, so the scan is "+
 			"doing more than a linear pass (an n·log n scan also stays under this "+
 			"ceiling, so passing it does not prove the scan linear)",
 			large/small, scaling, maxScaling)
 	case scaling < minScaling:
-		t.Errorf("%d× the documents cost only %.2f× the time, under the %.0f× floor — "+
+		t.Errorf("%d× the documents cost only %.2f× the time, under the %.1f× floor — "+
 			"the small query got disproportionately slower, which means a cost "+
 			"was added that does not scale with the number of documents",
 			large/small, scaling, minScaling)

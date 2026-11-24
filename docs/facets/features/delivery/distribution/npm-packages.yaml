@@ -5,12 +5,8 @@ id: delivery/distribution/npm-packages
 lifecycle: active
 intent:
   summary: |
-    Turns a packaged Core release into npm packages — facet-framework,
-    facet-tools, the @facet-tools/core launcher and one platform package per
-    binary — whose binaries are the release archive's bytes, checked against
-    release-manifest.json. The public Release workflow can pack and publish them after the GitHub release,
-    gated by FACET_NPM_PUBLISH and the npm approval environment so preparing
-    release archives alone does not publish packages.
+    Packs the Core release archives into nine npm packages and stages them
+    through OIDC for approval on npmjs.com.
 contract:
   scenarios:
     - id: packages-carry-the-release-bytes
@@ -49,10 +45,16 @@ contract:
       statement: |
         Given a release of channel dev, rc or stable
         When the packages are packed
-        Then publish-plan.json names dist-tag dev, next or latest, the access, each tarball with the integrity npm pack measured
+        Then publish-plan.json names the dist-tag, access and each tarball with the integrity npm pack measured
         And orders the platform packages first, then the launcher, then facet-framework and facet-tools
         And says publishable false, with each reason in blocked_by, for an incomplete platform set, an undecided access, or a packaged NOTICE that refers to a file no package contains ("third-party notices not included", the files in notice_missing)
         And a NOTICE that refers to no other file adds no such reason
+    - id: the-plan-tags-core-rc-4-as-latest
+      statement: |
+        Given the complete Core release 0.1.0-rc.4
+        When the packages are packed
+        Then the publish plan and its nine package entries specify latest
+        And the pack log reports latest
     - id: tarballs-hold-only-the-whitelisted-files
       statement: |
         Given the packed tarballs
@@ -82,31 +84,115 @@ contract:
         And an archive whose corpus differs from the others, or that holds THIRD_PARTY.json without any file under THIRD_PARTY_LICENSES/, stops generation, naming the archive
     - id: the-release-packs-but-never-publishes
       statement: |
-        Given packaged Core release archives
-        When the release workflow prepares the npm tarballs and publish-plan.json
-        Then the packing step does not itself publish to npm
-        And packing requires neither a registry token nor an OIDC token
+        Given Core release archives
+        When release-npm-pack.sh prepares the npm tarballs and publish-plan.json
+        Then it writes the tarballs and the plan next to the archives
+        And it publishes nothing, needs no npm credentials or OIDC and invokes no npm publish command
     - id: public-publication-follows-the-approved-release
       statement: |
-        Given a Core run of the public Release workflow after a successful GitHub release
-        When dry_run is false and FACET_NPM_PUBLISH is true
-        Then the npm job waits for the npm approval environment
-        And it downloads release-dist and packs the npm packages
-        And it requires a complete, publishable publish-plan.json
-        And it publishes in plan order using OIDC trusted publishing or NPM_TOKEN for initial package publication
-        And otherwise the npm job is skipped
+        Given the public Core npm.yml workflow
+        When workflow_dispatch starts the workflow with the required tag input
+        Then the single job uses the npm environment, refuses a ref other than refs/heads/main and validates the version tag before checkout
+        And it checks the environment, downloads the release assets and verifies their SHA-256 checksums and release.yml attestations before packing and staging
+        And the job can read contents and attestations and request an OIDC token for staging
+    - id: npm-rejects-unverified-release-assets
+      statement: |
+        Given release assets for six platforms with a manifest matching the checked-out tag
+        When the verification step of npm.yml checks the release and its archives
+        Then it refuses a draft release, a mismatched archive checksum or a rejected attestation
+        And a mismatched checksum stops verification before any attestation request
+    - id: npm-environment-allows-only-main-without-reviewers
+      statement: |
+        Given the npm environment rules returned by the GitHub API
+        When release-environment-check.sh npm checks the environment
+        Then it requires an environment without required reviewers or administrator bypass
+        And the only deployment policy must be the main branch
+    - id: staging-resumes-after-an-already-staged-version
+      statement: |
+        Given a complete publish plan with an already staged version, an identical published tarball and a fresh package
+        When release-npm-publish.sh processes packages in plan order
+        Then it reports that the version was staged earlier and its tag was fixed at staging
+        And it skips the identical published tarball
+        And it stages the fresh tarball by local path with provenance and public access
+        And a later staging error fails the run
+    - id: staging-selects-the-dist-tag-from-the-version
+      statement: |
+        Given a publishable plan with a fresh package at version <version>
+        When release-npm-publish.sh stages the tarball
+        Then the npm stage publish command sets --tag <dist_tag>
+      examples:
+        - name: Candidates through base version 0.1.0 and stable versions
+          columns:
+            - version
+            - dist_tag
+          rows:
+            -
+              - "0.0.9-rc.1"
+              - latest
+            -
+              - "0.1.0-rc.4"
+              - latest
+            -
+              - "0.1.0"
+              - latest
+            -
+              - "1.0.0"
+              - latest
+        - name: Candidates above base version 0.1.0
+          rows:
+            -
+              - "0.1.1-rc.1"
+              - next
+            -
+              - "0.2.0-beta.1"
+              - next
+            -
+              - "1.0.0-rc.1"
+              - next
+    - id: staged-packages-await-npm-approval
+      statement: |
+        Given Core packages staged through OIDC
+        When the owner approves the tarballs on npmjs.com using 2FA
+        Then npm publishes those versions
+verification:
+  unit_tests:
+    - id: scripts/public-core-workflows.test.sh
+      proves:
+        - public-publication-follows-the-approved-release
+        - npm-rejects-unverified-release-assets
 knowledge:
-  discoverability:
-    question: "Where does a maintainer enter this?"
+  prerequisite_knowledge:
+    question: "What must a maintainer configure before staging?"
     answer: |
-      Run sh scripts/release-npm-pack.sh [--allow-partial] <dist> after
-      scripts/release-package-core.sh to prepare packages locally. In the
-      public Release workflow, the npm job runs after the GitHub release when
-      dry_run is false and FACET_NPM_PUBLISH is true, behind the npm approval
-      environment. It downloads release-dist, packs and checks the plan, then
-      publishes in plan order. Trusted publishing uses the job OIDC token;
-      initial package publication needs NPM_TOKEN in the npm environment.
-      Templates and the generator live under npm/.
+      The npm environment permits only the main branch and has no required reviewers.
+      On npmjs.com, each of the nine packages uses a stage-only trusted publisher
+      for the Core repository, workflow npm.yml and environment npm. Package
+      access requires two-factor authentication and disallows tokens.
+  not_for:
+    question: "What input is required for an npm transfer?"
+    answer: |
+      npm.yml uses a published Core release with attested archives. Local
+      packaging can generate tarballs for testing.
+  discoverability:
+    question: "Where does a maintainer start the transfer?"
+    answer: |
+      After verifying a published release, npm-dispatch in release.yml starts
+      npm.yml on main when FACET_NPM_PUBLISH is true. To start or repeat the
+      transfer manually, run gh workflow run npm.yml --ref main -f tag=<tag> in the Core
+      repository or select Actions, npm, Run workflow, then main and the tag.
+      To pack from existing archives locally, run
+      sh scripts/release-npm-pack.sh [--allow-partial] <dist>.
+  common_pitfalls:
+    question: "What can block a transfer?"
+    answer: |
+      Each trusted publisher must point to npm.yml. An already published
+      tarball with different integrity stops the job.
+  success_signal:
+    question: "How does a maintainer recognize success?"
+    answer: |
+      The workflow reports which packages await approval and which have
+      already been published. The pending tarballs are available on npmjs.com
+      for approval using 2FA.
 lineage:
   owner:
     team: facet-framework

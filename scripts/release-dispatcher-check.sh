@@ -39,7 +39,7 @@ sed -n '/^detect_platform() {/,/^}/p; /^archive_shape() {/,/^}/p; /^distribution
 # shellcheck disable=SC1091
 . "$WORK/rules.sh"
 command -v archive_shape >/dev/null 2>&1 && command -v distribution_for_repo >/dev/null 2>&1 ||
-  die "bin/facet no longer defines detect_platform, archive_shape and distribution_for_repo"
+  die "bin/facet must define detect_platform, archive_shape and distribution_for_repo"
 PLATFORM=$(detect_platform)
 archive_shape "$PLATFORM"
 ARCHIVE="facet_${VERSION}_${PLATFORM}.${ARCHIVE_EXT}"

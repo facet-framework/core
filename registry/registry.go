@@ -8,6 +8,7 @@ package facet
 
 import (
 	"github.com/facet-framework/core/internal/sourceview"
+	"github.com/facet-framework/core/internal/spec"
 	"os"
 	"path/filepath"
 	"strings"
@@ -36,6 +37,7 @@ type Registry struct {
 	// categorySnapshot is private to one synchronous lint invocation. Ordinary
 	// registry readers continue to observe the filesystem on every call.
 	categorySnapshot map[string]categoryLoad
+	specSources      []spec.Source
 
 	Name       string                   // declared name; empty for a project that declares none
 	Root       string                   // repository root

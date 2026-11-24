@@ -1,0 +1,142 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: registry/integrity/spec-execution
+lifecycle: active
+intent:
+  summary: |
+    Run pinned specification scenarios and report execution evidence for the
+    record scenarios they specify.
+contract:
+  scenarios:
+    - id: run-referenced-blocks
+      statement: |
+        Given a pinned Markdown specification with several Gherkin blocks
+        And a record scenario matches a case in one block
+        When I run facet test with a declared Cucumber runner
+        Then the runner receives that block as a feature with its Background and Rule
+        And blocks without matching references are excluded
+        And the temporary feature directory is removed after the run
+    - id: bind-pinned-case
+      statement: |
+        Given a matching record scenario and a pinned specification using a supported case tag
+        When the runner reports every step passing under that tag
+        Then facet test reports the record scenario as passed with its specification address
+    - id: require-every-outline-row
+      statement: |
+        Given a pinned scenario outline with two examples
+        When facet test reads a fresh Cucumber report
+        Then two complete passing rows with passing hooks supply evidence
+        And a missing row reports not-run
+        And a failed hook reports failed
+    - id: preserve-pinned-revisions
+      statement: |
+        Given two record scenarios refer to different pinned commits of one feature file
+        When I run facet test
+        Then the runner receives the feature file from each pinned commit
+        And each passing result supplies evidence for the record scenario pinned to that commit
+    - id: distinguish-incomplete-outcomes
+      statement: |
+        Given a pinned case and a fresh Cucumber report
+        When facet test reports the case's outcome
+        Then a failed step reports failed
+        And an undefined, pending or skipped step reports unproven
+        And an absent case reports not-run
+    - id: reject-incomplete-positive-evidence
+      statement: |
+        Given a fresh report omits a step or duplicates a passing scenario element
+        When facet test reads the report
+        Then the record scenario is unproven
+    - id: report-unavailable-dependencies
+      statement: |
+        Given a matching pin and an unavailable runner setting, pinned commit or fresh report
+        When I run facet test
+        Then the record scenario is unmeasured with a diagnostic
+        And FACET_STRICT_DEPS=1 makes the run fail
+    - id: exclude-diverged-scenarios
+      statement: |
+        Given a record scenario with a statement that differs from its pin
+        When facet test reports the result
+        Then it shows the scenario and its specification address as diverged
+        And the feature receives no passing evidence from that scenario
+    - id: validate-runner-report-type
+      statement: |
+        Given a source names an undeclared runner or a runner with a different report format
+        When I run facet test
+        Then the command rejects the configuration and names the runner
+    - id: run-openspec-and-report-provenance
+      statement: |
+        Given an exact OpenSpec scenario and a Spec Kit requirement pinned and referenced by records
+        When I run facet test with a Cucumber runner configured for the OpenSpec source
+        Then the runner receives one feature for the OpenSpec file with case tags for its scenarios
+        And passing Cucumber evidence yields passed with the exact binding for the OpenSpec reference
+        And the Spec Kit reference reports provenance without supplying any runner input
+    - id: run-pinned-gherkin-markdown
+      statement: |
+        Given a matching record and a pinned Markdown with Gherkin scenario whose branch has moved
+        When I run facet test with a declared Cucumber runner
+        Then the runner receives the pinned revision as plain Gherkin with its case tag
+        And passing Cucumber evidence yields passed with the exact binding
+    - id: exclude-provenance-from-runner-input
+      statement: |
+        Given a record referencing a pinned provenance unit
+        When I run facet test
+        Then the scenario reports provenance and contributes no runner input
+verification:
+  integration_tests:
+    - id: "cli/spec_remaining_adapters_test.go::TestSpecGherkinMarkdownPinDriftAndExecution"
+      proves:
+        - run-pinned-gherkin-markdown
+    - id: "cli/spec_remaining_adapters_test.go::TestSpecProvenanceAdapters"
+      proves:
+        - exclude-provenance-from-runner-input
+    - id: "cli/spec_adapters_test.go::TestSpecAdapterExecution"
+      proves:
+        - run-openspec-and-report-provenance
+    - id: "cli/test_spec_execution_test.go::TestSpecExecutionMarkdownBlocksAndCaseResults"
+      proves:
+        - run-referenced-blocks
+        - distinguish-incomplete-outcomes
+        - exclude-diverged-scenarios
+    - id: "cli/test_spec_execution_test.go::TestSpecExecutionTagsAndPinnedFeatureFormat"
+      proves:
+        - bind-pinned-case
+    - id: "cli/test_spec_execution_test.go::TestSpecExecutionOutlineRowsAndHooks"
+      proves:
+        - require-every-outline-row
+    - id: "cli/test_spec_execution_test.go::TestSpecExecutionSelectivePinsUseEachScenarioCommit"
+      proves:
+        - preserve-pinned-revisions
+    - id: "cli/test_spec_execution_test.go::TestSpecExecutionRejectsIncompleteAndDuplicateEvidence"
+      proves:
+        - reject-incomplete-positive-evidence
+    - id: "cli/test_spec_execution_test.go::TestSpecExecutionUnavailableDependencies"
+      proves:
+        - report-unavailable-dependencies
+    - id: "cli/test_spec_execution_test.go::TestSpecExecutionValidatesRunnerConfiguration"
+      proves:
+        - validate-runner-report-type
+knowledge:
+  prerequisite_knowledge:
+    question: "What needs to be configured to execute a pinned case?"
+    answer: The record needs a matching specified_by pin. The source needs a cucumber-json runner whose command accepts the temporary feature paths through shell positional arguments.
+  not_for:
+    question: "What remains to be reviewed after a pass?"
+    answer: Review whether each step definition checks what the step promises. Empty step definitions can pass.
+  discoverability:
+    question: "Where does the result appear?"
+    answer: Run facet test for text output or facet test --json for the scenarios on each feature result.
+  common_pitfalls:
+    question: "Why might the pinned case remain unmeasured?"
+    answer: "Check that the source selects a runner, Git can obtain the pinned commit, and the runner creates a fresh cucumber-json report."
+  success_signal:
+    question: "What shows that a pinned case supplied evidence?"
+    answer: The feature report shows passed beside the record scenario and the spec address.
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-11-23"
+  depends_on:
+    - registry/integrity/runner-test-execution
+    - registry/integrity/spec-conformance
+    - registry/integrity/spec-pin

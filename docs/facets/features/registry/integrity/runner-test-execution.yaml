@@ -5,11 +5,16 @@ id: registry/integrity/runner-test-execution
 lifecycle: active
 intent:
   summary: |
-    Execute declared runner commands verbatim and bind fresh per-file reports
-    to verification references. Preserve real runner exits and streams, and
+    Execute declared runner commands and bind fresh reports to verification
+    references and pinned specification scenarios. Preserve real runner exits and streams, and
     distinguish passed, failed and unmeasured feature evidence.
 contract:
   scenarios:
+    - id: spec-runners-receive-feature-arguments
+      statement: |
+        Given a declared Cucumber runner selected by a specification source
+        When facet test runs a matching pinned scenario
+        Then the runner command receives the temporary feature through shell positional arguments
     - id: process-pass-never-invents-file-pass
       statement: |
         Given a runner that exits zero without a per-file report
@@ -183,6 +188,10 @@ verification:
         - concurrent-reports-remain-isolated
         - cancellation-restores-old-report
         - report-gaps-name-files-and-remedy
+  integration_tests:
+    - id: "cli/test_spec_execution_test.go::TestSpecExecutionMarkdownBlocksAndCaseResults"
+      proves:
+        - spec-runners-receive-feature-arguments
   e2e_tests:
     - id: cli/test_execution_test.go
       proves:
@@ -203,8 +212,8 @@ knowledge:
   not_for:
     question: "What evidence does this deliberately not invent?"
     answer: |
-      Case coverage, scenario correctness and global-process pass as feature pass.
-      JUnit without file attributes and Go without local package/test bindings
+      A global process pass alone supplies no feature evidence.
+      Scenario evidence requires a direct case binding. JUnit without file attributes and Go without local package/test bindings
       remain unmeasured. A passing file or selected test shows that the test ran
       and passed, not that its assertions check every clause of the scenario;
       that review is a separate step and is never created automatically. A

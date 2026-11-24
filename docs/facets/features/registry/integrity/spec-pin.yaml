@@ -1,0 +1,104 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: registry/integrity/spec-pin
+lifecycle: active
+intent:
+  summary: |
+    Pins addressable units from configured Git specification sources in a project-wide
+    lock that can be reviewed and used offline.
+contract:
+  scenarios:
+    - id: full-update-pins-committed-specifications
+      statement: |
+        Given a valid FACET specification on a configured source branch
+        When I run facet spec update for that source
+        Then the lock records the source commit and the file metadata
+        And it records each scenario at that commit
+        And it reports the added scenarios
+    - id: repeated-update-is-byte-identical
+      statement: |
+        Given a lock produced by a full specification update
+        When I repeat the update against the same commit
+        Then the lock is byte-identical
+    - id: selective-update-preserves-other-pins
+      statement: |
+        Given two pinned scenarios that have changed upstream
+        When I run facet spec update with only one scenario address
+        Then that scenario's pin advances to the new commit
+        And the unselected scenario's lock entry is byte-identical
+        And the last full update commit is retained
+    - id: missing-selected-case-fails
+      statement: |
+        Given an existing specification lock
+        When I request an address absent from the selected source
+        Then the update fails and reports the absent address
+        And the lock stays byte-identical
+    - id: invalid-specification-fails
+      statement: |
+        Given a pinned source whose tracked specification now has a missing case tag
+        When I update the pin
+        Then the command fails with the specification finding and its location
+        And the lock stays byte-identical
+    - id: unreachable-source-keeps-the-lock
+      statement: |
+        Given a valid source with new content and a second source that cannot be fetched
+        When I update both sources
+        Then the command fails and names the unreachable source
+        And the lock stays byte-identical
+    - id: local-override-uses-the-follow-branch
+      statement: |
+        Given a local override whose follow branch differs from the checked-out branch and working tree
+        When I update the specification pin
+        Then the lock records the committed scenario and dialect from the follow branch
+    - id: changed-source-identity-needs-a-full-update
+      statement: |
+        Given a pinned source whose repository, follow branch or format has changed
+        When I update only selected scenarios
+        Then the update refuses and asks for a full update
+    - id: exact-pin-omits-binding
+      statement: |
+        Given a lock whose exact scenario has no binding field
+        When I update the source at the same commit
+        Then the existing scenario resolves as exact
+        And the lock file remains byte-identical
+        And after the scenario moves to a new commit the lock still writes no binding field
+    - id: lock-bytes-are-stable
+      statement: |
+        Given FACET, Gherkin, OpenSpec and Spec Kit specifications that did not change
+        When I run facet spec update
+        Then the lock contains the same bytes as before
+verification:
+  unit_tests:
+    - id: "internal/spec/source_test.go::TestSpecSelectiveUpdateRefusesAChangedSourceIdentity"
+      proves:
+        - changed-source-identity-needs-a-full-update
+  integration_tests:
+    - id: "cli/spec_remaining_adapters_test.go::TestSpecGherkinMarkdownPinDriftAndExecution"
+      proves:
+        - invalid-specification-fails
+    - id: "cli/spec_remaining_adapters_test.go::TestSpecExistingFormatsKeepLockBytes"
+      proves:
+        - lock-bytes-are-stable
+    - id: "cli/spec_adapters_test.go::TestSpecExactLockWithoutBindingStaysByteIdentical"
+      proves:
+        - exact-pin-omits-binding
+    - id: "cli/spec_update_cmd_test.go::TestSpecUpdateDeterministicAndSelective"
+      proves:
+        - full-update-pins-committed-specifications
+        - repeated-update-is-byte-identical
+        - selective-update-preserves-other-pins
+        - missing-selected-case-fails
+    - id: "cli/spec_update_cmd_test.go::TestSpecUpdateAbortsAndKeepsLock"
+      proves:
+        - invalid-specification-fails
+        - unreachable-source-keeps-the-lock
+    - id: "cli/spec_update_cmd_test.go::TestSpecUpdateLocalOverrideUsesFollowBranch"
+      proves:
+        - local-override-uses-the-follow-branch
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-11-23"
+  depends_on:
+    - registry/integrity/spec-lint

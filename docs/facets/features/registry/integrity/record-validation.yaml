@@ -30,6 +30,12 @@ contract:
       post_state:
         exit_code_on_error: 1
         exit_code_on_warning_only: 0
+    - id: specification-conformance-runs-with-record-validation
+      statement: |
+        Given a record with a scenario reference and a pinned specification
+        When facet lint runs
+        Then a matching record passes the conformance check
+        And a record that differs from the pin fails with a diverged finding
     - id: warnings-never-fail
       statement: |
         Given a registry whose only findings are warnings
@@ -142,6 +148,10 @@ contract:
         And a rule missing a required field, with an unknown kind, an unknown field, a model path that is not a relative .dmn file, an id that is not kebab-case, or a completeness on a formula is an error naming business_rules
         And a record without the field passes and draws no finding about it
 verification:
+  integration_tests:
+    - id: "cli/spec_update_cmd_test.go::TestSpecUpdateAndLintRootCommands"
+      proves:
+        - specification-conformance-runs-with-record-validation
   unit_tests:
     - id: registry/business_rules_test.go
       proves:

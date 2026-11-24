@@ -83,6 +83,10 @@ func NewCommand(opts Options) *cobra.Command {
 		if err := enforceCorePin(cmd, version); err != nil {
 			return err
 		}
+		// Specification commands manage their own configuration without resolving source views.
+		if cmd.Parent() != nil && cmd.Parent().Name() == "spec" {
+			return nil
+		}
 
 		if cmd.Parent() != nil && cmd.Parent().Name() == "filter" && (cmd.Name() == "clean" || cmd.Name() == "smudge") && !cmd.Flags().Changed("source-view") {
 			repository, _ := cmd.Flags().GetString("repository")
@@ -113,7 +117,7 @@ func NewCommand(opts Options) *cobra.Command {
 		cmd.SetContext(context.WithValue(cmd.Context(), commandConfigKey{}, cfg))
 		return nil
 	}
-	root.AddCommand(newADRCmd(), newTestCmd(), newLintCmd(), newDocsCmd(), newHookCmd(), newMCPCmd(version), newServeCmd(), newLSPCmd(version), newRegistriesCmd(), newBackingCmd(), newDeviationsCmd(), newDefectsCmd(), newIndexCmd(), newDriftCmd(writeProductDriftReport), newRAGCmd(), newCalibrateCmd(), newSplitCmd(), newFilterCmd(), newErrorsCmd(), newPluginCmd(), newConventionsCmd(), newSetupCmd(opts.ReaderAssets, version), newSnapshotCmd(version))
+	root.AddCommand(newADRCmd(), newTestCmd(), newLintCmd(), newSpecCmd(), newDocsCmd(), newHookCmd(), newMCPCmd(version), newServeCmd(), newLSPCmd(version), newRegistriesCmd(), newBackingCmd(), newDeviationsCmd(), newDefectsCmd(), newIndexCmd(), newDriftCmd(writeProductDriftReport), newRAGCmd(), newCalibrateCmd(), newSplitCmd(), newFilterCmd(), newErrorsCmd(), newPluginCmd(), newConventionsCmd(), newSetupCmd(opts.ReaderAssets, version), newSnapshotCmd(version))
 	root.AddCommand(newVersionCmd(identity), newInitCmd(identity))
 	root.AddCommand(opts.Commands...)
 	registerProductCommands(root, productStore())
