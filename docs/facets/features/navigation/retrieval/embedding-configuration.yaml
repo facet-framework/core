@@ -5,15 +5,14 @@ id: navigation/retrieval/embedding-configuration
 lifecycle: active
 intent:
   summary: |
-    Decides which embedding model a project uses and where its credential
-    comes from, with a per-run override for the cases the committed
-    configuration does not cover.
+    Decides which embedding model a project uses. Remote use additionally
+    requires per-invocation approval for the exact HTTPS origin and the record
+    or query data being sent.
 
-    The key is read from an environment variable and never written anywhere
-    — not into the index, not into the project's configuration, not into a
-    log line. An index file is committed or shared often enough that a key
-    inside one would eventually be published by someone who had no idea it
-    was there.
+    The credential selector comes from a command flag or the fixed
+    FACET_EMBEDDING_API_KEY_ENV process setting, never from repository
+    configuration. The key is read only after egress approval and is never
+    written into the index, project configuration, or a log line.
 
     A project that has configured nothing can still index and query, because
     a retrieval feature that requires a configuration pass before it will do
@@ -24,19 +23,19 @@ contract:
       statement: |
         Given a single-registry or multi-registry project with embedding settings
         When its configuration is validated
-        Then an empty block or the supported provider, base_url, model, api_key_env, dimensions, batch and index fields are accepted
+        Then an empty block or the supported provider, base_url, model, dimensions, batch and index fields are accepted
     - id: invalid-embedding-fields-are-rejected
       statement: |
         Given embedding settings containing an unknown field or a value of the wrong type
         When their schema is validated
         Then validation reports an error
-        And a literal api_key field is rejected
-    - id: the-key-is-read-from-a-variable-and-never-stored
+        And literal api_key and api_key_env fields are rejected
+    - id: remote-authority-is-selected-per-invocation
       statement: |
         Given a project configuring a hosted embedding endpoint
-        When the configuration is written
-        Then it names an environment variable and has no field a key can be
-        put in, and the value is read at the moment of the call
+        When an index or query invocation selects a credential and approves egress
+        Then approval names the record or query data class and exact HTTPS origin
+        And the selected key is read only after that approval matches the endpoint
       post_state:
         key_fields_in_config: 0
     - id: configuration-can-be-overridden-per-run
@@ -44,6 +43,7 @@ contract:
         Given a committed embedding configuration
         When a run passes --embed-url, --embed-model or FACET_EMBEDDING_*
         Then the run uses those instead, in the order file, environment, flags
+        And remote use still requires a data-specific exact-origin approval
     - id: an-unconfigured-project-can-still-index-and-query
       statement: |
         Given a project that configures no embedding provider
@@ -66,11 +66,17 @@ verification:
         - an-unconfigured-project-can-still-index-and-query
     - id: rag/resolve_test.go
       proves:
-        - the-key-is-read-from-a-variable-and-never-stored
+        - remote-authority-is-selected-per-invocation
         - an-unconfigured-project-can-still-index-and-query
+    - id: cli/rag_security_test.go
+      proves:
+        - remote-authority-is-selected-per-invocation
+    - id: cli/mcp_rag_test.go
+      proves:
+        - remote-authority-is-selected-per-invocation
     - id: registry/config_test.go
       proves:
-        - the-key-is-read-from-a-variable-and-never-stored
+        - remote-authority-is-selected-per-invocation
         - configuration-can-be-overridden-per-run
 knowledge:
   prerequisite_knowledge:

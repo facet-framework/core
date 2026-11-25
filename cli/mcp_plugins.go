@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/facet-framework/core/rag"
 	"github.com/facet-framework/core/registry"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -14,7 +15,11 @@ import (
 // newMCPServerWithPlugins builds the server `facet mcp` serves, and the
 // function that ends what it started.
 func newMCPServerWithPlugins(set facet.RegistrySet, dir string, versions ...string) (*mcp.Server, func()) {
-	server := buildMCPServer(set, versions...)
+	return newMCPServerWithPluginsAndRAG(set, dir, rag.RemoteOptions{Egress: rag.QueryEgress}, versions...)
+}
+
+func newMCPServerWithPluginsAndRAG(set facet.RegistrySet, dir string, authority rag.RemoteOptions, versions ...string) (*mcp.Server, func()) {
+	server := buildMCPServerWithRAG(set, authority, versions...)
 	if dir == "" {
 		return server, func() {}
 	}

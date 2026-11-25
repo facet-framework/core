@@ -1683,7 +1683,7 @@ source tree it is built in. Do not edit; regenerate.
     },
     "embedding": {
       "type": "object",
-      "description": "Project-wide retrieval embedding settings. Credentials are read from the environment variable named by api_key_env; never store a key in this file.",
+      "description": "Project-wide retrieval model settings. Remote egress approval and credential selection are invocation-only and must not be stored here.",
       "properties": {
         "provider": {
           "type": "string"
@@ -1692,9 +1692,6 @@ source tree it is built in. Do not edit; regenerate.
           "type": "string"
         },
         "model": {
-          "type": "string"
-        },
-        "api_key_env": {
           "type": "string"
         },
         "dimensions": {

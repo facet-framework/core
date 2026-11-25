@@ -27,10 +27,10 @@ func newRAGCmd() *cobra.Command {
 claims, and writes one file next to generated.lock.yaml.
 'rag query' embeds a question and returns the nearest chunks with their scores.
 
-The embedding model is an HTTP call to an endpoint you configure — facet runs
-no model and hosts no server. Any OpenAI-compatible /embeddings endpoint works,
-including a local Ollama or LM Studio. With nothing configured, a lexical
-embedder built into this binary answers, so both commands work offline.`,
+Remote embedding uses an HTTPS OpenAI-compatible /embeddings endpoint. Each
+invocation must approve the exact origin and whether record or query text will
+be sent. With nothing configured, a lexical embedder built into this binary
+answers, so both commands work offline.`,
 	}
 	cmd.AddCommand(newRAGIndexCmd(), newRAGQueryCmd())
 	return cmd
@@ -45,16 +45,25 @@ type embedFlags struct {
 	dims     int
 	batch    int
 	index    string
+	egress   rag.EgressClass
+	approved string
 }
 
-func (f *embedFlags) bind(cmd *cobra.Command) {
+func (f *embedFlags) bind(cmd *cobra.Command, egress rag.EgressClass) {
+	f.egress = egress
 	cmd.Flags().StringVar(&f.provider, "embed-provider", "", `"openai" for any OpenAI-compatible endpoint, or "local" (default: from `+facet.ConfigName+`)`)
 	cmd.Flags().StringVar(&f.baseURL, "embed-url", "", "embeddings API root, without /embeddings")
 	cmd.Flags().StringVar(&f.model, "embed-model", "", "embedding model name")
-	cmd.Flags().StringVar(&f.keyEnv, "embed-key-env", "", "environment variable holding the API key (never the key itself)")
+	cmd.Flags().StringVar(&f.keyEnv, "embed-key-env", "", "invocation-selected environment variable holding the API key (never the key itself)")
 	cmd.Flags().IntVar(&f.dims, "embed-dimensions", 0, "shorten vectors, where the provider supports it")
 	cmd.Flags().IntVar(&f.batch, "embed-batch", 0, fmt.Sprintf("chunks per request (default %d)", rag.DefaultBatch))
 	cmd.Flags().StringVar(&f.index, "index-path", "", "where the index lives (default: "+facet.DefaultRecordsDir+"/"+facet.RAGIndexName+")")
+	switch egress {
+	case rag.RecordEgress:
+		cmd.Flags().StringVar(&f.approved, "allow-record-egress", "", "permit sending repository record and generated-document text to this exact HTTPS origin")
+	case rag.QueryEgress:
+		cmd.Flags().StringVar(&f.approved, "allow-query-egress", "", "permit sending query text to this exact HTTPS origin")
+	}
 }
 
 // settings merges the three sources, in the order a reader would expect: the
@@ -69,9 +78,6 @@ func (f *embedFlags) settings(cfg *facet.Config) facet.EmbeddingConfig {
 	}
 	if f.model != "" {
 		e.Model = f.model
-	}
-	if f.keyEnv != "" {
-		e.APIKeyEnv = f.keyEnv
 	}
 	if f.dims != 0 {
 		e.Dimensions = f.dims
@@ -100,7 +106,7 @@ func (f *embedFlags) resolve(cmd *cobra.Command) (*ragContext, error) {
 	registries := cfg.All()
 
 	settings := f.settings(cfg)
-	embedder, err := rag.Resolve(settings)
+	embedder, err := rag.Resolve(settings, embeddingRemoteOptions(f.egress, f.approved, f.keyEnv))
 	if err != nil {
 		return nil, err
 	}
@@ -111,6 +117,16 @@ func (f *embedFlags) resolve(cmd *cobra.Command) (*ragContext, error) {
 		path = cfg.IndexPath(registries[0])
 	}
 	return &ragContext{registries: registries, embedder: embedder, indexPath: path}, nil
+}
+
+// embeddingRemoteOptions collects only invocation and process authority. The
+// repository's embedding block supplies model settings, never credential or
+// egress authority.
+func embeddingRemoteOptions(class rag.EgressClass, approved, keyEnv string) rag.RemoteOptions {
+	if keyEnv == "" {
+		keyEnv = os.Getenv("FACET_EMBEDDING_API_KEY_ENV")
+	}
+	return rag.RemoteOptions{Egress: class, ApprovedOrigin: approved, APIKeyEnv: keyEnv}
 }
 
 func newRAGIndexCmd() *cobra.Command {
@@ -175,12 +191,13 @@ func newRAGIndexCmd() *cobra.Command {
 				// noise of repeating it.
 				fmt.Fprintln(cmd.OutOrStdout(),
 					"\nThis index was built by the built-in lexical embedder: it matches words, not meaning.\n"+
-						"Set embedding.base_url and embedding.model in "+facet.ConfigName+" to use a real embedding model.")
+						"Set an HTTPS embedding.base_url and embedding.model in "+facet.ConfigName+" to use a remote model; "+
+						"the next run must also approve record or query egress for that exact origin.")
 			}
 			return nil
 		},
 	}
-	flags.bind(cmd)
+	flags.bind(cmd, rag.RecordEgress)
 	cmd.Flags().BoolVar(&asJSON, "json", false, "report the build as JSON")
 	return cmd
 }
@@ -235,7 +252,7 @@ func newRAGQueryCmd() *cobra.Command {
 			return nil
 		},
 	}
-	flags.bind(cmd)
+	flags.bind(cmd, rag.QueryEgress)
 	cmd.Flags().BoolVar(&asJSON, "json", false, "emit hits as JSON")
 	cmd.Flags().IntVarP(&limit, "limit", "n", 5, "how many chunks to return")
 	cmd.Flags().Float64Var(&minScore, "min-score", 0, "drop hits below this cosine similarity")

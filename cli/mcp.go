@@ -10,6 +10,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/facet-framework/core/rag"
 	"github.com/facet-framework/core/registry"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/spf13/cobra"
@@ -18,9 +19,11 @@ import (
 // @facet: navigation/interfaces/mcp-server
 // @facet-role: primary
 func newMCPCmd(version string) *cobra.Command {
+	var approvedOrigin string
+	var keyEnv string
 	// The server starts under an unmet pin and answers every tool call with
 	// it instead (corePinMCPMiddleware), so the agent sees why, not "failed".
-	return markPinExempt(&cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "mcp",
 		Short: "Serve the registry over MCP on stdio",
 		Long: `Exposes the FACET registry to an agent as MCP tools and resources.
@@ -30,7 +33,8 @@ registry_validate, source_view_get. Installed products add tools under their own
 namespace (<product>__<tool>). rag_query needs an index from 'facet rag index'.
 Every feature record is also exposed as a readable resource.` + mcpToolsetHelp(),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			server, stop := newMCPServerWithPlugins(registrySetForCommand(cmd), PluginsDir(), version)
+			authority := embeddingRemoteOptions(rag.QueryEgress, approvedOrigin, keyEnv)
+			server, stop := newMCPServerWithPluginsAndRAG(registrySetForCommand(cmd), PluginsDir(), authority, version)
 			defer stop()
 			server.AddReceivingMiddleware(corePinMCPMiddleware(ResolveRoot(cmd), version))
 
@@ -38,7 +42,10 @@ Every feature record is also exposed as a readable resource.` + mcpToolsetHelp()
 			defer cancel()
 			return server.Run(ctx, &mcp.StdioTransport{})
 		},
-	}, pinExemptReports)
+	}
+	cmd.Flags().StringVar(&approvedOrigin, "allow-query-egress", "", "permit sending MCP query text to this exact HTTPS origin")
+	cmd.Flags().StringVar(&keyEnv, "embed-key-env", "", "invocation-selected environment variable holding the embedding API key")
+	return markPinExempt(cmd, pinExemptReports)
 }
 
 type findInput struct {
@@ -187,6 +194,10 @@ type validateOutput struct {
 }
 
 func buildMCPServer(set facet.RegistrySet, versions ...string) *mcp.Server {
+	return buildMCPServerWithRAG(set, rag.RemoteOptions{Egress: rag.QueryEgress}, versions...)
+}
+
+func buildMCPServerWithRAG(set facet.RegistrySet, authority rag.RemoteOptions, versions ...string) *mcp.Server {
 	version := "dev"
 	if len(versions) > 0 && versions[0] != "" {
 		version = versions[0]
@@ -242,7 +253,7 @@ func buildMCPServer(set facet.RegistrySet, versions ...string) *mcp.Server {
 		Name:        "rag_query",
 		Description: "Search the registry by meaning rather than by id. Returns the record facets and generated documentation closest to a natural-language question, each with the file it came from and a similarity score. Use it when the words in the question match no id and no path — a convention, a relationship between features, anything whose answer is in prose. Use feature_get when you already know the id. Requires an index built by 'facet rag index'.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in ragQueryInput) (*mcp.CallToolResult, ragQueryOutput, error) {
-		out, err := ragQuery(ctx, set, in)
+		out, err := ragQuery(ctx, set, in, authority)
 		return nil, out, err
 	})
 

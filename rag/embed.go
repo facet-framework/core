@@ -36,8 +36,7 @@ type Embedder interface {
 type HTTPEmbedder struct {
 	BaseURL string
 	Model   string
-	// APIKey is the bearer token. Empty is valid and normal: a local Ollama
-	// wants no key at all.
+	// APIKey is the bearer token. Empty is valid for keyless providers.
 	APIKey string
 	// Dimensions is passed through when non-zero, for the providers that let a
 	// caller shorten the vector. Providers that do not understand it ignore it.

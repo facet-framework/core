@@ -155,17 +155,18 @@ func (c *Config) CommitGateOff() bool {
 // @facet: navigation/retrieval/embedding-configuration
 // @facet-role: config
 type EmbeddingConfig struct {
-	// Provider is "openai" for any OpenAI-compatible /embeddings endpoint —
-	// which is nearly all of them, hosted and local alike — or "local" for the
-	// lexical embedder built into this binary.
+	// Provider is "openai" for an HTTPS OpenAI-compatible /embeddings endpoint,
+	// or "local" for the lexical embedder built into this binary.
 	Provider string `yaml:"provider"`
 	// BaseURL is the API root, without the trailing /embeddings.
 	BaseURL string `yaml:"base_url"`
 	// Model is the embedding model's name at that endpoint.
 	Model string `yaml:"model"`
-	// APIKeyEnv names the environment variable holding the bearer token. Empty
-	// is valid: a local Ollama or LM Studio wants no key.
-	APIKeyEnv string `yaml:"api_key_env"`
+	// APIKeyEnv remains for Go API compatibility only. Repository YAML cannot
+	// populate it, EmbeddingSettings does not read it from the environment, and
+	// rag.Resolve rejects it; callers select credentials through invocation-only
+	// remote options instead.
+	APIKeyEnv string `yaml:"-"`
 	// Dimensions shortens the vector where the provider supports it. Zero
 	// leaves the model's own width.
 	Dimensions int `yaml:"dimensions"`
@@ -199,9 +200,6 @@ func (c *Config) EmbeddingSettings() EmbeddingConfig {
 	}
 	if v := os.Getenv("FACET_EMBEDDING_MODEL"); v != "" {
 		e.Model = v
-	}
-	if v := os.Getenv("FACET_EMBEDDING_API_KEY_ENV"); v != "" {
-		e.APIKeyEnv = v
 	}
 	if v := os.Getenv("FACET_RAG_INDEX"); v != "" {
 		e.Index = v

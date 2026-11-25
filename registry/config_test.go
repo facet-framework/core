@@ -8,7 +8,8 @@ import (
 )
 
 // The schema must accept the embedding settings LoadConfig already reads,
-// while refusing inline credentials, unknown keys and incorrectly typed values.
+// while refusing credentials, credential selectors, unknown keys and
+// incorrectly typed values.
 // Removing embedding from the shipped schema makes the valid cases fail.
 func TestEmbeddingConfigPassesTheRealSchema(t *testing.T) {
 	root := project(t, "")
@@ -22,10 +23,11 @@ func TestEmbeddingConfigPassesTheRealSchema(t *testing.T) {
 		embedding map[string]any
 		valid     bool
 	}{
-		{"openrouter", map[string]any{"provider": "openai", "base_url": "https://openrouter.ai/api/v1", "model": "qwen/qwen3-embedding-8b", "api_key_env": "OPENROUTER_API_KEY"}, true},
+		{"openrouter", map[string]any{"provider": "openai", "base_url": "https://openrouter.ai/api/v1", "model": "qwen/qwen3-embedding-8b"}, true},
 		{"defaults", map[string]any{}, true},
 		{"local", map[string]any{"provider": "local", "dimensions": 256, "batch": 32, "index": "cache/vectors.bin"}, true},
 		{"inline credential", map[string]any{"api_key": "example"}, false},
+		{"repository credential selector", map[string]any{"api_key_env": "OPENROUTER_API_KEY"}, false},
 		{"unknown key", map[string]any{"modle": "example"}, false},
 		{"invalid dimensions", map[string]any{"dimensions": "256"}, false},
 		{"invalid batch", map[string]any{"batch": 1.5}, false},
@@ -291,7 +293,7 @@ func TestErrorCodesConfigPassesTheRealSchema(t *testing.T) {
 
 func TestEmbeddingConfigPassesSingleAndMultiRegistryValidation(t *testing.T) {
 	for _, layout := range []string{"", "registries:\n  app:\n    records: docs/facets\n"} {
-		for _, fields := range []string{"", "  provider: openai\n  base_url: https://example.test/v1\n  model: example\n  api_key_env: EMBEDDING_TOKEN\n  dimensions: 128\n  batch: 32\n  index: .cache/index.bin\n"} {
+		for _, fields := range []string{"", "  provider: openai\n  base_url: https://example.test/v1\n  model: example\n  dimensions: 128\n  batch: 32\n  index: .cache/index.bin\n"} {
 			config := layout + "embedding: {}\n"
 			if fields != "" {
 				config = layout + "embedding:\n" + fields
@@ -312,7 +314,7 @@ func TestEmbeddingConfigPassesSingleAndMultiRegistryValidation(t *testing.T) {
 }
 
 func TestEmbeddingSchemaRejectsUnknownFieldsAndWrongTypes(t *testing.T) {
-	for _, field := range []string{"api_key: secret", "modle: typo", "dimensions: many", "batch: 1.5", "provider: []", "api_key_env: 123"} {
+	for _, field := range []string{"api_key: secret", "api_key_env: EMBEDDING_TOKEN", "modle: typo", "dimensions: many", "batch: 1.5", "provider: []"} {
 		t.Run(field, func(t *testing.T) {
 			root := project(t, "embedding:\n  "+field+"\n")
 			copySchemas(t, root)
@@ -361,7 +363,6 @@ embedding:
   provider: openai
   base_url: https://api.openai.com/v1
   model: text-embedding-3-small
-  api_key_env: OPENAI_API_KEY
   dimensions: 512
   batch: 32
 `)
@@ -373,18 +374,18 @@ embedding:
 	if e.Provider != "openai" || e.Model != "text-embedding-3-small" {
 		t.Fatalf("embedding block not read: %+v", e)
 	}
-	if e.APIKeyEnv != "OPENAI_API_KEY" || e.Dimensions != 512 || e.Batch != 32 {
+	if e.Dimensions != 512 || e.Batch != 32 {
 		t.Fatalf("embedding block partially read: %+v", e)
 	}
 }
 
-// Embedding configuration accepts environment-variable names. An inline
-// api_key has no destination configuration field and is not retained,
-// keeping credential values out of committed configuration.
-func TestEmbeddingConfigHasNowhereToPutAKey(t *testing.T) {
+// Neither a key nor a credential selector has a destination configuration
+// field. Both must come from the invocation that approves remote egress.
+func TestEmbeddingConfigHasNoCredentialAuthority(t *testing.T) {
 	root := project(t, `embedding:
   provider: openai
   api_key: sk-a-key-somebody-pasted
+  api_key_env: AMBIENT_DEPLOYMENT_SECRET
 `)
 	cfg, err := LoadConfig(root)
 	if err != nil {
@@ -394,8 +395,8 @@ func TestEmbeddingConfigHasNowhereToPutAKey(t *testing.T) {
 		cfg.Embedding.Provider, cfg.Embedding.BaseURL, cfg.Embedding.Model,
 		cfg.Embedding.APIKeyEnv, cfg.Embedding.Index,
 	}, " ")
-	if strings.Contains(rendered, "sk-a-key") {
-		t.Fatal("a key written into the configuration must land in no field at all")
+	if strings.Contains(rendered, "sk-a-key") || strings.Contains(rendered, "AMBIENT_DEPLOYMENT_SECRET") {
+		t.Fatal("committed credential authority must land in no configuration field")
 	}
 }
 

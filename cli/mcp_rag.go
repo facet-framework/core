@@ -41,7 +41,7 @@ type ragQueryOutput struct {
 }
 
 // ragQuery loads the index and searches it.
-func ragQuery(ctx context.Context, set facet.RegistrySet, in ragQueryInput) (ragQueryOutput, error) {
+func ragQuery(ctx context.Context, set facet.RegistrySet, in ragQueryInput, authority ...rag.RemoteOptions) (ragQueryOutput, error) {
 	if in.Query == "" {
 		return ragQueryOutput{}, fmt.Errorf("rag_query needs a question")
 	}
@@ -70,7 +70,7 @@ func ragQuery(ctx context.Context, set facet.RegistrySet, in ragQueryInput) (rag
 		return ragQueryOutput{}, err
 	}
 
-	embedder, err := rag.Resolve(cfg.EmbeddingSettings())
+	embedder, err := rag.Resolve(cfg.EmbeddingSettings(), authority...)
 	if err != nil {
 		return ragQueryOutput{}, err
 	}

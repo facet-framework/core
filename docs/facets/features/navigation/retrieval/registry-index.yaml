@@ -71,10 +71,10 @@ knowledge:
       records change: 'facet rag index', then 'facet rag query "…"'. Nothing
       watches the records and rebuilds on its own.
 
-      For meaningful retrieval, an embeddings endpoint: its URL, a model name,
-      and the environment variable holding its key. Any OpenAI-compatible
-      /embeddings endpoint works, which includes a local Ollama or LM Studio,
-      in which case no key is needed at all.
+      For meaningful retrieval, an HTTPS OpenAI-compatible embeddings endpoint
+      and model name. Each invocation separately approves the exact origin and
+      record or query data class, and selects any credential outside repository
+      configuration. The built-in lexical embedder remains the offline option.
 
       Without that configuration the built-in lexical embedder answers, and
       what it does is match words. It does not know that "delivery attempt" and
