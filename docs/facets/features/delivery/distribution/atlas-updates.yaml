@@ -1,0 +1,97 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: delivery/distribution/atlas-updates
+lifecycle: active
+intent:
+  summary: |
+    FACET Core offers newer Atlas releases whose manifests are signed by a key
+    embedded in Core. Users explicitly activate an update before the next
+    launch uses the new version.
+contract:
+  scenarios:
+    - id: check-and-notify
+      statement: |
+        Given an installed Atlas and a newer compatible signed release
+        When the user starts Atlas in a terminal
+        Then Atlas starts and Core reports the available update while Atlas runs
+        And Core reuses the cached result for starts within 24 hours
+    - id: start-without-notice
+      statement: |
+        Given an installed Atlas
+        When the release check times out, the network fails or the session has no terminal
+        Then Atlas runs and Core emits no update notice
+    - id: skip-check
+      statement: |
+        Given an installed Atlas
+        When the user starts it with updates disabled or Core has no trusted keys
+        Then Atlas runs and no release check is recorded or sent
+    - id: reject-untrusted-metadata
+      statement: |
+        Given a release with an invalid signature, mismatching version, wrong product, incompatible Core or missing platform
+        When the user requests an Atlas update
+        Then Core leaves the release uninstalled and makes no archive request
+    - id: pass-over-unsigned-release
+      statement: |
+        Given a newer Atlas release that publishes no manifest or no signature, and an older signed one
+        When Core looks for an Atlas update
+        Then it passes over the unsigned release and offers the signed one
+    - id: reject-mismatching-archive
+      statement: |
+        Given a trusted Atlas manifest and an archive with a different size or SHA-256 digest
+        When the user requests an Atlas update
+        Then Core refuses activation and leaves no completed installation for that release
+    - id: select-release-by-version
+      statement: |
+        Given a release list with drafts, release candidates and stable versions
+        When Core looks for an Atlas update
+        Then Core considers the highest eligible non-draft release above the embedded and active versions
+        And Core considers release candidates only before a stable release exists
+    - id: activate-and-fall-back
+      statement: |
+        Given an installed embedded Atlas and a compatible signed update
+        When the user runs facet ui --update
+        Then Core installs and activates the update without starting it
+        And a subsequent start runs the signed installation and prunes older versions after a successful run
+        When the active installation becomes incomplete or its signature no longer verifies
+        Then the next start runs the embedded release
+    - id: refresh-embedded-pin
+      statement: |
+        Given a legacy Atlas release without a signature asset
+        When a release maintainer regenerates the pin with --unsigned
+        Then the script writes the manifest's Core version and the checksums and sizes of attested release archives
+        And an invalid attestation prevents the pin from changing
+verification:
+  unit_tests:
+    - id: "internal/atlaslauncher/update_test.go::TestAtlasBackgroundCheckNotifiesAndCaches"
+      proves:
+        - check-and-notify
+    - id: "internal/atlaslauncher/update_test.go::TestAtlasStartsWhileReleaseCheckIsOfflineOrTimesOut"
+      proves:
+        - start-without-notice
+    - id: "internal/atlaslauncher/update_test.go::TestAtlasBackgroundCheckCanBeDisabled"
+      proves:
+        - skip-check
+    - id: "internal/atlaslauncher/update_test.go::TestRejectsUntrustedAtlasUpdateMetadata"
+      proves:
+        - reject-untrusted-metadata
+    - id: "internal/atlaslauncher/update_test.go::TestAtlasDiscoveryPassesOverReleasesWithoutSignature"
+      proves:
+        - pass-over-unsigned-release
+    - id: "internal/atlaslauncher/update_test.go::TestRejectsAtlasArchiveWithWrongSizeOrDigest"
+      proves:
+        - reject-mismatching-archive
+    - id: "internal/atlaslauncher/update_test.go::TestAtlasReleaseOrderingAndFloor"
+      proves:
+        - select-release-by-version
+    - id: "internal/atlaslauncher/update_test.go::TestAtlasUpdateActivationFallbackAndCleanup"
+      proves:
+        - activate-and-fall-back
+  integration_tests:
+    - id: scripts/atlas-pin.test.sh
+      proves:
+        - refresh-embedded-pin
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-11-25"

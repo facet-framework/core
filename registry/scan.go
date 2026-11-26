@@ -129,7 +129,14 @@ type ScanOptions struct {
 	View  *sourceview.ResolvedView
 	files map[string]bool
 	Dirs  []string // relative to root; empty means the root itself
+	// unread, when set, collects the selected files the scan could not read.
+	// The scan itself still passes over them, as every other check expects.
+	unread *[]unreadSource
 }
+
+// unreadSource is a selected file the scan could not read: its path, and its
+// portable reference when it lies in a source view.
+type unreadSource struct{ path, reference string }
 
 // ScanOptionsFromEnv reads the source-directory override the shell tooling
 // honours. Superseded by .facetrc.yaml's `sources`, and kept because CI jobs
@@ -186,7 +193,7 @@ func ScanWithFiles(root string, opts ScanOptions) ([]Anchor, []SourceFile, error
 	var anchors []Anchor
 	var files []SourceFile
 	for _, r := range roots {
-		found, walked, err := scanTreeAllowed(r, opts.files)
+		found, walked, err := scanTreeAllowed(r, opts.files, opts.unread)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -224,8 +231,8 @@ func NewSourceWalker(root string) (*gocodewalker.FileWalker, chan *gocodewalker.
 	return walker, files
 }
 
-func scanTree(root string) ([]Anchor, []SourceFile, error) { return scanTreeAllowed(root, nil) }
-func scanTreeAllowed(root string, allowed map[string]bool) ([]Anchor, []SourceFile, error) {
+func scanTree(root string) ([]Anchor, []SourceFile, error) { return scanTreeAllowed(root, nil, nil) }
+func scanTreeAllowed(root string, allowed map[string]bool, unread *[]unreadSource) ([]Anchor, []SourceFile, error) {
 	walker, files := NewSourceWalker(root)
 
 	var walkErr error
@@ -254,7 +261,12 @@ func scanTreeAllowed(root string, allowed map[string]bool) ([]Anchor, []SourceFi
 		}
 		found, meta, err := scanFileWithLines(f.Location)
 		if err != nil {
-			continue // an unreadable file is not a lint finding
+			// An unreadable file is not a lint finding; a caller measuring
+			// across files is told, so it does not report a complete result.
+			if unread != nil {
+				*unread = append(*unread, unreadSource{path: f.Location})
+			}
+			continue
 		}
 		anchors = append(anchors, found...)
 		walked = append(walked, meta)
@@ -562,11 +574,32 @@ func scanSelectedView(opts ScanOptions) ([]Anchor, []SourceFile, error) {
 		}
 		allowed := map[string]bool{}
 		for _, rel := range paths {
-			allowed[filepath.Join(src.Root, filepath.FromSlash(rel))] = true
+			path := filepath.Join(src.Root, filepath.FromSlash(rel))
+			// A caller narrowing the scan to known files keeps the view's
+			// selection: a file outside it stays unread.
+			if opts.files == nil || opts.files[filepath.Clean(path)] {
+				allowed[path] = true
+			}
 		}
-		found, walked, err := ScanWithFiles(src.Root, ScanOptions{Dirs: opts.Dirs, files: allowed})
+		var missed []unreadSource
+		sub := ScanOptions{Dirs: opts.Dirs, files: allowed}
+		if opts.unread != nil {
+			sub.unread = &missed
+		}
+		found, walked, err := ScanWithFiles(src.Root, sub)
 		if err != nil {
 			return nil, nil, err
+		}
+		for _, m := range missed {
+			rel, e := filepath.Rel(src.Root, m.path)
+			if e != nil {
+				return nil, nil, e
+			}
+			m.reference, e = opts.View.Qualify(src.Repository, filepath.ToSlash(rel))
+			if e != nil {
+				return nil, nil, e
+			}
+			*opts.unread = append(*opts.unread, m)
 		}
 		for i := range found {
 			rel, e := filepath.Rel(src.Root, found[i].Path)

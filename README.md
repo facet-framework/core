@@ -29,7 +29,7 @@ connects it to the source that implements it with `@facet:` comments. The
 `facet` command checks both directions: every active record has code, and
 every comment has a record.
 
-Version **0.1.0-rc.4**, specification edition **0.1.0**.
+Version **0.1.0-rc.5**, specification edition **0.1.0**.
 This is a release candidate; commands, flags, Go APIs, MCP tools and schemas
 may still change before 0.1.0.
 
@@ -38,7 +38,7 @@ may still change before 0.1.0.
 In the root of your project:
 
 ```sh
-npx facet-framework@0.1.0-rc.4 init
+npx facet-framework@0.1.0-rc.5 init
 ```
 
 `init` writes the record layout, schemas, specification, lint tools and a CI
@@ -52,7 +52,7 @@ that implements it with a `@facet: <domain>/<capability>/<feature>` comment. The
 Then check it:
 
 ```sh
-npx facet-framework@0.1.0-rc.4 lint
+npx facet-framework@0.1.0-rc.5 lint
 ```
 
 ## Install
@@ -61,7 +61,7 @@ npx facet-framework@0.1.0-rc.4 lint
 candidates use the npm tag `next`, so name the version:
 
 ```sh
-npm install --save-dev facet-framework@0.1.0-rc.4
+npm install --save-dev facet-framework@0.1.0-rc.5
 npx facet lint
 ```
 
@@ -70,7 +70,7 @@ npx facet lint
 per platform (`facet_<version>_<os>_<arch>`) and a `checksums.txt`:
 
 ```sh
-version=0.1.0-rc.4
+version=0.1.0-rc.5
 archive="facet_${version}_linux_amd64.tar.gz"
 base="https://github.com/facet-framework/core/releases/download/v${version}"
 curl -fsSLO "$base/$archive"

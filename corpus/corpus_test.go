@@ -551,6 +551,162 @@ func TestCorpusShipsTheCalibration(t *testing.T) {
 	}
 }
 
+// The corpus carries the same shared-use back-list the linter reports, under
+// the key 'sharedClaims'.
+func TestCorpusShipsTheSharedClaims(t *testing.T) {
+	root := t.TempDir()
+	for _, id := range []string{"arithmetic/calculation/difference", "arithmetic/calculation/subtraction"} {
+		mustWriteCorpus(t, filepath.Join(root, "docs/facets/features", id+".yaml"),
+			"schema_version: \"0.1\"\nid: "+id+"\nlifecycle: active\ncontract:\n  scenarios:\n    - id: basic\n      statement: |\n        Given two integers\n        When one is subtracted from the other\n        Then the difference is returned\n")
+	}
+	mustWriteCorpus(t, filepath.Join(root, "src", "math.go"),
+		"package src\n\n// @facet: arithmetic/calculation/difference\n// @facet-role: primary\n// @facet: arithmetic/calculation/subtraction\n// @facet-role: primary\nfunc Sub(a, b int) int { return a - b }\n")
+
+	corpus, err := Build(facet.Open(root), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := json.Marshal(corpus)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var wire struct {
+		SharedClaims *struct {
+			Symbols []struct {
+				Symbol        string `json:"symbol"`
+				DoublePrimary bool   `json:"double_primary"`
+			} `json:"symbols"`
+			Scenarios []struct {
+				Members []struct {
+					Record string `json:"record"`
+				} `json:"members"`
+			} `json:"scenarios"`
+		} `json:"sharedClaims"`
+	}
+	if err := json.Unmarshal(data, &wire); err != nil {
+		t.Fatal(err)
+	}
+	c := wire.SharedClaims
+	if c == nil {
+		t.Fatalf("corpus carries no sharedClaims: %s", data)
+	}
+	if len(c.Symbols) != 1 || c.Symbols[0].Symbol != "Sub" || !c.Symbols[0].DoublePrimary {
+		t.Fatalf("symbols = %+v", c.Symbols)
+	}
+	if len(c.Scenarios) != 1 || len(c.Scenarios[0].Members) != 2 {
+		t.Fatalf("scenarios = %+v", c.Scenarios)
+	}
+	if !strings.Contains(string(data), `"incomplete":[]`) {
+		t.Fatalf("a complete measurement must ship an empty incomplete list: %s", data)
+	}
+}
+
+// The reader and 'facet lint' measure the same anchors: a file too large for
+// the scanner to read whole yields its anchors from its head only, in both,
+// even though the corpus reads the whole file.
+func TestCorpusAndLintShareTheLargeFileAnchors(t *testing.T) {
+	root := t.TempDir()
+	for _, id := range []string{"a/b/one", "a/b/two"} {
+		mustWriteCorpus(t, filepath.Join(root, "docs/facets/features", id+".yaml"),
+			"schema_version: \"0.1\"\nid: "+id+"\nlifecycle: active\ncontract:\n  scenarios:\n    - id: s\n      statement: |\n        Given "+id+"\n")
+		mustWriteCorpus(t, filepath.Join(root, "src", filepath.Base(id)+".js"), "// @facet: "+id+"\nexport function "+filepath.Base(id)+"() {}\n")
+	}
+	var b strings.Builder
+	b.WriteString("package src\n\n")
+	for b.Len() < 1<<20+4096 {
+		b.WriteString("// " + strings.Repeat("x", 200) + "\n")
+	}
+	b.WriteString("// @facet: a/b/one\n// @facet-role: primary\n// @facet: a/b/two\n// @facet-role: primary\nfunc Foo() {}\n")
+	for b.Len() < 2<<20+4096 {
+		b.WriteString("// " + strings.Repeat("y", 200) + "\n")
+	}
+	mustWriteCorpus(t, filepath.Join(root, "src", "big.go"), b.String())
+
+	rep, err := facet.LintAll(root, facet.LintOptions{Skip: map[string]bool{"schema": true}, Today: "2026-11-24"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	corpus, err := Build(facet.Open(root), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if corpus.SharedClaims == nil || rep.SharedClaims == nil {
+		t.Fatal("premise: both carry the back-list")
+	}
+	// An admitted anchor would send big.go to the parser, which leaves a file
+	// this large unread as a gap.
+	if len(rep.SharedClaims.Symbols)+len(rep.SharedClaims.Incomplete) != 0 || len(corpus.SharedClaims.Symbols)+len(corpus.SharedClaims.Incomplete) != 0 {
+		t.Fatalf("lint %+v and corpus %+v must both leave out anchors past the scanned head", rep.SharedClaims, corpus.SharedClaims)
+	}
+}
+
+// corpusClaims builds the corpus and returns its back-list.
+func corpusClaims(t *testing.T, root string) *facet.SharedClaims {
+	t.Helper()
+	corpus, err := Build(facet.Open(root), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return corpus.SharedClaims
+}
+
+func corpusRecord(t *testing.T, root, id string) {
+	t.Helper()
+	mustWriteCorpus(t, filepath.Join(root, "docs/facets/features", id+".yaml"),
+		"schema_version: \"0.1\"\nid: "+id+"\nlifecycle: active\ncontract:\n  scenarios:\n    - id: s\n      statement: |\n        Given "+id+"\n")
+}
+
+// The reader names a source file it could not read, and keeps the rest.
+func TestCorpusNamesAnUnreadableSource(t *testing.T) {
+	root := t.TempDir()
+	corpusRecord(t, root, "a/b/one")
+	corpusRecord(t, root, "a/b/two")
+	mustWriteCorpus(t, filepath.Join(root, "src/keep.go"), "package src\n\n// @facet: a/b/one\nfunc KeepOne() {}\n\n// @facet: a/b/two\nfunc KeepTwo() {}\n")
+	area := filepath.Join(root, "src/area.go")
+	mustWriteCorpus(t, area, "package src\n\n// @facet: a/b/one\n// @facet-role: primary\n// @facet: a/b/two\n// @facet-role: primary\nfunc Area() {}\n")
+	if got := corpusClaims(t, root); got == nil || len(got.Symbols) != 1 || len(got.Incomplete) != 0 {
+		t.Fatalf("premise: the readable file shares area and nothing is missing, got %+v", got)
+	}
+	if err := os.Chmod(area, 0); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(area, 0o644) })
+	if _, err := os.ReadFile(area); err == nil {
+		t.Skip("this process reads a file without permissions; the premise cannot be set up")
+	}
+	got := corpusClaims(t, root)
+	if got == nil || len(got.Symbols) != 0 {
+		t.Fatalf("want no symbol from the unreadable file, got %+v", got)
+	}
+	if len(got.Incomplete) != 1 || got.Incomplete[0].Path != "src/area.go" || got.Incomplete[0].Reason != "source not read" {
+		t.Fatalf("want the unreadable source named as a gap, got %+v", got.Incomplete)
+	}
+}
+
+// A record of the read registry that will not load costs the calibration, not
+// the back-list: the readable records' claims stay and the broken one is named.
+func TestCorpusKeepsTheBackListBesideABrokenRecord(t *testing.T) {
+	root := t.TempDir()
+	corpusRecord(t, root, "a/b/one")
+	corpusRecord(t, root, "a/b/two")
+	mustWriteCorpus(t, filepath.Join(root, "src/area.go"), "package src\n\n// @facet: a/b/one\n// @facet-role: primary\n// @facet: a/b/two\n// @facet-role: primary\nfunc Area() {}\n")
+	if got := corpusClaims(t, root); got == nil || len(got.Symbols) != 1 {
+		t.Fatalf("premise: the two records share area, got %+v", got)
+	}
+	mustWriteCorpus(t, filepath.Join(root, "docs/facets/features/a/b/broken.yaml"), "bad: [\n")
+
+	got := corpusClaims(t, root)
+	if got == nil {
+		t.Fatal("a broken record dropped the whole back-list")
+	}
+	if len(got.Symbols) != 1 || !got.Symbols[0].DoublePrimary {
+		t.Fatalf("the readable records lost their claim, got %+v", got.Symbols)
+	}
+	if len(got.Incomplete) != 1 || got.Incomplete[0].Path != "docs/facets/features/a/b/broken.yaml" {
+		t.Fatalf("want the broken record named as a gap, got %+v", got.Incomplete)
+	}
+}
+
 func mustWriteCorpus(t *testing.T, path, body string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {

@@ -19,14 +19,14 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": ".claude-plugin/plugin.json",
-      "sha256": "fad6e34a4970a9b4f6806706f064c0c1328312003aa5dfd7550763dce78dbe45"
+      "sha256": "981de251f30ffac9f26ed75f78b6a9f538245117bb89476d527db9a5335fa7bd"
     },
     {
       "content_review": "approved",
       "license": "Apache-2.0",
       "mode": "0644",
       "path": ".codex-plugin/plugin.json",
-      "sha256": "6bc34114fc09eb68bb32105afcb520061daff56ac49d84283fa0afbe31d89425"
+      "sha256": "24aca4bf7acb47c0eee74d2aa138ff8fd63d67b9a5746d45d973196767809bd4"
     },
     {
       "content_review": "approved",
@@ -138,7 +138,7 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "CHANGELOG.md",
-      "sha256": "7109cb532c3ef334318d2efd34f78fc8180a5f6313d4b1ba5166f65c9df133da"
+      "sha256": "7c7a1ebf882fd74918be44f01acb839b0e570fd434cb48a24afa55d160390078"
     },
     {
       "content_review": "approved",
@@ -159,7 +159,7 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "CONTRIBUTING.md",
-      "sha256": "3986104a5a782ae4022815d8256a932bdf9e3ce33819a8112142088efb6742f1"
+      "sha256": "d293ade82447a4259104094739bcbe1fe15abce241c4024f6e8103806fc04a47"
     },
     {
       "content_review": "approved",
@@ -180,7 +180,7 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "README.md",
-      "sha256": "41686e26554a30116130ddf60a406a04afa37176de2c1ede9fbff18ca2c68947"
+      "sha256": "cfff515344c65dce3153d6b03528f8f8a7faa06f07e0203d8ff4f3bf189bb37b"
     },
     {
       "content_review": "approved",
@@ -201,7 +201,7 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "THIRD_PARTY.json",
-      "sha256": "7d5a3a6cb55e477b00554300d0462c1c441bce07e319d10372e30cc827c89f33"
+      "sha256": "f2e20ebea86d19e1d2564ebc71c32d8c4df26e7139263a64444c067c220585ed"
     },
     {
       "content_review": "approved",
@@ -328,6 +328,20 @@
       "mode": "0644",
       "path": "THIRD_PARTY_LICENSES/go/github.com%2Fyosida95%2Furitemplate%2Fv3@v3.0.2/LICENSE",
       "sha256": "0761aadfb1921103752869ee942d4a71bdd54494697684d4b13dc17ad9781191"
+    },
+    {
+      "content_review": "approved",
+      "license": "LicenseRef-Upstream",
+      "mode": "0644",
+      "path": "THIRD_PARTY_LICENSES/go/golang.org%2Fx%2Fmod@v0.38.0/LICENSE",
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "content_review": "approved",
+      "license": "LicenseRef-Upstream",
+      "mode": "0644",
+      "path": "THIRD_PARTY_LICENSES/go/golang.org%2Fx%2Fmod@v0.38.0/PATENTS",
+      "sha256": "96f408bfae65bf137fc2525d3ecb030271c50c1e90799f87abf8846d8dd505cc"
     },
     {
       "content_review": "approved",
@@ -691,7 +705,7 @@
       "license": "Apache-2.0",
       "mode": "0755",
       "path": "bin/facet",
-      "sha256": "0bcd5a0b5d981e495b351a1ac5e76e4144f323af8860ce250a66876bec0f7cb3"
+      "sha256": "ef26ef235b9c727c7949c72ae10c8817c922c30406535c0e59d89cfc4b71fb86"
     },
     {
       "content_review": "approved",
@@ -733,7 +747,7 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "cli/atlas_ui.go",
-      "sha256": "1376a53621c02cffd5460256a5e42e9de168ac93ef1061ea69ffd55276550829"
+      "sha256": "2a445a942fc7826ce6e184521986d18f78ca08a1241e49d58cb87a0217682c47"
     },
     {
       "content_review": "approved",
@@ -796,7 +810,7 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "cli/command_options_test.go",
-      "sha256": "4ed8f6962820b0738eb308ee41bb07661df48160bf1730e08f9be5a104fbf62a"
+      "sha256": "69d3953ab60d1daf6b1db5e1091458c552181b9f13ace2fade8ece95e281e267"
     },
     {
       "content_review": "approved",
@@ -992,7 +1006,7 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "cli/hook.go",
-      "sha256": "3e289a5a6e52845028c2ba886d24f0f85c369225ff13e18e8eec9e5c3b2a25e1"
+      "sha256": "b97fa72167b22ed8f2980971fd082160a7a73873d94e6928dc6866b71f714488"
     },
     {
       "content_review": "approved",
@@ -1096,6 +1110,13 @@
       "content_review": "approved",
       "license": "Apache-2.0",
       "mode": "0644",
+      "path": "cli/hook_rules_test.go",
+      "sha256": "6fb8fbf121b3103191dc17ea93c2f56873fe648a9e20e2223a1a493d8d31f39d"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
       "path": "cli/hook_setuphint_test.go",
       "sha256": "e920f818f4cf025e051e98735af0b608c32a292ceec32c2cab886c22b7ffbeaf"
     },
@@ -1146,7 +1167,14 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "cli/lint_cmd.go",
-      "sha256": "b1486602f661b916758a908b1c9417e0a022192441f0899cbdec5654c8b6901c"
+      "sha256": "28ee592b9cb6153f489f36762cc90669ca2cc29a0095cb304cbc242ebf6ace92"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "cli/lint_shared_claims_test.go",
+      "sha256": "c5718ee15110b9a00d6af8c608f915d094b5c6bdd6b730688e0db90036715f73"
     },
     {
       "content_review": "approved",
@@ -1160,14 +1188,14 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "cli/lint_summary_test.go",
-      "sha256": "937ca4625b6080f64d11c381dcf3d0aec9d6919f1dcdf96230a7004e926c8b09"
+      "sha256": "a04a9c6be070898670dc22c411465438cdb057fa9450ae9da755d78f9b633213"
     },
     {
       "content_review": "approved",
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "cli/lsp.go",
-      "sha256": "b48bebe9847e7072ce2160355173802d2bbe7c6dc7efcc06d0dcf1ec6d5a03b5"
+      "sha256": "3b03024586ce1ef279ef1c24cc35726a15fea129fac9b8ec4a25ce264ba89a91"
     },
     {
       "content_review": "approved",
@@ -1391,7 +1419,7 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "cli/scaffold/payload.txtar",
-      "sha256": "da786039e60950b525b75d756e789c97c08b4af2128aa1a59df704f1f12aa247"
+      "sha256": "79532e986d018ea0eda04f518e10c1c47e2082e8a8c0e77d75ba4c312af097ef"
     },
     {
       "content_review": "approved",
@@ -1663,6 +1691,13 @@
       "content_review": "approved",
       "license": "Apache-2.0",
       "mode": "0644",
+      "path": "cmd/atlas-pin/main.go",
+      "sha256": "34d1c28c3121b2969b8152d1eb30c98ef325e5eb1fd8d07fc6e8c880f4415258"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
       "path": "cmd/facet/main.go",
       "sha256": "bcd33025d6ff6b7d8e91473f7ef5d4732b0712b98751dcc85fdb57918f849f53"
     },
@@ -1671,14 +1706,14 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "corpus/corpus.go",
-      "sha256": "dcc7281d34be63a60a658f69dc026e3ca21404559ca29ece0006bb1cf1e19695"
+      "sha256": "261eaaad8a5f61bc96d0b769e86041d05bb7ab5fd4e2dc5aa9432a954d8507c3"
     },
     {
       "content_review": "approved",
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "corpus/corpus_test.go",
-      "sha256": "554a50f75ec6f04844130ac013ab0445e2831043e2b6ed2ddc63937c87188d72"
+      "sha256": "582f1e367a7c030bdfab785db80425284f08c7ebb85ea295f8421d553c16b9d7"
     },
     {
       "content_review": "approved",
@@ -1839,7 +1874,7 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "docs/facets/features/authoring/session/registry-context.yaml",
-      "sha256": "c19f307a7e9545f0d463b1c47113833047763e5000248aa218b5bccc515b5ae1"
+      "sha256": "5bfb1cb22498f96a01ccb651262d152ea6b14f1fc2680db5593a9f1c5830d95f"
     },
     {
       "content_review": "approved",
@@ -1853,7 +1888,14 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "docs/facets/features/delivery/distribution/atlas-launcher.yaml",
-      "sha256": "3f75734e3aa4d8dcf68d3de23c9c6c01ae3460cad7e2655cd22cd11644dcebf8"
+      "sha256": "804feeadcf2c74531239433bfd2a70614d51704f2aec5c34444ce5f81161456c"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "docs/facets/features/delivery/distribution/atlas-updates.yaml",
+      "sha256": "4142176a944bf7ed70075c52a43041e4622273acae10a87f20df5415f2a3aab3"
     },
     {
       "content_review": "approved",
@@ -1923,7 +1965,7 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "docs/facets/features/delivery/distribution/npm-packages.yaml",
-      "sha256": "3380c60e4d28235bda80fc5543256bc9a0adee4c991b34ea6949000ee2f7fc0d"
+      "sha256": "eee4e4d89a049cbfd51877f02f18000d122fc7cefc0bbf9d042e0aa7b4f26f72"
     },
     {
       "content_review": "approved",
@@ -2321,6 +2363,13 @@
       "content_review": "approved",
       "license": "Apache-2.0",
       "mode": "0644",
+      "path": "docs/facets/features/registry/layout/shared-claims.yaml",
+      "sha256": "63f17dc07736f4e874c8dc4542048e07b30f9194bbdf72b685ea86f8386fbccb"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
       "path": "docs/facets/features/registry/layout/source-scanning.yaml",
       "sha256": "c68c72a40b807cae0ad8b374be0d71966f4a5000f4f865f66242c45077ea5de8"
     },
@@ -2658,14 +2707,14 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "go.mod",
-      "sha256": "ae63ef558ff8a7b2ca26a63c450ccb7334bdaddd9ba06ed6772bd272442a2482"
+      "sha256": "af2b06498a7b8c7675d296b0a5c2d84246ec8e96dbacddbec68581feaca5ceed"
     },
     {
       "content_review": "approved",
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "go.sum",
-      "sha256": "bcddf720380bee65f82cd7096f6050d06b12c4f4baba6d01d8a4b2dce5484571"
+      "sha256": "a78b4f39b72833d4e7ccbc2fdd0f5351afa94a867c01e8d90119add15969bf77"
     },
     {
       "content_review": "approved",
@@ -2686,7 +2735,7 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "internal/atlaslauncher/atlas.json",
-      "sha256": "d527ff713c1fc1d4cf16f821b6bd4b79055ab5b4845260187d693d7fd8399ddd"
+      "sha256": "959ca510a129c50a10d5f8b1ddf5d2743e180d49147070fc829cb3dbbc0316fd"
     },
     {
       "content_review": "approved",
@@ -2707,28 +2756,56 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "internal/atlaslauncher/install.go",
-      "sha256": "0436ef4c95a122b6a6e494d7f1ca4f9581b546d1d7119deb4def5dab5caa1e2f"
+      "sha256": "ff7518538ecbba305563d210005242565e3ec5ae2c2891bb90555629eeddff8b"
     },
     {
       "content_review": "approved",
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "internal/atlaslauncher/launcher.go",
-      "sha256": "ce6092ad8272ea60b91598c6e2cccff1da9246f5cbfa4210f6a0e2b31594d822"
+      "sha256": "659b4549fbca71f7da3ce510964e2370aef7ead250c758cbad2d8942797b53cf"
     },
     {
       "content_review": "approved",
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "internal/atlaslauncher/launcher_test.go",
-      "sha256": "20eadb3c97a11e02a09567c48dfd6125f2da4307bfd8f2b1b0362891a329682d"
+      "sha256": "d2d6869f7650c1a67ca3c87d04b3efcd46a0406fd50ad2dcbbbf567f70cb9480"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "internal/atlaslauncher/manifest.go",
+      "sha256": "bf698b574a34a318386e30f01e64f73d2cce0cf8a69bc6120f263d63b11883b7"
     },
     {
       "content_review": "approved",
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "internal/atlaslauncher/process.go",
-      "sha256": "a58125c764474b3c68d37554905bdfecbeb362efe6ff1d741fe11d0c2b756282"
+      "sha256": "e021675850ad73c927e9a4cafe6f398114366e86d1c828658b5ca4affcd7d236"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "internal/atlaslauncher/signing-keys.json",
+      "sha256": "cd0dc7bc0235b83e9d15790f655ed3a1d48738db2353cfdd95c8256712222d43"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "internal/atlaslauncher/update.go",
+      "sha256": "3f8ea756d8739ee9678f7ce0baa4a545933021b867b8d6ea8f3d656c453ffafb"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "internal/atlaslauncher/update_test.go",
+      "sha256": "ab63423217d9a0cdcb9a287ab218e7fb469ef3c85f206631a4d6be7483c051b2"
     },
     {
       "content_review": "approved",
@@ -3155,7 +3232,7 @@
       "license": "Apache-2.0",
       "mode": "0755",
       "path": "npm/generate.sh",
-      "sha256": "166529bc12c60f4dec1f7addaf86d6d97e70efa279bd842fd3e05bfa7eb18747"
+      "sha256": "87d39d233738d5b2cc0e1cb4faab4100e1feb63f11905fdcddb62fd0c902a25c"
     },
     {
       "content_review": "approved",
@@ -3785,7 +3862,7 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "registry/lint.go",
-      "sha256": "dc7643ceea48857f4445c2e84ae6af02af6a54c52e24adf5a8d33f4a6a2c5c2f"
+      "sha256": "bf6a6f40ff4ac99a717c58d98a9d55d7e4390c8df98037f8c1fd2ba45feb60d0"
     },
     {
       "content_review": "approved",
@@ -4113,6 +4190,20 @@
       "content_review": "approved",
       "license": "Apache-2.0",
       "mode": "0644",
+      "path": "registry/race_disabled_test.go",
+      "sha256": "d1761b4ac1c902e586b84780e3ee0957380bc5798a360315d1812b5936074fee"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "registry/race_enabled_test.go",
+      "sha256": "0ef526f39d4b7907fc7896c97b517383af8363679dec8121ac92c47532aed516"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
       "path": "registry/reachability.go",
       "sha256": "d39ae2e21acb4dcb71156cc05d22bf551afa1cf51b50801b4464cb4877db8363"
     },
@@ -4170,7 +4261,7 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "registry/scan.go",
-      "sha256": "c4dcdf91f78febd55643a9f70ea17fd1852cc2f7ed273c3713e683686a720b99"
+      "sha256": "e755856027d670082ec45976a354289363e17e6c409abbd960b3e526e44b4201"
     },
     {
       "content_review": "approved",
@@ -4199,6 +4290,48 @@
       "mode": "0644",
       "path": "registry/sections.go",
       "sha256": "60990157b8e570eaa465f30242d0c285b1743540832e4abb55ef7de396f399ff"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "registry/shared_claims.go",
+      "sha256": "84a8244eae71fe34ee731ca1527402b8a1ce7ed1665b342efebcb3466a245a55"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "registry/shared_claims_go_test.go",
+      "sha256": "cc3fcef2d0a74eec44686a0f55d0dcf021ea9e9c7bc3839f67ba40b1bcce2e35"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "registry/shared_claims_identity_test.go",
+      "sha256": "ed3116e0aace94d4cba7e5035bd642c5e9b08a8718587e39c0fa05717a512134"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "registry/shared_claims_reads_linux_test.go",
+      "sha256": "5e8030f673d8193941bb7534191cd42e9eb2644c6b13c4a75cb000a42a36b0bd"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "registry/shared_claims_scope_test.go",
+      "sha256": "5744350b14d748ddbba73721136205028d57d2d3376103abf562d38f1e8d0ce7"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0644",
+      "path": "registry/shared_claims_test.go",
+      "sha256": "c464ea00cbbcd79366c3c94acbc42a7ffeb42ec07828946347d6f58426ea053e"
     },
     {
       "content_review": "approved",
@@ -4674,7 +4807,14 @@
       "license": "Apache-2.0",
       "mode": "0755",
       "path": "scripts/atlas-pin.sh",
-      "sha256": "baf7b83e7ff18b44af178b9afd10e8d3dacb0e04997b1444cbf385d68ed11fb0"
+      "sha256": "df71b79883668b09d6a31ee26114d8724054ec355eb318bab74a9786536000e2"
+    },
+    {
+      "content_review": "approved",
+      "license": "Apache-2.0",
+      "mode": "0755",
+      "path": "scripts/atlas-pin.test.sh",
+      "sha256": "6a102e29dfd86ef50a07e3294b3cf71345c9a575228c41ff14138de8146cf9aa"
     },
     {
       "content_review": "approved",
@@ -4716,7 +4856,7 @@
       "license": "Apache-2.0",
       "mode": "0755",
       "path": "scripts/pre-compact.sh",
-      "sha256": "9bd0d99ba9fe30e4aa3ad68b320ac309be20c0ce262ee7bc4ffcf1c40d709b58"
+      "sha256": "967bc33d111f5eb86d85561ac165a25e8b98da27190bf51fac1218341bb485f1"
     },
     {
       "content_review": "approved",
@@ -4877,7 +5017,7 @@
       "license": "Apache-2.0",
       "mode": "0755",
       "path": "scripts/session-start.sh",
-      "sha256": "e584c1ea1ae55a6416ce13df4348b2c414de99b3bd313f8a6845e6f940474094"
+      "sha256": "1ef7a627e289138c1765971b47cc228807a9b733278752e6b3a9a750ecd9a2dc"
     },
     {
       "content_review": "approved",
@@ -4898,7 +5038,7 @@
       "license": "Apache-2.0",
       "mode": "0644",
       "path": "skills/authoring/SKILL.md",
-      "sha256": "61b88adb378d0cffe7c0c1ad4658466dc668521af4222bf272b81f75d0322323"
+      "sha256": "99bd5499dffaf5be2a409d273b842b7dc7e1071b6d73b64e3c45f23c003fa2d2"
     },
     {
       "content_review": "approved",
@@ -5080,5 +5220,5 @@
   "publication_approved": false,
   "schema_version": 1,
   "status": "sealed-candidate",
-  "version": "0.1.0-rc.4"
+  "version": "0.1.0-rc.5"
 }

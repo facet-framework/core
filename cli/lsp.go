@@ -944,8 +944,11 @@ func (s *lspServer) recordDiagnostics(reg facet.Registry, path string) []diagnos
 			continue
 		}
 		sev := sevError
-		if f.Severity == facet.SeverityWarning {
+		switch f.Severity {
+		case facet.SeverityWarning:
 			sev = sevWarning
+		case facet.SeverityInfo:
+			sev = sevInformation
 		}
 		msg := f.Message
 		if f.Hint != "" {

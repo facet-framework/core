@@ -228,7 +228,7 @@ func TestApprovedArchiveStartsAtlasAndRunsAgainOffline(t *testing.T) {
 
 func TestLauncherFlagsMustPrecedeAtlasFlags(t *testing.T) {
 	f := newFixture(t, tarArchive(t, shellFixture), "atlas.tar.gz")
-	for _, flag := range []string{"--yes", "--atlas-version", "--remove"} {
+	for _, flag := range []string{"--yes", "--atlas-version", "--remove", "--update", "--no-update-check"} {
 		t.Run(flag, func(t *testing.T) {
 			_, _, err := f.run("", "--no-open", flag, "--port", "1")
 			var exit interface{ ExitCode() int }
@@ -343,8 +343,9 @@ func TestVersionAndRemoveUseTheLocalZipCache(t *testing.T) {
 		testEntry{name: "dmn.exe", data: "fixture sidecar", mode: 0o755},
 		testEntry{name: "THIRD_PARTY_LICENSES/example.txt", data: "license", mode: 0o644}), "atlas.zip")
 	release := "FACET Atlas " + f.launcher.Version() + " (Core " + f.launcher.AtlasCoreVersion() + ")"
+	versions := fmt.Sprintf("Embedded: %s\nActive: %s (Core %s)\n", f.launcher.Version(), f.launcher.Version(), f.launcher.AtlasCoreVersion())
 	out, _, err := f.run("", "--atlas-version")
-	if err != nil || out != release+" is not installed\n" || f.requests.Load() != 0 {
+	if err != nil || out != release+" is not installed\n"+versions || f.requests.Load() != 0 {
 		t.Fatalf("uncached version: %q, %v, requests %d", out, err, f.requests.Load())
 	}
 	if err := f.target.install(context.Background(), f.url, f.launcher.coreVersion, 0); err != nil {
@@ -357,7 +358,7 @@ func TestVersionAndRemoveUseTheLocalZipCache(t *testing.T) {
 		t.Fatalf("license = %q", got)
 	}
 	out, _, err = f.run("", "--atlas-version")
-	if err != nil || out != release+" is installed at "+f.target.dir+"\n" || f.requests.Load() != 1 {
+	if err != nil || out != release+" is installed at "+f.target.dir+"\n"+versions || f.requests.Load() != 1 {
 		t.Fatalf("cached version: %q, %v, requests %d", out, err, f.requests.Load())
 	}
 	if out, _, err := f.run("", "--remove"); err != nil || out != "Removed FACET Atlas "+f.launcher.Version()+" cache at "+f.target.dir+"\n" {

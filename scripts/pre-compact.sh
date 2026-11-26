@@ -28,6 +28,13 @@ two of them is the SAME feature, with one record per registry.
   the handover for human review. Leave an answer absent only when evidence
   cannot answer it, and flag the missing owner input outside the YAML.
   Never invent owner facts, permissions, entry points or usage history.
+- Record each design or architecture decision as a decision record in the
+  ADR directory (docs/adr unless .facetrc.yaml sets adr.directory): its
+  context, the decision and the reason for it. List it in
+  'intent.decision_records' of every record it shapes.
+- Write each edge case as its own contract scenario: a boundary, a rejected
+  input, a conflict or an exception to the normal flow. When the reason for
+  the rule is known, state it in the scenario.
 - Run 'facet lint' before committing; the commit gate runs it anyway.
 - Run 'facet conventions' for each registry's authoring conventions document."
   exit 0
@@ -57,6 +64,13 @@ MESSAGE="Carrying forward: this project documents its features with FACET.
   the handover for human review. Leave an answer absent only when evidence
   cannot answer it, and flag the missing owner input outside the YAML.
   Never invent owner facts, permissions, entry points or usage history.
+- Record each design or architecture decision as a decision record in the
+  ADR directory (docs/adr unless .facetrc.yaml sets adr.directory): its
+  context, the decision and the reason for it. List it in
+  'intent.decision_records' of every record it shapes.
+- Write each edge case as its own contract scenario: a boundary, a rejected
+  input, a conflict or an exception to the normal flow. When the reason for
+  the rule is known, state it in the scenario.
 - Run 'facet lint' before committing; the commit gate runs it anyway."
 
 if [ -n "$TOUCHED" ]; then

@@ -17,6 +17,29 @@ contract:
         injected into the session context
       post_state:
         additional_context_emitted: true
+    - id: an-empty-adopted-registry-gets-the-working-rules
+      statement: |
+        Given an adopted FACET project whose registry holds no feature record yet
+        When a supported agent session starts
+        Then the session context states that no feature records exist yet
+        And it names the record layout
+        And it states the same working rules as a registry with records
+      post_state:
+        additional_context_emitted: true
+    - id: rules-ask-for-decisions-and-edge-cases
+      statement: |
+        Scenario Outline: Ask for decision records and edge-case scenarios throughout a session
+          Given an agent session in an adopted FACET project
+          When working rules are supplied <phase>
+          Then the rules ask for each design or architecture decision as a decision record with its context, the decision and the reason
+          And the rules ask for the decision record to be listed in intent.decision_records of every record it shapes
+          And the rules ask for each edge case as its own contract scenario
+
+          Examples:
+            | phase                            |
+            | at session start                 |
+            | before context compaction        |
+            | when a compacted session resumes |
     - id: inert-without-adoption
       statement: |
         Given a project with no FACET records directory or specification sources
@@ -177,6 +200,10 @@ verification:
     - id: "cli/hook_codex_test.go::TestSessionKnowledgeRulesAllowGroundedAnswers"
       proves:
         - knowledge-rules-support-grounded-answers
+    - id: "cli/hook_rules_test.go::TestSessionRulesAskForDecisionsAndEdgeCases"
+      proves:
+        - an-empty-adopted-registry-gets-the-working-rules
+        - rules-ask-for-decisions-and-edge-cases
     - id: cli/hook_setuphint_test.go
       proves:
         - setup-hint-in-unadopted-repo
@@ -210,8 +237,8 @@ knowledge:
       linkage — schema validity, whether anchors resolve — and never whether a
       contract scenario actually describes the code.
 
-      Not a way to introduce FACET to a project. In a repository without
-      records they do nothing, on purpose; the only thing a session says there
+      Not a way to introduce FACET to a project. In a repository that has
+      not adopted FACET they do nothing, on purpose; the only thing a session says there
       is a one-time pointer to the specification or minimal registry example and
       the supported facet setup status command.
   discoverability:

@@ -5,6 +5,29 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions
 follow [Semantic Versioning](https://semver.org/). Release candidates may still
 change any public API, flag or schema.
 
+## 0.1.0-rc.5
+
+### Added
+- `facet ui` installs FACET Atlas 0.1.0-rc.4 by default. It is the first Atlas
+  release with a signed manifest.
+- `facet ui --update` installs and activates the latest compatible signed
+  Atlas release. The launcher checks for updates in the background at most
+  once every 24 hours. Use `--no-update-check` for one launch or set
+  `FACET_ATLAS_UPDATES=off` to disable background checks. The embedded Atlas
+  version remains the minimum and the fallback. `facet ui --atlas-version`
+  reports the embedded and active versions and any cached available update.
+- `facet lint` reports shared specification cases, Go declarations claimed
+  by several records, repeated primary anchors on declarations in different Go files,
+  and scenarios with identical normalized steps as informational findings.
+  These findings do not affect the exit status and appear under
+  `shared_claims` in JSON output.
+
+### Changed
+- Core npm packages name https://facet-framework.com/ as their homepage.
+- Session hooks and the authoring skill ask for decision records and a separate
+  contract scenario for each edge case. SessionStart also shows these rules in
+  newly adopted registries without records.
+
 ## 0.1.0-rc.4
 
 ### Added

@@ -91,7 +91,7 @@ contract:
     - id: launcher-flags-come-first
       statement: |
         Given an empty Atlas cache
-        When --yes, --atlas-version or --remove follows an Atlas flag as a standalone flag before the argument separator --
+        When --yes, --atlas-version, --remove, --update or --no-update-check follows an Atlas flag as a standalone flag before the argument separator --
         Then Core exits with status 2 and shows the corrected order
         And Core sends no download request
     - id: stalled-download-is-aborted
@@ -161,7 +161,8 @@ knowledge:
     question: "How do I start the reader or check its version?"
     answer: |
       Run facet ui to start the reader. Run facet ui --atlas-version to see the
-      pinned Atlas and contained Core versions and the local install status.
+      embedded and active Atlas and Core versions, local install status and any
+      cached available update.
     derive_from:
       - anchors
   success_signal:
