@@ -19,7 +19,7 @@ jobs:
       # tools/facet-lint/facet; it lints with a build of its own source (below).
       - name: Set up Go to build FACET Core from its own source
         if: ${{ hashFiles('bin/facet') != '' && hashFiles('tools/facet-lint/facet') == '' }}
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: go.mod
           cache: false
