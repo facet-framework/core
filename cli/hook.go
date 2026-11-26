@@ -339,6 +339,19 @@ func (h hookContext) resolves(a facet.Anchor, claiming []facet.Registry) bool {
 	return false
 }
 
+// decisionAndEdgeCaseRules asks for the two kinds of knowledge a record's
+// features and scenarios do not capture on their own: why a design was chosen,
+// and the cases outside the normal flow. The shell fallbacks in
+// scripts/session-start.sh and scripts/pre-compact.sh carry the same text.
+const decisionAndEdgeCaseRules = `
+- Record each design or architecture decision as a decision record in the
+  ADR directory (docs/adr unless .facetrc.yaml sets adr.directory): its
+  context, the decision and the reason for it. List it in
+  'intent.decision_records' of every record it shapes.
+- Write each edge case as its own contract scenario: a boundary, a rejected
+  input, a conflict or an exception to the normal flow. When the reason for
+  the rule is known, state it in the scenario.`
+
 // hookSessionStart tells the session what the registry looks like and which
 // rules apply, replacing the CLAUDE.md boilerplate a consumer would maintain.
 // @facet: authoring/session/registry-context
@@ -351,7 +364,16 @@ func hookSessionStart(ctx hookContext) {
 		total += summariseRegistry(ctx, reg, &b)
 	}
 	if total == 0 {
-		return
+		// An adopted registry without records is where the first features,
+		// edge cases and decisions are written, so it gets the rules too.
+		if len(ctx.registries) == 0 {
+			return
+		}
+		b.WriteString("This project documents its features with FACET.\n")
+		for _, reg := range ctx.registries {
+			fmt.Fprintf(&b, "No feature records exist yet. Records live in %s/features/<domain>/<capability>/<feature>.yaml.\n",
+				reg.Rel(reg.RecordsDir))
+		}
 	}
 
 	b.WriteString(`
@@ -365,6 +387,7 @@ Working rules:
   the handover for human review. Leave an answer absent only when evidence
   cannot answer it, and flag the missing owner input outside the YAML.
   Never invent owner facts, permissions, entry points or usage history.`)
+	b.WriteString(decisionAndEdgeCaseRules)
 
 	if ctx.multi() {
 		b.WriteString(`
@@ -493,7 +516,9 @@ func hookPreCompact(ctx hookContext, session string) {
   and real entry points. Draft supported answers; identify inferred answers in
   the handover for human review. Leave an answer absent only when evidence
   cannot answer it, and flag the missing owner input outside the YAML.
-  Never invent owner facts, permissions, entry points or usage history.
+  Never invent owner facts, permissions, entry points or usage history.`)
+	b.WriteString(decisionAndEdgeCaseRules)
+	b.WriteString(`
 - Run 'facet lint' before committing; the commit gate runs it anyway.`)
 
 	if ctx.multi() {

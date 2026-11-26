@@ -104,3 +104,38 @@ func TestTheSummaryLineCarriesTheBreakdown(t *testing.T) {
 		t.Fatalf("summary without the breakdown:\n%s", line)
 	}
 }
+
+// Info findings get their own marker, count and per-check breakdown, and never
+// enter the warning figure: shared use asks a person to look and owes no work.
+func TestInfoFindingsAreCountedApartFromWarnings(t *testing.T) {
+	info := func(check string) facet.Finding {
+		return facet.Finding{Severity: facet.SeverityInfo, Check: check, Path: "a.yaml", Message: "m"}
+	}
+	r := facet.Report{Findings: []facet.Finding{warn("knowledge"), info("shared-symbol"), info("identical-scenarios"), info("shared-symbol")}}
+	if got := warningBreakdown(r); got != " (knowledge 1)" {
+		t.Fatalf("warningBreakdown() = %q, want only the warning", got)
+	}
+
+	previous := os.Stdout
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("Pipe: %v", err)
+	}
+	defer func() { os.Stdout = previous }()
+	os.Stdout = writer
+	printReport(r)
+	writer.Close()
+	os.Stdout = previous
+
+	var buf bytes.Buffer
+	if _, err := buf.ReadFrom(reader); err != nil {
+		t.Fatalf("reading: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "1 warning(s) (knowledge 1), 3 info (shared-symbol 2, identical-scenarios 1)") {
+		t.Fatalf("summary does not count info apart:\n%s", out)
+	}
+	if strings.Count(out, "info: a.yaml: m") != 3 {
+		t.Fatalf("each info finding is printed with its own marker:\n%s", out)
+	}
+}

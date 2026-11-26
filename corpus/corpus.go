@@ -44,6 +44,11 @@ type Corpus struct {
 	// Calibration is a computed host report using the normative bands from
 	// FACET §11.4, shared with consumers to keep those measurements consistent.
 	Calibration *facet.Calibration `json:"calibration,omitempty"`
+	// SharedClaims lists the specification cases, symbols and scenarios this
+	// registry shares with other claims. Incomplete names any record or source
+	// the measurement could not read; an empty Incomplete means the lists are
+	// complete.
+	SharedClaims *facet.SharedClaims `json:"sharedClaims,omitempty"`
 	// sections are what linked products contribute, keyed by the top-level
 	// name each is serialised under. Unexported and outside the struct's own
 	// encoding, because Core does not know their shapes: MarshalJSON appends
@@ -287,11 +292,16 @@ func Build(reg facet.Registry, report Report) (*Corpus, error) {
 	var found []facet.Anchor
 	var anchoredFiles, unanchoredFiles []ScannedFile
 	var walked []facet.SourceFile
+	// Sources this run could not read: the back-list names them, so a claim
+	// they would have carried is not silently missing from a complete list.
+	var unread []facet.MeasurementGap
 
 	for i, path := range sources {
 		data, err := os.ReadFile(path)
 		if err != nil {
-			continue // an unreadable file is not a reason to abandon the run
+			// An unreadable file is not a reason to abandon the run.
+			unread = append(unread, facet.UnreadSource(reg.Name, corpusSourcePath(reg, path, identities)))
+			continue
 		}
 		loc := countLines(data)
 		scan.TotalLoc += loc
@@ -419,11 +429,21 @@ func Build(reg facet.Registry, report Report) (*Corpus, error) {
 	// anchors a second time, without progress and right after the consumer was
 	// told the count was finished — doubling the scan and turning the pause
 	// into something that looks like a hang.
-	if features, err := reg.LoadFeatures(); err == nil {
+	features, err := reg.LoadFeatures()
+	if err == nil {
 		if cal, calErr := facet.CalibrateFrom(reg, features, found, walked); calErr == nil {
 			corpus.Calibration = &cal
 		}
 	}
+
+	claimed, gaps := features, unread
+	if err != nil {
+		var missing []facet.MeasurementGap
+		claimed, missing = facet.ClaimFeatures(reg)
+		gaps = append(missing, unread...)
+	}
+	shared := facet.RegistrySharedClaims(reg, claimed, found, gaps...)
+	corpus.SharedClaims = &shared
 
 	return corpus, nil
 }

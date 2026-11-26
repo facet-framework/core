@@ -227,11 +227,19 @@ and the observable result. Put independent conditions or consequences on separat
 keyword followed by a space, without intervening punctuation or conditional
 prose. Bind varying preconditions to concrete example columns or separate cases.
 Cover supported success, failure and boundary behavior; give each
-scenario a stable kebab-case id.
+scenario a stable kebab-case id. Write each edge case as its own scenario: a
+boundary, a rejected input, a conflict or an exception to the normal flow.
+When the reason for the rule is known, state it in the scenario.
 State the permissions, flag states and boundaries that distinguish success
 from failure. Every example row must satisfy all of its scenario's `Given`
 preconditions. Compare related scenarios so identical conditions do not promise
 contradictory results.
+
+**Decisions.** Record each design or architecture decision as a decision
+record in the ADR directory (`docs/adr` unless `.facetrc.yaml` sets
+`adr.directory`): its context, the decision and the reason for it. List the
+file in `intent.decision_records` of every record it shapes. The record keeps
+the summary; the decision record keeps the reasoning.
 
 Choose the vocabulary of the actual product surface. A unit test asserting
 `access_until == period_end` can prove that access continues until the paid

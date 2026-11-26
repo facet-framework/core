@@ -224,6 +224,23 @@
     {
       "declared_license": null,
       "ecosystem": "Go",
+      "name": "golang.org/x/mod",
+      "role": "compiled-runtime",
+      "verbatim_files": [
+        {
+          "path": "THIRD_PARTY_LICENSES/go/golang.org%2Fx%2Fmod@v0.38.0/LICENSE",
+          "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+        },
+        {
+          "path": "THIRD_PARTY_LICENSES/go/golang.org%2Fx%2Fmod@v0.38.0/PATENTS",
+          "sha256": "96f408bfae65bf137fc2525d3ecb030271c50c1e90799f87abf8846d8dd505cc"
+        }
+      ],
+      "version": "v0.38.0"
+    },
+    {
+      "declared_license": null,
+      "ecosystem": "Go",
       "name": "golang.org/x/oauth2",
       "role": "compiled-runtime",
       "verbatim_files": [

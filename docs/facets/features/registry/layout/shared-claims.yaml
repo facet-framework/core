@@ -1,0 +1,371 @@
+# Generated from a FACET registry maintained outside this repository.
+# Propose changes through an issue or pull request; they are carried over at the next release.
+schema_version: "0.1"
+id: registry/layout/shared-claims
+lifecycle: active
+intent:
+  summary: |
+    Lists what more than one claim points at, read-only: a spec case several
+    scenarios reference, a Go declaration several records anchor, a record
+    with primary anchors on declarations in two Go files, and
+    identical scenarios in different records of one registry. Parallel work
+    can build one feature twice with a clean merge and a green lint; these
+    four are the traces it leaves. 'facet lint' reports them as info, one
+    category each, and the JSON report and the corpus carry the same list.
+    Nothing is forbidden, because shared use is often intended. A record is
+    the pair of registry and id throughout: the same id in two registries is
+    two records of one feature.
+contract:
+  scenarios:
+    - id: identical-steps-in-two-records-are-named
+      statement: |
+        Given two records of one registry whose scenarios have the same
+        normalised Gherkin steps
+        When 'facet lint' runs
+        Then one info line in the identical-scenarios category names both
+        scenarios, with the spec address of each scenario that has one
+        And a scenario bound to a pinned exact spec case is normalised in the
+        Gherkin dialect of its spec file; one bound to a provenance case or to
+        none is read in the dialects of the project's pinned spec files,
+        English first
+        And outlines are compared by their effective tables, inherited
+        columns included and block names ignored, so a changed cell differs
+        And prose statements are compared by their text after folding
+        whitespace and letter case
+        And the run exits 0
+      post_state:
+        severity: info
+    - id: only-conforming-users-of-one-exact-case-are-left-out
+      statement: |
+        Given scenarios with identical steps
+        When every one of them conforms to one and the same exact spec case
+        Then no identical-scenarios line is reported, because the
+        shared-spec-case line names them
+        And scenarios bound to different cases, a provenance case, an
+        unresolved reference or no reference are still named as a pair
+    - id: a-shared-declaration-is-named
+      statement: |
+        Given one declaration carrying anchors of two records
+        When 'facet lint' runs
+        Then one info line in the shared-symbol category names the symbol, its
+        place and both records with their registries and roles
+        And it says the symbol is primary for more than one record when two
+        of them anchor it as primary
+        And only Go sources are read for declarations: the Go parser places
+        an anchor on the func, method, type, var or const its comment group
+        documents, or that starts on the line directly below that group with
+        only white space between them; a method is named Type.Method
+        And an anchor counts only when its tag lies inside a comment, by its
+        byte position in the line, so a tag in a string beside a comment, or
+        in a comment closed by a brace before the next declaration, names no
+        symbol; comment spans are the file's bytes, so a CRLF file reads like
+        its LF copy
+        And an anchor's role comes only from the comment group that binds
+        it: the last role tag after its id tag and before the group's next
+        id tag; role text in a function body, a string or another group
+        neither sets nor clears it, and with no role tag in the group the
+        anchor is related
+        And a declaration of one spec with one name is documented by its own
+        comment, with or without parentheses; a group of several specs only
+        by each spec's comment, and a spec of several names or the blank
+        identifier "_" names no symbol
+        And the symbol is the whole declared name, and its line is the
+        physical line of the file, whatever a //line directive says
+        And sources of every other language name no shared symbol, because
+        no line rule tells a comment or a string from code in every valid
+        file; a missed shared symbol is accepted, an invented one is not, and
+        the measurement opens no such file again
+        And a Go file that does not parse, or that is larger than the scanner
+        reads whole, names no symbol and is a gap in 'incomplete', with the
+        reason "parse error" or "too large to parse"
+        And a place in a repository bound through a source view is its
+        portable reference, never the local checkout path
+        And an anchor past the head of a file too large for the scanner to
+        read whole is left out, in 'facet lint' and the corpus alike
+    - id: a-record-is-its-registry-and-id
+      statement: |
+        Given two registries holding records of the same or different ids
+        When 'facet lint' runs
+        Then each registry's unqualified anchor in its own sources is a claim
+        of its own record, so no repeated-primary line joins the two
+        And scenarios of different registries are not paired
+        And with '--registry', and in the corpus of one registry, the entries
+        are the whole run's entries that involve that registry: the other
+        registries' anchors are read by the selection their own scan makes,
+        sources, ignore rules and source view included
+    - id: one-record-with-two-primary-implementations-is-named
+      statement: |
+        Given one record whose primary anchors sit on declarations in two Go
+        files
+        When 'facet lint' runs
+        Then one info line in the repeated-primary category names the record
+        and both declarations
+        And only Go sources are read for declarations, so primary anchors in
+        two files of another language stay silent
+        And the role of each site is the one its binding comment group
+        states, so role text after a primary doc comment, in a body comment
+        or a string, keeps the site
+        And primary anchors in two languages, or in files of an unknown type,
+        stay silent
+    - id: a-shared-spec-case-is-grouped-by-scope
+      statement: |
+        Given a spec case referenced through specified_by by more than one
+        scenario
+        When 'facet lint' runs
+        Then one info line in the shared-spec-case category names every
+        referencing scenario and whether they share it within one record,
+        across records of one registry or across registries
+    - id: two-different-features-produce-no-line
+      statement: |
+        Given two records with different steps, anchored on different
+        declarations
+        When 'facet lint' runs
+        Then no info line is reported
+      post_state:
+        findings: 0
+    - id: info-never-fails-the-run
+      statement: |
+        Given a run whose only findings are info
+        When 'facet lint' exits
+        Then the exit code is 0 and the summary counts info apart from
+        warnings, per category
+        And one error beside the info makes the exit code 1
+    - id: the-json-report-carries-the-back-list
+      statement: |
+        Given 'facet lint --json' or the corpus
+        When the report is written
+        Then it carries the four lists, 'shared_claims' in the report and
+        'sharedClaims' in the corpus, each an empty list rather than null when
+        nothing is shared
+        And '--skip shared-claims' drops it, while skipping one category keeps
+        the list and drops only that category's lines
+        And 'incomplete' names each record, record directory, source file or
+        registry the measurement could not read, and each Go file it could
+        not parse, with the reason, beside the
+        readable rest; 'facet lint' reports a shared-claims-incomplete warning
+        for each, and a gap never fails the run
+        And the gaps, and the warnings for them, are ordered by registry,
+        path and reason, so the same project gives the same report every run
+        And a source file the scan selected but could not read is named in
+        'facet lint' and the corpus alike, and a record that will not load
+        costs the corpus its calibration, not the back-list
+verification:
+  unit_tests:
+    - id: "registry/shared_claims_test.go::TestIdenticalScenariosInTwoRecordsAreNamedOnce"
+      proves:
+        - identical-steps-in-two-records-are-named
+    - id: "registry/shared_claims_identity_test.go::TestPinnedScenariosAreComparedInTheirDialect"
+      proves:
+        - identical-steps-in-two-records-are-named
+    - id: "registry/shared_claims_identity_test.go::TestOutlinesAreComparedByTheirEffectiveTables"
+      proves:
+        - identical-steps-in-two-records-are-named
+    - id: "registry/shared_claims_test.go::TestProseScenariosAreComparedByText"
+      proves:
+        - identical-steps-in-two-records-are-named
+    - id: "registry/shared_claims_identity_test.go::TestOnlyConformingUsersOfOneExactCaseAreLeftOut"
+      proves:
+        - only-conforming-users-of-one-exact-case-are-left-out
+    - id: "registry/shared_claims_identity_test.go::TestProvenanceUsersAreComparedLikeLocalScenarios"
+      proves:
+        - only-conforming-users-of-one-exact-case-are-left-out
+    - id: "registry/shared_claims_test.go::TestTwoPrimaryAnchorsOnOneSymbolAreMarked"
+      proves:
+        - a-shared-declaration-is-named
+    - id: "registry/shared_claims_test.go::TestASharedSymbolWithOnePrimaryIsNotMarked"
+      proves:
+        - a-shared-declaration-is-named
+    - id: "registry/shared_claims_identity_test.go::TestQualifiedAnchorsOfOneIDInTwoRegistriesShareTheSymbol"
+      proves:
+        - a-shared-declaration-is-named
+    - id: "registry/shared_claims_identity_test.go::TestAnchorsAboveACallShareNoSymbol"
+      proves:
+        - a-shared-declaration-is-named
+    - id: "registry/shared_claims_scope_test.go::TestSpreadGoAnchorsEachFindTheirOwnFunc"
+      proves:
+        - a-shared-declaration-is-named
+    - id: "registry/shared_claims_scope_test.go::TestAnchorsPastTheScannedHeadOfALargeFileAreLeftOut"
+      proves:
+        - a-shared-declaration-is-named
+    - id: "corpus/corpus_test.go::TestCorpusAndLintShareTheLargeFileAnchors"
+      proves:
+        - a-shared-declaration-is-named
+    - id: "registry/shared_claims_scope_test.go::TestAProvenanceReferenceKeepsTheLocalDialect"
+      proves:
+        - identical-steps-in-two-records-are-named
+    - id: "registry/shared_claims_scope_test.go::TestARegistryFilterKeepsASharedSymbolInASourceView"
+      proves:
+        - a-record-is-its-registry-and-id
+    - id: "registry/shared_claims_scope_test.go::TestARegistryFilterRespectsTheOtherRegistrysIgnoreRules"
+      proves:
+        - a-record-is-its-registry-and-id
+    - id: "registry/shared_claims_scope_test.go::TestABrokenForeignRecordIsAGapNotALoss"
+      proves:
+        - a-record-is-its-registry-and-id
+        - the-json-report-carries-the-back-list
+    - id: "registry/shared_claims_scope_test.go::TestGoAnchorsNameTheDeclarationTheyDocument"
+      proves:
+        - a-shared-declaration-is-named
+    - id: "registry/shared_claims_scope_test.go::TestGoRawStringTextIsNeverADeclaration"
+      proves:
+        - a-shared-declaration-is-named
+    - id: "registry/shared_claims_scope_test.go::TestOnlyGoSourcesNameASharedSymbol"
+      proves:
+        - a-shared-declaration-is-named
+    - id: "registry/shared_claims_go_test.go::TestATagOutsideAnyCommentBindsNothing"
+      proves:
+        - a-shared-declaration-is-named
+    - id: "registry/shared_claims_go_test.go::TestAClosingBraceEndsTheBinding"
+      proves:
+        - a-shared-declaration-is-named
+    - id: "registry/shared_claims_go_test.go::TestALineDirectiveKeepsThePhysicalLine"
+      proves:
+        - a-shared-declaration-is-named
+    - id: "registry/shared_claims_go_test.go::TestTheBlankIdentifierIsNoSymbol"
+      proves:
+        - a-shared-declaration-is-named
+        - one-record-with-two-primary-implementations-is-named
+    - id: "registry/shared_claims_go_test.go::TestASymbolNameIsKeptWhole"
+      proves:
+        - a-shared-declaration-is-named
+    - id: "registry/shared_claims_go_test.go::TestAGroupOfOneSpecIsDocumentedByItsComment"
+      proves:
+        - a-shared-declaration-is-named
+    - id: "registry/shared_claims_go_test.go::TestARoleTagInCodeIsNoRole"
+      proves:
+        - a-shared-declaration-is-named
+        - one-record-with-two-primary-implementations-is-named
+    - id: "registry/shared_claims_go_test.go::TestARoleComesOnlyFromTheBindingGroup"
+      proves:
+        - a-shared-declaration-is-named
+        - one-record-with-two-primary-implementations-is-named
+    - id: "registry/shared_claims_go_test.go::TestARoleTextAfterTheDocKeepsThePrimarySite"
+      proves:
+        - one-record-with-two-primary-implementations-is-named
+    - id: "registry/shared_claims_go_test.go::TestACRLFCommentKeepsItsAnchors"
+      proves:
+        - a-shared-declaration-is-named
+    - id: "registry/shared_claims_reads_linux_test.go::TestNonGoSourcesAreNotOpenedAgain"
+      proves:
+        - a-shared-declaration-is-named
+    - id: "registry/shared_claims_scope_test.go::TestAGoFileThatDoesNotParseIsAGap"
+      proves:
+        - a-shared-declaration-is-named
+        - the-json-report-carries-the-back-list
+    - id: "registry/shared_claims_scope_test.go::TestAGoFileTooLargeToParseIsAGap"
+      proves:
+        - a-shared-declaration-is-named
+        - the-json-report-carries-the-back-list
+    - id: "registry/shared_claims_scope_test.go::TestGapsAreOrderedWhateverOrderTheyArrive"
+      proves:
+        - the-json-report-carries-the-back-list
+    - id: "registry/shared_claims_scope_test.go::TestAnUnreadableSourceIsAGap"
+      proves:
+        - the-json-report-carries-the-back-list
+    - id: "registry/shared_claims_scope_test.go::TestAnUnreadableRecordDirectoryKeepsItsSiblings"
+      proves:
+        - a-record-is-its-registry-and-id
+        - the-json-report-carries-the-back-list
+    - id: "corpus/corpus_test.go::TestCorpusNamesAnUnreadableSource"
+      proves:
+        - the-json-report-carries-the-back-list
+    - id: "corpus/corpus_test.go::TestCorpusKeepsTheBackListBesideABrokenRecord"
+      proves:
+        - the-json-report-carries-the-back-list
+    - id: "registry/shared_claims_test.go::TestAnUnreadableFileIsSkipped"
+      proves:
+        - the-json-report-carries-the-back-list
+    - id: "registry/shared_claims_identity_test.go::TestASharedSymbolInASourceViewIsNamedByItsReference"
+      proves:
+        - a-shared-declaration-is-named
+    - id: "registry/shared_claims_identity_test.go::TestALargeFileIsAGapReadInABoundedWindow"
+      proves:
+        - a-shared-declaration-is-named
+        - the-json-report-carries-the-back-list
+    - id: "registry/shared_claims_identity_test.go::TestTheSameIDInTwoRegistriesIsTwoRecords"
+      proves:
+        - a-record-is-its-registry-and-id
+    - id: "registry/shared_claims_test.go::TestIdenticalScenariosAcrossRegistriesAreNotNamed"
+      proves:
+        - a-record-is-its-registry-and-id
+    - id: "registry/shared_claims_identity_test.go::TestARegistryFilterKeepsTheOtherAnchorOfASharedSymbol"
+      proves:
+        - a-record-is-its-registry-and-id
+    - id: "registry/shared_claims_test.go::TestOneRecordWithTwoPrimaryImplementationsIsNamed"
+      proves:
+        - one-record-with-two-primary-implementations-is-named
+    - id: "registry/shared_claims_identity_test.go::TestPrimaryAnchorsAreGroupedByLanguage"
+      proves:
+        - one-record-with-two-primary-implementations-is-named
+    - id: "registry/shared_claims_test.go::TestPrimaryAnchorsInTwoLanguagesAreNotRepeated"
+      proves:
+        - one-record-with-two-primary-implementations-is-named
+    - id: "registry/shared_claims_test.go::TestASharedSpecCaseIsGroupedByScope"
+      proves:
+        - a-shared-spec-case-is-grouped-by-scope
+    - id: "registry/shared_claims_test.go::TestRegistryFilterKeepsCrossRegistryCases"
+      proves:
+        - a-shared-spec-case-is-grouped-by-scope
+    - id: "registry/shared_claims_test.go::TestTwoRecordsInOneFileOnDifferentSymbolsAreNotShared"
+      proves:
+        - two-different-features-produce-no-line
+    - id: "registry/shared_claims_test.go::TestTwoDifferentFeaturesProduceNoSharedClaim"
+      proves:
+        - two-different-features-produce-no-line
+        - the-json-report-carries-the-back-list
+    - id: "cli/lint_shared_claims_test.go::TestLintExitsZeroOnSharedClaimsAlone"
+      proves:
+        - info-never-fails-the-run
+    - id: "cli/lint_summary_test.go::TestInfoFindingsAreCountedApartFromWarnings"
+      proves:
+        - info-never-fails-the-run
+    - id: "registry/shared_claims_test.go::TestSharedClaimsCanBeSkipped"
+      proves:
+        - the-json-report-carries-the-back-list
+    - id: "corpus/corpus_test.go::TestCorpusShipsTheSharedClaims"
+      proves:
+        - the-json-report-carries-the-back-list
+knowledge:
+  prerequisite_knowledge:
+    question: "What must the user already understand to use this feature?"
+    answer: |
+      That none of the four entries is a defect by itself. One purchase case
+      can oblige both stock and invoicing; a shared helper legitimately
+      carries several features' anchors. Each line names a place where two
+      claims meet, and a person decides whether that is one feature built
+      twice.
+  not_for:
+    question: "When is this the wrong tool for the job?"
+    answer: |
+      Not a gate: it never fails a run, and a project that wants one case to
+      belong to exactly one record needs a separate, explicit rule. Not a
+      similarity search: two records describing one feature in different
+      words and different steps stay invisible to it. Only Go sources are
+      read for declarations: a declaration shared in another language is not
+      named.
+  common_pitfalls:
+    question: "What mistakes do users typically make?"
+    answer: |
+      Rewording a scenario so the identical-scenarios line goes away. The line
+      asks whether two records describe one feature; changing the words
+      answers nothing.
+  discoverability:
+    question: "Where does the user enter this flow in the product?"
+    answer: |
+      'facet lint' prints the lines with an 'info:' marker and counts them per
+      category in the summary; 'facet lint --json' carries 'shared_claims';
+      the corpus carries them as 'sharedClaims' for a reader to show.
+    derive_from:
+      - anchors
+  success_signal:
+    question: "How does the user know it worked?"
+    answer: |
+      Two records built for one feature both show the other one, and the
+      summary line names how many entries each category holds.
+lineage:
+  owner:
+    team: facet-framework
+  created_at: "2026-11-24"
+  superseded_by: null
+  depends_on:
+    - registry/layout/doubled-features

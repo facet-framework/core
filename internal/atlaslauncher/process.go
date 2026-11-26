@@ -11,7 +11,7 @@ import (
 	"syscall"
 )
 
-func runAtlas(ctx context.Context, binary string, args []string, stdin io.Reader, stdout, stderr io.Writer) error {
+func runAtlas(ctx context.Context, binary string, args []string, stdin io.Reader, stdout, stderr io.Writer, afterStart func()) error {
 	cmd := exec.CommandContext(ctx, binary, append([]string{"ui"}, args...)...)
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = stdin, stdout, stderr
 
@@ -24,6 +24,7 @@ func runAtlas(ctx context.Context, binary string, args []string, stdin io.Reader
 		return err
 	}
 
+	afterStart()
 	done := make(chan error, 1)
 	go func() { done <- cmd.Wait() }()
 	for {

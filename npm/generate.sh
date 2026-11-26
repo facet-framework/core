@@ -71,11 +71,9 @@ DIST_TAG=$(npm_dist_tag "$VERSION" "$CHANNEL" "$PRODUCT")
 # Only Core has a decided npm access; for any other product the plan says so
 # instead of naming a value nobody chose.
 if [ "$PRODUCT" = core ]; then ACCESS='"public"'; else ACCESS=null; fi
-# Core's public home is the public Core repository (bin/facet's
-# FACET_UPSTREAM_REPO), and its scoped packages are published public. For any
-# other product neither field is decided, so its packages get neither.
+
 if [ "$PRODUCT" = core ]; then
-  PUBLIC_FIELDS='{"repository": {"type": "git", "url": "git+https://github.com/facet-framework/core.git"}}'
+  PUBLIC_FIELDS='{"homepage": "https://facet-framework.com/", "repository": {"type": "git", "url": "git+https://github.com/facet-framework/core.git"}}'
   SCOPED_FIELDS='{"publishConfig": {"access": "public"}}'
 else
   PUBLIC_FIELDS='{}'

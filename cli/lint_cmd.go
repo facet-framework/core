@@ -134,6 +134,17 @@ func newLintCmd() *cobra.Command {
                   is verified before it runs, and one that fails, answers
                   nonsense or takes longer than 30 seconds is an error of
                   that plugin, never a silent pass
+  shared-claims   (info) the back-list of shared use, one category each:
+                  shared-spec-case (one spec case referenced by several
+                  scenarios, grouped by record, registry and other
+                  registries), shared-symbol (one declaration anchored by
+                  several records, marked when two of them call it primary),
+                  repeated-primary (one record with primary anchors on
+                  several declarations) and identical-scenarios (scenarios
+                  with the same normalised steps in different records of one
+                  registry). Info never fails the run and forbids nothing:
+                  shared use is often intended, and a person decides. --json
+                  carries the same list under 'shared_claims'
   error-codes     (warning) the same identifier (default pattern E\d{4},
                   configurable via .facetrc.yaml's error_codes.pattern)
                   appears in records from more than one domain — the
@@ -145,7 +156,7 @@ A project declaring several registries in .facetrc.yaml is checked once per
 registry, and findings say which one they came from.
 
 Errors fail the run. Warnings never do — an unanswered Knowledge slot is work
-for a feature owner, not a broken build.
+for a feature owner, not a broken build. Info findings never do either.
 
 With --staged only the index is judged: the staged tree is linted, HEAD is
 linted as the baseline, and only the errors the index introduces are reported.
@@ -206,7 +217,7 @@ report. Without --staged the whole repository is checked.`,
 	}
 	cmd.Flags().BoolVar(&asJSON, "json", false, "emit findings as JSON")
 	cmd.Flags().BoolVar(&staged, "staged", false, "check only the index: report the errors it introduces compared with HEAD (what the commit gate runs)")
-	cmd.Flags().StringSliceVar(&skip, "skip", nil, "checks to skip (schema, orphan-ids, orphan-records, variants, taxonomy, glossary, duplicate-glossary-term, glossary-near-miss, duplicate-glossary-category, undeclared-glossary-category, empty-glossary-category, sizing, registry-refs, flags, knowledge, backing, deviation, examples, spec-conformance, broken-links, dependencies, superseded-by, proves, verification-targets, unclaimed-tests, sibling-suffix, created-at-history, no-scenarios, anchor-proves, anchor-roles, test-only-anchors, enum-divergence, unanchored-hotspots, undocumented-directories, error-codes, lost-anchors, plugin-lint)")
+	cmd.Flags().StringSliceVar(&skip, "skip", nil, "checks to skip (schema, orphan-ids, orphan-records, variants, taxonomy, glossary, duplicate-glossary-term, glossary-near-miss, duplicate-glossary-category, undeclared-glossary-category, empty-glossary-category, sizing, registry-refs, flags, knowledge, backing, deviation, examples, spec-conformance, broken-links, dependencies, superseded-by, proves, verification-targets, unclaimed-tests, sibling-suffix, created-at-history, no-scenarios, anchor-proves, anchor-roles, test-only-anchors, enum-divergence, unanchored-hotspots, undocumented-directories, error-codes, lost-anchors, plugin-lint, shared-claims, shared-claims-incomplete, shared-spec-case, shared-symbol, repeated-primary, identical-scenarios)")
 	cmd.Flags().StringVar(&today, "today", "", "ISO date used for flag retirement checks (default: today, UTC)")
 	cmd.Flags().StringVar(&registry, "registry", "", "check only this registry (default: all declared in "+facet.ConfigName+")")
 	return cmd
@@ -232,13 +243,17 @@ func emitLintReport(report facet.Report, asJSON bool) error {
 }
 
 func printReport(r facet.Report) {
-	var errs, warns int
+	var errs, warns, infos int
 	for _, f := range r.Findings {
 		marker := "warning"
-		if f.Severity == facet.SeverityError {
+		switch f.Severity {
+		case facet.SeverityError:
 			marker = "error"
 			errs++
-		} else {
+		case facet.SeverityInfo:
+			marker = "info"
+			infos++
+		default:
 			warns++
 		}
 		loc := f.Path
@@ -259,17 +274,34 @@ func printReport(r facet.Report) {
 			len(r.Checked.Registries), plural(len(r.Checked.Registries), "y", "ies"),
 			strings.Join(r.Checked.Registries, ", "))
 	}
-	fmt.Printf("\n%d record(s), %d anchor(s) checked%s — %d error(s), %d warning(s)%s\n",
-		r.Checked.Records, r.Checked.Anchors, scope, errs, warns, warningBreakdown(r))
+	info := ""
+	if infos > 0 {
+		// Counted apart from the warnings, and per check like them: shared use
+		// asks a person to look, it owes nobody work.
+		info = fmt.Sprintf(", %d info%s", infos, infoBreakdown(r))
+	}
+	fmt.Printf("\n%d record(s), %d anchor(s) checked%s — %d error(s), %d warning(s)%s%s\n",
+		r.Checked.Records, r.Checked.Anchors, scope, errs, warns, warningBreakdown(r), info)
 }
 
 // warningBreakdown names which checks the warnings came from, largest first.
 // @facet: registry/integrity/knowledge-gaps
 // @facet-role: related
 func warningBreakdown(r facet.Report) string {
+	return breakdown(r, func(s facet.Severity) bool {
+		return s != facet.SeverityError && s != facet.SeverityInfo
+	})
+}
+
+// infoBreakdown is warningBreakdown for info findings, ordered the same way.
+func infoBreakdown(r facet.Report) string {
+	return breakdown(r, func(s facet.Severity) bool { return s == facet.SeverityInfo })
+}
+
+func breakdown(r facet.Report, counted func(facet.Severity) bool) string {
 	counts := map[string]int{}
 	for _, f := range r.Findings {
-		if f.Severity != facet.SeverityError {
+		if counted(f.Severity) {
 			counts[f.Check]++
 		}
 	}

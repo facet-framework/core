@@ -1,6 +1,7 @@
 package atlaslauncher
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"errors"
@@ -114,40 +115,59 @@ func (i installation) remove(ctx context.Context) (bool, error) {
 
 func (i installation) install(ctx context.Context, url, coreVersion string, idleTimeout time.Duration) error {
 	return i.withLock(ctx, func() error {
-		if i.installed() {
-			return nil
-		}
-		parent := filepath.Dir(i.dir)
-		download, err := os.CreateTemp(parent, ".atlas-download-")
-		if err != nil {
-			return fmt.Errorf("create Atlas download file: %w", err)
-		}
-		defer os.Remove(download.Name())
-		err = i.download(ctx, download, url, coreVersion, idleTimeout)
-		closeErr := download.Close()
-		if err != nil {
-			return err
-		}
-		if closeErr != nil {
-			return fmt.Errorf("close Atlas download: %w", closeErr)
-		}
-
-		stage, err := os.MkdirTemp(parent, ".atlas-extract-")
-		if err != nil {
-			return fmt.Errorf("create Atlas extraction directory: %w", err)
-		}
-		defer os.RemoveAll(stage)
-		if err := extract(ctx, download.Name(), i.Archive, stage); err != nil {
-			return fmt.Errorf("extract Atlas archive: %w", err)
-		}
-		if !i.hasBinary(stage) {
-			return fmt.Errorf("Atlas archive is missing an executable %s", i.binary)
-		}
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		return i.publish(stage)
+		return i.installLocked(ctx, url, coreVersion, idleTimeout)
 	})
+}
+
+func (i installation) installLocked(ctx context.Context, url, coreVersion string, idleTimeout time.Duration) error {
+	if i.installed() && i.matchesMetadata() {
+		return nil
+	}
+	parent := filepath.Dir(i.dir)
+	download, err := os.CreateTemp(parent, ".atlas-download-")
+	if err != nil {
+		return fmt.Errorf("create Atlas download file: %w", err)
+	}
+	defer os.Remove(download.Name())
+	err = i.download(ctx, download, url, coreVersion, idleTimeout)
+	closeErr := download.Close()
+	if err != nil {
+		return err
+	}
+	if closeErr != nil {
+		return fmt.Errorf("close Atlas download: %w", closeErr)
+	}
+
+	stage, err := os.MkdirTemp(parent, ".atlas-extract-")
+	if err != nil {
+		return fmt.Errorf("create Atlas extraction directory: %w", err)
+	}
+	defer os.RemoveAll(stage)
+	if err := extract(ctx, download.Name(), i.Archive, stage); err != nil {
+		return fmt.Errorf("extract Atlas archive: %w", err)
+	}
+	if !i.hasBinary(stage) {
+		return fmt.Errorf("Atlas archive is missing an executable %s", i.binary)
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	for name, data := range i.metadata {
+		if err := os.WriteFile(filepath.Join(stage, name), data, 0o600); err != nil {
+			return fmt.Errorf("stage Atlas metadata: %w", err)
+		}
+	}
+	return i.publish(stage)
+}
+
+func (i installation) matchesMetadata() bool {
+	for name, want := range i.metadata {
+		got, err := readMetadata(filepath.Join(i.dir, name))
+		if err != nil || !bytes.Equal(got, want) {
+			return false
+		}
+	}
+	return true
 }
 
 func (i installation) publish(stage string) error {

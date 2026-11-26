@@ -38,6 +38,16 @@ type Report struct {
 		Anchors    int      `json:"anchors"`
 		Registries []string `json:"registries,omitempty"`
 	} `json:"checked"`
+	// SharedClaims is the back-list of specification cases, symbols and
+	// scenarios more than one claim points at. Nil when the run skipped it.
+	SharedClaims *SharedClaims `json:"shared_claims,omitempty"`
+
+	// What one registry's pass read, kept for the project-wide back-list so
+	// LintAll does not scan the source a second time.
+	features []Record
+	anchors  []Anchor
+	// unread are the selected source files the scan could not read.
+	unread []MeasurementGap
 }
 
 // Failed reports whether anything blocking was found. Warnings never fail a
@@ -247,9 +257,15 @@ func lint(reg Registry, opts LintOptions) (Report, error) {
 		scanOpts = reg.ScanOptions()
 	}
 	opts.Scan = scanOpts
-	scanned, walked, err := ScanWithFiles(reg.Root, scanOpts)
+	var unread []unreadSource
+	counted := scanOpts
+	counted.unread = &unread
+	scanned, walked, err := ScanWithFiles(reg.Root, counted)
 	if err != nil {
 		return rep, err
+	}
+	for _, u := range unread {
+		rep.unread = append(rep.unread, unreadGap(reg, u))
 	}
 
 	// A tag naming another registry is that registry's business, not this one's.
@@ -442,6 +458,9 @@ func lint(reg Registry, opts LintOptions) (Report, error) {
 		}
 	}
 
+	rep.features = features
+	rep.anchors = anchors
+
 	// Every finding this registry produced carries its name, so a combined
 	// report over a monorepo says which product is broken rather than only that
 	// something is.
@@ -538,6 +557,7 @@ func LintAll(root string, opts LintOptions) (Report, error) {
 		lintConventions(&combined, cfg, registries)
 	}
 
+	linted := map[string]Report{}
 	for _, reg := range registries {
 		if opts.Registry != "" && reg.Name != opts.Registry {
 			continue
@@ -559,12 +579,50 @@ func LintAll(root string, opts LintOptions) (Report, error) {
 			return combined, fmt.Errorf("registry %q: %w", registryLabel(reg), err)
 		}
 		combined.Findings = append(combined.Findings, rep.Findings...)
+		linted[reg.Name] = rep
 		combined.Checked.Records += rep.Checked.Records
 		combined.Checked.Anchors += rep.Checked.Anchors
 		combined.Checked.Registries = append(combined.Checked.Registries, rep.Checked.Registries...)
 	}
 
 	combined.Findings = dedupeProjectFindings(combined.Findings)
+
+	if !opts.Skip["shared-claims"] {
+		// Project-wide, after every pass: whether a specification case is
+		// shared across registries is a question no single registry answers.
+		inputs := make([]SharedClaimsInput, 0, len(registries))
+		byName := map[string]Registry{}
+		for _, reg := range registries {
+			byName[reg.Name] = reg
+			if rep, ok := linted[reg.Name]; ok {
+				inputs = append(inputs, SharedClaimsInput{Registry: reg, Features: rep.features, Anchors: rep.anchors, Gaps: rep.unread})
+				continue
+			}
+			// A registry outside the selection is read by the scan its own
+			// lint would make, so the selection does not change what is
+			// shared; a record of it that will not load is a gap, not a reason
+			// to drop the registry.
+			scan := opts.Scan
+			if len(reg.Sources) > 0 || reg.SourceView != nil {
+				scan = reg.ScanOptions()
+			}
+			if scan.View != nil {
+				reg.SourceView = scan.View
+			}
+			if reg.SourceView != nil {
+				scan = reg.ScanOptions()
+			}
+			features, gaps := featuresForClaims(reg)
+			inputs = append(inputs, SharedClaimsInput{Registry: reg, Features: features, Foreign: true, Scan: scan, Gaps: gaps})
+		}
+		claims := ComputeSharedClaims(inputs)
+		if opts.Registry != "" {
+			claims = SharedClaimsFor(claims, opts.Registry)
+		}
+		combined.SharedClaims = &claims
+		lintSharedClaims(&combined, claims, byName, opts.Skip)
+	}
+
 	if combined.Findings == nil {
 		combined.Findings = []Finding{}
 	}

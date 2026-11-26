@@ -38,7 +38,7 @@ func TestCoreCommandTreeIncludesTheAtlasLauncher(t *testing.T) {
 	version := launcher.Version()
 	root := pinnedProject(t, "9.9.9")
 	code, stdout, stderr := runTree(t, "1.2.3", nil, "ui", "--atlas-version", "--root", root)
-	if code != 0 || strings.TrimSpace(stdout) != "FACET Atlas "+version+" (Core "+launcher.AtlasCoreVersion()+") is not installed" || stderr != "" {
+	if code != 0 || strings.TrimSpace(stdout) != "FACET Atlas "+version+" (Core "+launcher.AtlasCoreVersion()+") is not installed\nEmbedded: "+version+"\nActive: "+version+" (Core "+launcher.AtlasCoreVersion()+")" || stderr != "" {
 		t.Fatalf("Atlas version in a pinned project: exit %d, stdout %q, stderr %q", code, stdout, stderr)
 	}
 	got := checkUI(newStatusEnv(t.TempDir()))

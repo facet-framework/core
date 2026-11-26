@@ -14,6 +14,7 @@ const atlasLauncherAnnotation = "facet.atlas-launcher"
 // @facet-role: primary
 func newAtlasUICmd(version string) *cobra.Command {
 	launcher := atlaslauncher.New(version)
+	var projectPin *facet.CorePin
 	cmd := &cobra.Command{
 		Use:                "ui",
 		Short:              "Download and start FACET Atlas",
@@ -29,19 +30,14 @@ func newAtlasUICmd(version string) *cobra.Command {
 			if _, err := selectProductRoot(cmd, selection); err != nil {
 				return err
 			}
-			pin, err := facet.ReadCorePin(ResolveRoot(cmd))
+			projectPin, err = facet.ReadCorePin(ResolveRoot(cmd))
 			if err != nil {
 				return err
-			}
-			core := launcher.AtlasCoreVersion()
-			if pin != nil && !pin.Satisfied(core) {
-				return fmt.Errorf("this project requires FACET Core %s; facet ui starts FACET Atlas %s, which contains Core %s; facet ui opens this project once a FACET Atlas release contains Core %s",
-					pin.Core, launcher.Version(), core, pin.Core)
 			}
 			return cmd.Root().PersistentPreRunE(cmd, args)
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return launcher.Run(cmd.Context(), args, cmd.InOrStdin(), cmd.OutOrStdout(), cmd.ErrOrStderr())
+			return launcher.WithProjectPin(projectPin).Run(cmd.Context(), args, cmd.InOrStdin(), cmd.OutOrStdout(), cmd.ErrOrStderr())
 		},
 	}
 	cmd.SetHelpFunc(func(cmd *cobra.Command, _ []string) {
